@@ -17,7 +17,10 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     ARCHS: "arm64 x86_64"
     ONLY_ACTIVE_ARCH: "NO"
-    CODE_SIGN_IDENTITY: "-"
+    # Local builds use a stable project-specific identity created by
+    # scripts/ensure-local-codesign-cert.sh. CI disables signing explicitly;
+    # only the future certificate-migration workflow overrides this identity.
+    CODE_SIGN_IDENTITY: "AppSift Local Code Signing"
     CODE_SIGN_STYLE: "Manual"
     CODE_SIGN_ENTITLEMENTS: "AppSift/AppSift.entitlements"
     INFOPLIST_FILE: "AppSift/Info.plist"
@@ -42,11 +45,6 @@ targets:
         PRODUCT_NAME: AppSift
         SWIFT_EMIT_LOC_STRINGS: "YES"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
-      configs:
-        Debug:
-          CODE_SIGNING_ALLOWED: "NO"
-          CODE_SIGNING_REQUIRED: "NO"
-
   AppSiftTests:
     type: bundle.unit-test
     platform: macOS

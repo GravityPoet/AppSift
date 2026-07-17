@@ -1,12 +1,29 @@
 # Release pipeline secrets
 
+## Current self-signed customer releases
+
+Customer Release artifacts currently use the same `AppSift Local Code Signing`
+identity as local development and installation builds:
+
+```bash
+cd /absolute/path/to/AppSift && scripts/release-self-signed.sh
+```
+
+The private key stays in the local login keychain. Do not export it into the
+repository or upload it to GitHub Actions. The generated status file must ship
+with the artifacts and must state that they are self-signed and not notarized.
+
+The Developer ID workflow below is retained only for a future explicit
+certificate migration. It is manual-only because switching identities causes
+one macOS privacy-permission migration.
+
 The release workflow in `.github/workflows/release.yml` is intentionally
-separate from the unsigned build workflow. A build can run without any
+separate from the non-distribution build workflow. A build can run without any
 secrets; a Developer ID release must provide the credentials below. Never
 commit certificates, private keys, API keys, or their values to this
 repository.
 
-## Required for Developer ID releases
+## Future Developer ID releases
 
 | Secret | Meaning |
 | --- | --- |
@@ -22,20 +39,17 @@ repository.
 `HOMEBREW_TAP_TOKEN` is optional. If it is absent, the in-repository cask is
 still updated, while a separate tap is left untouched.
 
-## Local release
+## Current local compatibility entry point
 
-`scripts/release-local.sh` reads the same values from environment variables:
+`scripts/release-local.sh` forwards to the current self-signed builder. It does
+not read Developer ID or notarization credentials:
 
 ```bash
-export APPSIFT_TEAM_ID="<team id>"
-export APPSIFT_SIGNING_IDENTITY="Developer ID Application: <name> (<team id>)"
-scripts/release-local.sh 1.0.0 AC_NOTARY
+scripts/release-local.sh
 ```
 
-The notary profile is created locally with Apple's `notarytool` and should
-refer to a key stored outside the repository. The script fails early when the
-team or signing identity is missing; it never falls back to an unrelated
-developer identity.
+Passing an old notarization-profile argument fails explicitly. A future
+Developer ID migration must use the gated GitHub workflow.
 
 ## Certificate handling
 
@@ -50,9 +64,9 @@ Upload the base64 value through GitHub's encrypted secret UI or `gh secret set`.
 Delete temporary exports after upload. Do not paste certificate material into
 issues, pull requests, logs, or release notes.
 
-## Release checklist
+## Future Developer ID migration checklist
 
-1. Run the unsigned universal build and tests first.
+1. Run the non-Developer-ID universal build and tests first.
 2. Configure all Developer ID and notarization secrets.
 3. Trigger the workflow with `workflow_dispatch` for the intended version.
 4. Confirm the archive, `codesign`, `spctl`, `notarytool`, and stapler checks.

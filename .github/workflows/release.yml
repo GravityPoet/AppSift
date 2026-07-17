@@ -1,13 +1,14 @@
-name: Release
+name: Developer ID Release (certificate migration only)
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to release (e.g. 2.2.0). Must match project.yml MARKETING_VERSION.'
+        required: true
+        type: string
+      confirm_identity_migration:
+        description: 'Type MIGRATE TO DEVELOPER ID; this changes the macOS privacy identity.'
         required: true
         type: string
       dry_run:
@@ -35,6 +36,15 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      - name: Confirm certificate migration
+        env:
+          MIGRATION_CONFIRMATION: ${{ inputs.confirm_identity_migration }}
+        run: |
+          if [[ "${MIGRATION_CONFIRMATION}" != "MIGRATE TO DEVELOPER ID" ]]; then
+            echo "::error::This workflow is only for an explicit Developer ID certificate migration."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:

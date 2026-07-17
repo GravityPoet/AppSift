@@ -67,13 +67,46 @@ xcodegen generate
 ./script/build_and_run.sh
 ```
 
+The runner creates a project-specific `AppSift Local Code Signing` identity in
+your login keychain when needed. It is a local self-signed identity, not an
+Apple Developer ID, and keeps AppSift's macOS privacy identity stable across
+source rebuilds on that Mac. The private key never enters the repository.
+
 The development runner reuses one hidden, Spotlight-excluded DerivedData location and stays attached
 while the debug app runs. When you quit it, the runner unregisters and removes
 the generated app bundle, so `/Applications/AppSift.app` remains the only
 AppSift entry in Spotlight and app launchers. Run
 `./script/build_and_run.sh --clean` to remove the reusable build cache too.
-The local release script likewise keeps only the final DMG/ZIP and removes the
-exported App and `.xcarchive` product bundle on every exit.
+The customer release scripts likewise keep only the final DMG/ZIP/status files
+and remove their temporary App bundle and build root on every exit.
+
+To build a Universal local release, back up the existing installation, and
+atomically replace `/Applications/AppSift.app` with the same stable identity:
+
+```bash
+./scripts/install-local.sh
+```
+
+The first migration from an ad-hoc build requires one final Full Disk Access
+grant. Later local rebuilds retain the same code requirement as long as the
+`AppSift Local Code Signing` identity remains in the login keychain.
+
+Customer Release builds currently use that same identity:
+
+```bash
+./scripts/release-self-signed.sh
+```
+
+The legacy `./scripts/release-local.sh` entry point forwards to this same
+self-signed builder, so it cannot silently switch customer builds to another
+certificate.
+
+This produces a Universal self-signed DMG and ZIP plus an explicit signing
+status file under `build/`. These artifacts are **not Apple-notarized**, so a
+customer may need to use Finder's **Open** context-menu action on first launch.
+The Developer ID GitHub workflow is manual-only and reserved for a future,
+explicit certificate migration; running it would change the macOS privacy
+identity and require one migration-time permission grant.
 
 ## How it compares
 

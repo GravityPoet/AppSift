@@ -6,6 +6,7 @@ APP_NAME="AppSift"
 BUNDLE_ID="com.gravitypoet.appsift"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOCAL_SIGNING_SCRIPT="$ROOT_DIR/scripts/ensure-local-codesign-cert.sh"
 TMP_ROOT="${TMPDIR:-/tmp}"
 TMP_ROOT="${TMP_ROOT%/}"
 TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
@@ -153,6 +154,8 @@ fi
 cleanup_generated_app
 trap cleanup_generated_app EXIT
 
+SIGN_IDENTITY="$("$LOCAL_SIGNING_SCRIPT")"
+
 xcodebuild \
   -quiet \
   -project "$ROOT_DIR/AppSift.xcodeproj" \
@@ -160,8 +163,25 @@ xcodebuild \
   -configuration Debug \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$DERIVED_DATA" \
-  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_ALLOWED=YES \
+  CODE_SIGNING_REQUIRED=YES \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+  DEVELOPMENT_TEAM="" \
+  OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
   build
+
+codesign --verify --deep --strict "$APP_BUNDLE"
+if ! codesign -dvv "$APP_BUNDLE" 2>&1 \
+    | grep -F "Authority=$SIGN_IDENTITY" >/dev/null; then
+  echo "AppSift development build did not use $SIGN_IDENTITY." >&2
+  exit 1
+fi
+if ! codesign -d -r- "$APP_BUNDLE" 2>&1 \
+    | grep -F 'certificate leaf = H"' >/dev/null; then
+  echo "AppSift development build has an unstable code requirement." >&2
+  exit 1
+fi
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
