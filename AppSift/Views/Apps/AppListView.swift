@@ -129,7 +129,7 @@ struct AppListView: View {
                             "Application",
                             sortUsing: InstalledAppComparator(field: .appName)
                         ) { app in
-                            HStack(spacing: 8) {
+                            HStack(spacing: 10) {
                                 HoverScaleIcon(icon: app.icon)
                                 VStack(alignment: .leading, spacing: 1) {
                                     HStack(spacing: 5) {
@@ -139,11 +139,12 @@ struct AppListView: View {
                                     }
                                     if let modifiedAt = app.modifiedAt {
                                         Text(modifiedAt, style: .date)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
                                     }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
                         .width(min: 180, ideal: 260)
 
@@ -370,8 +371,9 @@ private struct HoverScaleIcon: View {
     var body: some View {
         Image(nsImage: icon)
             .resizable()
-            .frame(width: 20, height: 20)
-            .scaleEffect(hovering && !reduceMotion ? 1.12 : 1)
+            .interpolation(.high)
+            .frame(width: 32, height: 32)
+            .scaleEffect(hovering && !reduceMotion ? 1.06 : 1)
             .animation(reduceMotion ? nil : MotionTokens.snappy, value: hovering)
             .onHover { hovering = $0 }
     }
