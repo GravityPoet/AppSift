@@ -11,6 +11,10 @@
   <a href="README.zh-Hant.md">繁體中文</a>
 </p>
 
+<p align="center">
+  <img src="assets/icon.png" alt="AppSift eraser app icon" width="128">
+</p>
+
 <h1 align="center">AppSift</h1>
 
 <p align="center"><b>AppSift — Cleaner &amp; Uninstaller</b></p>
