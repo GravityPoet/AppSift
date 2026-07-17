@@ -267,10 +267,6 @@ extension Notification.Name {
 
 @main
 struct AppSiftApp: App {
-    // This property is intentionally declared first: Swift initializes stored
-    // properties in declaration order, so legacy preferences and undo history
-    // are copied before AppState's shared stores read their default locations.
-    private let _legacyMigration: Void = LegacyProductMigration.performIfNeeded()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
     @StateObject private var theme = ThemeManager.shared
