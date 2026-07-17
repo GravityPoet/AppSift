@@ -11,10 +11,11 @@ struct MainWindow: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
+                .frame(minWidth: 232)
+                .navigationSplitViewColumnWidth(min: 232, ideal: 244, max: 320)
         } detail: {
             detailContainer
         }
-        .navigationSplitViewColumnWidth(min: 232, ideal: 244, max: 320)
         .frame(minWidth: 980, minHeight: 600)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.checkFullDiskAccess()
@@ -226,10 +227,13 @@ struct MainWindow: View {
         let tint = ok ? Tint.green : Tint.orange
         return HStack(spacing: 10) {
             PulsingDot(tint: tint, isPulsing: !ok)
+                .fixedSize()
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(LocalizedStringKey(ok ? "Ready to clean" : "Limited access"))
                     .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     // Explicit solid color — same vibrancy-collapse guard as the
                     // sidebar rows (#117); this title also inherited the default.
                     .foregroundStyle(colorScheme == .dark
@@ -237,9 +241,12 @@ struct MainWindow: View {
                         : Color.black.opacity(0.85))
                 Text(LocalizedStringKey(ok ? "Full Disk Access granted" : "Grant FDA in Settings"))
                     .font(.system(size: 10.5))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
+            .layoutPriority(1)
+            Spacer(minLength: 4)
             if !ok {
                 Button("Fix") {
                     permission.requestAccess(context: .general) {
@@ -249,6 +256,7 @@ struct MainWindow: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .help("Fix permission")
+                .fixedSize()
             }
         }
         .padding(.horizontal, 14)
@@ -496,8 +504,12 @@ private struct SidebarNavRow: View {
     var body: some View {
         HStack(spacing: 10) {
             IconTile(systemName: icon, tint: tint, size: 24, glow: isSelected)
+                .fixedSize()
             Text(label)
                 .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(1)
                 // Force an explicit, solid foreground instead of inheriting the
                 // sidebar list's default. On some configs (custom accent /
                 // reduced transparency, seen on M1 Max — issue #117) the
@@ -506,7 +518,7 @@ private struct SidebarNavRow: View {
                 // (headers, badges) stays visible. A colorScheme-driven solid
                 // color sidesteps that vibrancy path entirely.
                 .foregroundStyle(isSelected ? Color.white : labelColor)
-            Spacer()
+            Spacer(minLength: 4)
             if let badge {
                 Text(badge)
                     .font(.system(size: 11, weight: .semibold))
@@ -518,6 +530,7 @@ private struct SidebarNavRow: View {
                         Capsule().fill(isSelected ? Color.white.opacity(0.18) : Color.primary.opacity(0.06))
                     )
                     .contentTransition(.numericText())
+                    .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(.horizontal, 8)
