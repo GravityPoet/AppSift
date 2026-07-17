@@ -1038,3 +1038,4 @@
 "No reliable record" = "信頼できる記録なし";
 "Filter by the last reliable app-open evidence" = "最後に確認できるアプリ起動記録で絞り込む";
 "Spotlight has no reliable last-opened date for this app" = "Spotlight にこのアプリの信頼できる最終起動日時がありません";
+"AppSift tools" = "AppSift ツール";

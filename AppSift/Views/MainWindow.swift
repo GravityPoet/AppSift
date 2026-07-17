@@ -336,7 +336,9 @@ struct MainWindow: View {
             TimeMachineSnapshotsView()
         case .cleaning(let category):
             if category == .smartScan {
-                DashboardView()
+                DashboardView { section in
+                    selectedSection = section
+                }
             } else {
                 CategoryDetailView(category: category)
             }

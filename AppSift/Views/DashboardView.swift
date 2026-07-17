@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Landing screen modeled after the new prototype:
-/// hero gauge + stats + quick actions + suggestion cards.
-/// Replaces the old SmartScanView idle/completed states with a richer
-/// at-a-glance view, and delegates active-scan progress to inline state UI.
+/// Product overview with storage health, smart-clean progress, and direct
+/// access to AppSift's application-management tools. Stable scan states keep
+/// the tool overview visible; active scan/clean states stay focused on work.
 struct DashboardView: View {
     @EnvironmentObject var appState: AppState
+    let onNavigate: (AppSection) -> Void
     @State private var showConfirmation = false
     @State private var fireCleanConfetti = false
     @State private var lastCleanedScanState: Bool = false
@@ -18,6 +18,10 @@ struct DashboardView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let dashboardSpace = "dashboard"
+
+    init(onNavigate: @escaping (AppSection) -> Void = { _ in }) {
+        self.onNavigate = onNavigate
+    }
 
     /// Hero cards rise in with a slight settle and dissolve out; under
     /// Reduce Motion both directions collapse to a plain cross-fade.
@@ -49,6 +53,8 @@ struct DashboardView: View {
                         hero
                             .transition(heroTransition)
                         stats
+                        sectionHeader("AppSift tools")
+                        toolOverview
                         if appState.diskInfo.totalSpace > 0 {
                             sectionHeader("Storage composition")
                             storageComposition
@@ -67,6 +73,8 @@ struct DashboardView: View {
                     case .completed:
                         completedHero
                             .transition(heroTransition)
+                        sectionHeader("AppSift tools")
+                        toolOverview
                         if appState.totalJunkSize > 0 {
                             sectionHeader("By category")
                             categoryChartCard
@@ -78,6 +86,8 @@ struct DashboardView: View {
                     case .cleaned:
                         cleanedHero
                             .transition(heroTransition)
+                        sectionHeader("AppSift tools")
+                        toolOverview
                     }
                 }
                 .padding(.horizontal, 28)
@@ -99,9 +109,16 @@ struct DashboardView: View {
         .background(
             GeometryReader { geo in
                 Color.clear
-                    .onAppear { scheduleDashboardSizeUpdate(geo.size) }
-                    .onChange(of: geo.size) {
-                        scheduleDashboardSizeUpdate($0)
+                    .task(id: geo.size) {
+                        do {
+                            try await Task<Never, Never>.sleep(
+                                nanoseconds: 40_000_000
+                            )
+                        } catch {
+                            return
+                        }
+                        guard dashboardSize != geo.size else { return }
+                        dashboardSize = geo.size
                     }
             }
         )
@@ -138,14 +155,6 @@ struct DashboardView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete the selected files. This cannot be undone.")
-        }
-    }
-
-    private func scheduleDashboardSizeUpdate(_ size: CGSize) {
-        guard dashboardSize != size else { return }
-        DispatchQueue.main.async {
-            guard dashboardSize != size else { return }
-            dashboardSize = size
         }
     }
 
@@ -338,6 +347,193 @@ struct DashboardView: View {
 
     private func junkFoundDelta(count: Int) -> String {
         String(format: String(localized: "across %lld categories"), Int64(count))
+    }
+
+    // MARK: - Product tools
+
+    private var toolOverview: some View {
+        let columnCount = dashboardSize.width > 0 && dashboardSize.width < 660 ? 2 : 4
+        return LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: 12),
+                count: columnCount
+            ),
+            spacing: 12
+        ) {
+            ForEach(Array(toolSummaries.enumerated()), id: \.element.id) { index, tool in
+                DashboardToolCard(tool: tool) {
+                    onNavigate(tool.section)
+                }
+                .staggered(index)
+            }
+        }
+    }
+
+    private var toolSummaries: [DashboardToolSummary] {
+        [
+            DashboardToolSummary(
+                section: .apps,
+                title: "Installed Apps",
+                icon: "square.grid.2x2.fill",
+                tint: Tint.purple,
+                status: appState.isLoadingApps
+                    ? String(localized: "Scanning…")
+                    : countText("%lld apps", appState.installedApps.count),
+                statusTint: Tint.purple
+            ),
+            DashboardToolSummary(
+                section: .appUpdates,
+                title: "App Updates",
+                icon: "arrow.triangle.2.circlepath.circle.fill",
+                tint: Tint.blue,
+                status: appUpdateStatus,
+                statusTint: appState.hasScannedAppUpdates
+                    && appState.availableAppUpdateCount == 0
+                        ? Tint.green
+                        : Tint.blue
+            ),
+            DashboardToolSummary(
+                section: .installationFiles,
+                title: "Installation Files",
+                icon: "shippingbox.fill",
+                tint: Tint.orange,
+                status: installationFileStatus,
+                statusTint: !appState.hasScannedInstallationFiles
+                    ? Tint.blue
+                    : appState.installationFiles.filter(\.isRemovable).isEmpty
+                        ? Tint.green
+                        : Tint.orange
+            ),
+            DashboardToolSummary(
+                section: .startupItems,
+                title: "Startup Items",
+                icon: "power.circle.fill",
+                tint: Tint.orange,
+                status: startupItemStatus,
+                statusTint: !appState.hasScannedStartupItems
+                    ? Tint.blue
+                    : startupAttentionCount > 0 ? Tint.orange : Tint.green
+            ),
+            DashboardToolSummary(
+                section: .extensions,
+                title: "Extensions",
+                icon: "puzzlepiece.extension.fill",
+                tint: Tint.purple,
+                status: scanStatus(
+                    isScanning: appState.isScanningExtensions,
+                    hasScanned: appState.hasScannedExtensions,
+                    result: countText("%lld items", appState.managedExtensions.count)
+                ),
+                statusTint: appState.hasScannedExtensions ? Tint.purple : Tint.blue
+            ),
+            DashboardToolSummary(
+                section: .appPermissions,
+                title: "Privacy Permissions",
+                icon: "hand.raised.fill",
+                tint: Tint.blue,
+                status: permissionStatus,
+                statusTint: appState.highImpactAllowedAppPermissionCount > 0
+                    ? Tint.orange
+                    : Tint.blue
+            ),
+            DashboardToolSummary(
+                section: .defaultApplications,
+                title: "Default Applications",
+                icon: "arrow.up.forward.app.fill",
+                tint: Tint.blue,
+                status: scanStatus(
+                    isScanning: appState.isScanningDefaultApplications,
+                    hasScanned: appState.hasScannedDefaultApplications,
+                    result: countText("%lld file types", appState.defaultApplications.count)
+                ),
+                statusTint: Tint.blue
+            ),
+            DashboardToolSummary(
+                section: .removalHistory,
+                title: "Removal History",
+                icon: "arrow.uturn.backward.circle.fill",
+                tint: Tint.green,
+                status: removalHistoryStatus,
+                statusTint: Tint.green
+            ),
+        ]
+    }
+
+    private var appUpdateStatus: String {
+        guard !appState.isScanningAppUpdates else {
+            return String(localized: "Scanning…")
+        }
+        guard appState.hasScannedAppUpdates else {
+            return String(localized: "Run a scan")
+        }
+        guard appState.availableAppUpdateCount > 0 else {
+            return String(localized: "Up to Date")
+        }
+        return countText("%lld updates", appState.availableAppUpdateCount)
+    }
+
+    private var installationFileStatus: String {
+        let removableCount = appState.installationFiles.count(where: \.isRemovable)
+        return scanStatus(
+            isScanning: appState.isScanningInstallationFiles,
+            hasScanned: appState.hasScannedInstallationFiles,
+            result: countText("%lld files", removableCount)
+        )
+    }
+
+    private var startupAttentionCount: Int {
+        appState.startupItems.count {
+            $0.state == .requiresApproval || $0.isMissing
+        }
+    }
+
+    private var startupItemStatus: String {
+        let result = startupAttentionCount > 0
+            ? countText("%lld need approval", startupAttentionCount)
+            : countText("%lld items", appState.startupItems.count)
+        return scanStatus(
+            isScanning: appState.isScanningStartupItems,
+            hasScanned: appState.hasScannedStartupItems,
+            result: result
+        )
+    }
+
+    private var permissionStatus: String {
+        let result = appState.highImpactAllowedAppPermissionCount > 0
+            ? countText("%lld high impact", appState.highImpactAllowedAppPermissionCount)
+            : countText("%lld apps", appState.appPermissionClients.count)
+        return scanStatus(
+            isScanning: appState.isScanningAppPermissions,
+            hasScanned: appState.hasScannedAppPermissions,
+            result: result
+        )
+    }
+
+    private var removalHistoryStatus: String {
+        if appState.availableRestorableItemCount > 0 {
+            return countText(
+                "%lld items available to restore",
+                appState.availableRestorableItemCount
+            )
+        }
+        return countText("%lld removal records", appState.removalHistory.count)
+    }
+
+    private func scanStatus(
+        isScanning: Bool,
+        hasScanned: Bool,
+        result: String
+    ) -> String {
+        if isScanning { return String(localized: "Scanning…") }
+        if !hasScanned { return String(localized: "Run a scan") }
+        return result
+    }
+
+    private func countText(_ key: String.LocalizationValue, _ count: Int) -> String {
+        String(
+            format: String(localized: key),
+            Int64(count)
+        )
     }
 
     // MARK: - Storage composition
@@ -697,6 +893,62 @@ struct DashboardView: View {
 }
 
 // MARK: - Components
+
+private struct DashboardToolSummary: Identifiable {
+    var id: AppSection { section }
+    let section: AppSection
+    let title: LocalizedStringKey
+    let icon: String
+    let tint: Color
+    let status: String
+    let statusTint: Color
+}
+
+private struct DashboardToolCard: View {
+    let tool: DashboardToolSummary
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            CardSurface(padding: 14, accent: tool.tint) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        IconTile(
+                            systemName: tool.icon,
+                            tint: tool.tint,
+                            size: 30,
+                            glow: true
+                        )
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Text(tool.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    Text(tool.status)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(tool.statusTint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .monospacedDigit()
+                }
+                .frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .hoverLift(hoverScale: 1.015, lift: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(tool.status)
+    }
+}
 
 private struct StatCard: View {
     let icon: String

@@ -346,7 +346,7 @@ struct CountUpBytes: View {
     }
 }
 
-private struct ByteRollEffect: @MainActor AnimatableModifier {
+private struct ByteRollEffect: AnimatableModifier {
     var value: Double
 
     var animatableData: Double {

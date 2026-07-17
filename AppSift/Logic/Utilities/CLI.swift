@@ -157,21 +157,22 @@ struct CLI {
 
         if json {
             let rows: [[String: Any]] = result.items.map { item in
-                [
+                var row: [String: Any] = [
                     "name": item.name,
                     "identifier": item.identifier,
-                    "version": item.version as Any? ?? NSNull(),
                     "kind": item.kind.rawValue,
                     "state": item.state.rawValue,
                     "scope": item.scope.rawValue,
-                    "owner": item.owner?.name as Any? ?? NSNull(),
-                    "teamIdentifier": item.teamIdentifier as Any? ?? NSNull(),
-                    "developer": item.developerName as Any? ?? NSNull(),
-                    "profile": item.profileName as Any? ?? NSNull(),
-                    "path": item.url?.path as Any? ?? NSNull(),
-                    "permissionCount": item.permissionCount as Any? ?? NSNull(),
                     "evidence": item.evidence.map(\.rawValue).sorted(),
                 ]
+                row["version"] = item.version ?? NSNull()
+                row["owner"] = item.owner?.name ?? NSNull()
+                row["teamIdentifier"] = item.teamIdentifier ?? NSNull()
+                row["developer"] = item.developerName ?? NSNull()
+                row["profile"] = item.profileName ?? NSNull()
+                row["path"] = item.url?.path ?? NSNull()
+                row["permissionCount"] = item.permissionCount ?? NSNull()
+                return row
             }
             guard JSONSerialization.isValidJSONObject(rows),
                   let data = try? JSONSerialization.data(
