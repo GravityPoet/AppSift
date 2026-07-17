@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AppSift — Privacy Policy</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1d1d1f; line-height: 1.6; }
+  h1 { font-size: 28px; } h2 { font-size: 20px; margin-top: 32px; }
+  code { background: #f5f5f7; padding: 2px 5px; border-radius: 4px; }
+  footer { margin-top: 48px; color: #6e6e73; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>AppSift Privacy Policy</h1>
+<p><em>Last updated: 12 July 2026</em></p>
+
+<p>AppSift is a Mac cleaner and app uninstaller for macOS. Your privacy is the default, not a feature.</p>
+
+<h2>What AppSift collects</h2>
+<p>Nothing. AppSift has <strong>no servers, no analytics, no telemetry, no crash reporting, no accounts, and no ads</strong>. Core cleaning, uninstall, reset, startup-item inspection, and local history work offline. When you explicitly click <strong>Check for Updates</strong>, AppSift makes bounded requests only to a verified Apple Lookup endpoint or a public HTTPS update feed embedded in a developer-signed app. A confirmed Homebrew update uses Homebrew's official targeted command. These requests are not sent to AppSift and contain no AppSift account or analytics identifier.</p>
+
+<h2>What stays on your Mac</h2>
+<p>Scan results, settings, excluded folders, ignored-orphan entries, startup-item history, and path-only app-removal reports stay on your Mac. AppSift never uploads them. Optional update checks use only the minimum local app identity needed to validate the requested source; file contents and cleanup results are never transmitted.</p>
+
+<h2>What AppSift removes</h2>
+<ul>
+  <li>App uninstall, App Reset, and orphan removal use the macOS <strong>Trash</strong> plus local restore receipts. They never fall back to permanent deletion.</li>
+  <li>The separately confirmed junk-cleaner flow can permanently delete reviewed regenerable caches, logs, and other explicitly selected cleanup items.</li>
+  <li>You review every item, with its real filesystem path, before anything is removed.</li>
+  <li>High-risk system paths are hard-excluded in the source code and cannot be selected for deletion.</li>
+</ul>
+
+<h2>Permissions</h2>
+<p>AppSift asks for <strong>Full Disk Access</strong> only so it can read and clean the locations macOS hides from apps by default (Mail downloads, Safari data, protected app containers). This permission is used only for scanning and cleaning on your machine and never to move data anywhere.</p>
+
+<h2>Contact</h2>
+<p>Questions? Open an issue at <a href="https://github.com/GravityPoet/AppSift/issues">github.com/GravityPoet/AppSift</a>.</p>
+
+<footer>AppSift is free and open source under the MIT License.</footer>
+</body>
+</html>

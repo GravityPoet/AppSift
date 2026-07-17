@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AppSift — Free Open-Source Mac Cleaner &amp; App Uninstaller (CleanMyMac Alternative)</title>
+<meta name="description" content="AppSift is a free, open-source Mac cleaner and app uninstaller for macOS. Remove apps with every leftover file, clear caches and junk, find orphaned files. No subscription, no telemetry, no scare tactics." />
+<meta name="keywords" content="mac cleaner, free mac cleaner, CleanMyMac alternative, CleanMyMac alternative free, app uninstaller mac, mac app uninstaller, open source mac cleaner, remove app leftovers mac, orphaned files mac, disk cleanup mac, clear cache mac, macOS cleaner, uninstall apps macOS, Pearcleaner alternative, mac junk cleaner" />
+<meta name="author" content="GravityPoet" />
+<meta name="theme-color" content="#0A84FF" />
+<link rel="canonical" href="https://github.com/GravityPoet/AppSift" />
+<link rel="icon" type="image/png" href="assets/icon.png" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="AppSift" />
+<meta property="og:title" content="AppSift — Free Open-Source Mac Cleaner &amp; App Uninstaller" />
+<meta property="og:description" content="A free, open-source CleanMyMac alternative: uninstall apps with every leftover, clear junk and caches, find orphaned files. No subscription, no telemetry, no FUD." />
+<meta property="og:url" content="https://github.com/GravityPoet/AppSift" />
+<meta property="og:image" content="https://raw.githubusercontent.com/GravityPoet/AppSift/main/docs/assets/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="AppSift — Free Open-Source Mac Cleaner &amp; App Uninstaller" />
+<meta name="twitter:description" content="A free, native, open-source CleanMyMac alternative for macOS. Uninstall cleanly, clear junk, find orphans. No telemetry, no subscription." />
+<meta name="twitter:image" content="https://raw.githubusercontent.com/GravityPoet/AppSift/main/docs/assets/og-image.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AppSift",
+  "alternateName": "AppSift Cleaner",
+  "description": "AppSift is a free, open-source Mac cleaner and app uninstaller for macOS — uninstall apps with every leftover file, clear caches and system junk, and find orphaned files left by deleted apps. No subscription, no telemetry, no fear-based scans.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 13.0 or later",
+  "downloadUrl": "https://github.com/GravityPoet/AppSift/releases/latest",
+  "url": "https://github.com/GravityPoet/AppSift",
+  "image": "https://raw.githubusercontent.com/GravityPoet/AppSift/main/docs/assets/og-image.png",
+  "screenshot": "https://raw.githubusercontent.com/GravityPoet/AppSift/main/docs/assets/dashboard.png",
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Organization", "name": "GravityPoet", "url": "https://github.com/GravityPoet" },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"Is AppSift free?","acceptedAnswer":{"@type":"Answer","text":"Yes. AppSift is completely free and open source under the MIT license on GitHub, and installable with Homebrew. There is no subscription, no trial, and no paywalled features."}},
+    {"@type":"Question","name":"Is AppSift a good CleanMyMac alternative?","acceptedAnswer":{"@type":"Answer","text":"Yes. AppSift does the things people actually use CleanMyMac for — a real app uninstaller that removes every leftover file, junk and cache cleanup, and orphaned-file detection — as a free, open-source, native app with no subscription, no telemetry, and no fear-based scans."}},
+    {"@type":"Question","name":"Does AppSift delete files safely?","acceptedAnswer":{"@type":"Answer","text":"Everything AppSift removes goes to the Trash via the system API, so anything removed by mistake can be dragged back. Nothing is shredded or force-unlinked, you review every item with its real path before removal, and high-risk system paths are hard-excluded in code."}},
+    {"@type":"Question","name":"Does AppSift collect any data?","acceptedAnswer":{"@type":"Answer","text":"No. AppSift has no telemetry, analytics, crash reporting, accounts, or servers. Core maintenance works offline. App Updates contacts only a verified Apple or vendor source after you request a check."}},
+    {"@type":"Question","name":"How do I install AppSift?","acceptedAnswer":{"@type":"Answer","text":"Run: brew install --cask appsift — or download the latest DMG from the GitHub releases page and check its release notes for signing status. Requires macOS 13 (Ventura) or later. Universal binary for Apple Silicon and Intel."}}
+  ]
+}
+</script>
+<style>
+  :root { --bg:#0e0e14; --card:#16161f; --fg:#f2f2f7; --muted:#a0a0b4; --accent:#0a84ff; --good:#30d158; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,system-ui,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+  a { color:var(--accent); text-decoration:none; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 22px; }
+  header { text-align:center; padding:72px 0 36px; }
+  header img.logo { width:108px; height:108px; border-radius:22px; }
+  h1 { font-size:44px; margin:18px 0 6px; }
+  .tag { color:var(--muted); font-size:20px; margin:0 0 28px; }
+  .cta { display:inline-flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .btn { background:var(--accent); color:#fff; padding:12px 22px; border-radius:10px; font-weight:600; }
+  .btn.alt { background:var(--card); color:var(--fg); border:1px solid #2a2a3a; }
+  .shot { width:100%; border-radius:14px; margin:18px 0 8px; border:1px solid #23232f; }
+  code { background:var(--card); padding:3px 8px; border-radius:6px; font-size:15px; }
+  pre { background:var(--card); padding:14px 16px; border-radius:10px; overflow:auto; }
+  h2 { font-size:28px; margin-top:48px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:18px; }
+  .feat { background:var(--card); border:1px solid #20202c; border-radius:12px; padding:16px 18px; }
+  .feat h3 { margin:0 0 6px; font-size:17px; }
+  .feat p { margin:0; color:var(--muted); font-size:15px; }
+  table { width:100%; border-collapse:collapse; margin-top:16px; font-size:15px; }
+  th,td { text-align:left; padding:10px 12px; border-bottom:1px solid #23232f; }
+  th { color:var(--muted); font-weight:600; }
+  .yes { color:var(--good); font-weight:600; }
+  details { background:var(--card); border:1px solid #20202c; border-radius:10px; padding:12px 16px; margin:10px 0; }
+  summary { cursor:pointer; font-weight:600; }
+  .promise { background:var(--card); border:1px solid #20202c; border-radius:12px; padding:18px 20px; margin-top:18px; }
+  .promise li { margin:6px 0; color:var(--muted); }
+  .promise b { color:var(--fg); }
+  footer { color:var(--muted); text-align:center; padding:48px 0; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img class="logo" src="assets/icon.png" alt="AppSift Mac cleaner app icon" />
+  <h1>AppSift</h1>
+  <p class="tag"><strong>AppSift — Cleaner &amp; Uninstaller</strong><br>A free, open-source Mac cleaner and app uninstaller.</p>
+  <div class="cta">
+    <a class="btn" href="https://github.com/GravityPoet/AppSift/releases/latest">Download for macOS</a>
+    <a class="btn alt" href="https://github.com/GravityPoet/AppSift">View on GitHub</a>
+  </div>
+  <p style="margin-top:14px;color:var(--muted);font-size:15px;">or <code>brew install --cask appsift</code></p>
+</header>
+
+<img class="shot" src="assets/dashboard.png" alt="AppSift dashboard — storage health ring, disk composition donut, and one-click Smart Scan on macOS" />
+
+<section>
+  <h2>Reclaim your Mac — without the subscription</h2>
+  <p>Apple solders down 256&nbsp;GB drives and charges a fortune for the next tier, so every gigabyte you already paid for matters. Most Mac cleaners answer that with subscriptions, telemetry, and dramatized "47&nbsp;GB of junk detected!" badges. AppSift is the opposite: a free, open-source, native macOS app that removes apps cleanly, clears genuine junk, and tells you the truth about what it can and can't free.</p>
+</section>
+
+<section>
+  <h2>Features</h2>
+  <div class="grid">
+    <div class="feat"><h3>App uninstaller</h3><p>Select an app and AppSift explains every preference, cache, container, launch agent, and log it matched before moving reviewed items to Trash.</p></div>
+    <div class="feat"><h3>Safe app reset</h3><p>Keep the app installed while reviewed user data moves to Trash. Executable packages, shared groups, launch items, and system components stay untouched.</p></div>
+    <div class="feat"><h3>App updates</h3><p>Check App Store, Homebrew Cask, and public HTTPS Sparkle sources only when requested, with local signature and receipt evidence.</p></div>
+    <div class="feat"><h3>Startup items</h3><p>Inspect login items, background tasks, LaunchAgents, and daemons. Current-user legacy agents can be changed with recorded undo.</p></div>
+    <div class="feat"><h3>Orphan finder</h3><p>Surfaces files left over by apps you deleted long ago, with an always-ignore list for the false positives you want to keep.</p></div>
+    <div class="feat"><h3>Smart Scan</h3><p>System junk, user caches, Xcode DerivedData, Homebrew, npm/yarn/pnpm, Docker, and AI-app logs — scanned in parallel.</p></div>
+    <div class="feat"><h3>Large &amp; old files</h3><p>Find the multi-gigabyte files aging in Downloads, Documents, and Desktop — with folders you can exclude from the scan.</p></div>
+    <div class="feat"><h3>Recoverable app actions</h3><p>Uninstall, reset, and orphan removal use the system Trash plus local restore receipts. The separately confirmed junk cleaner identifies permanent cleanup explicitly.</p></div>
+    <div class="feat"><h3>Private by default</h3><p>No telemetry, analytics, accounts, or AppSift servers. Optional update checks contact only the verified source you requested.</p></div>
+  </div>
+</section>
+
+<img class="shot" src="assets/uninstaller.png" alt="AppSift app uninstaller — leftover files grouped into caches, preferences, containers, and logs" />
+
+<section>
+  <h2>How AppSift compares</h2>
+  <table>
+    <tr><th>&nbsp;</th><th>AppSift</th><th>CleanMyMac</th><th>Pearcleaner</th><th>OnyX</th></tr>
+    <tr><td>Price</td><td class="yes">Free</td><td>$40+/yr</td><td>Free</td><td>Free</td></tr>
+    <tr><td>Open source</td><td class="yes">Yes (MIT)</td><td>No</td><td>Source-available</td><td>No</td></tr>
+    <tr><td>App uninstaller + orphans</td><td class="yes">Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+    <tr><td>No telemetry</td><td class="yes">Yes</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>No subscription</td><td class="yes">Yes</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Recoverable app uninstall/reset</td><td class="yes">Yes</td><td>Partial</td><td>Uninstall</td><td>No</td></tr>
+    <tr><td>Honest about purgeable space</td><td class="yes">Yes</td><td>No</td><td>n/a</td><td>n/a</td></tr>
+  </table>
+  <p style="color:var(--muted);font-size:13px;">Comparison reflects publicly documented features as of 2026; corrections welcome via PR.</p>
+</section>
+
+<section>
+  <h2>Our promise</h2>
+  <div class="promise">
+    <ul>
+      <li><b>Recoverable app actions.</b> Uninstall, reset, and orphan removal go to the Trash with local restore receipts. Permanent junk cleanup is a separate reviewed flow.</li>
+      <li><b>No telemetry, ever.</b> No analytics, no crash reporting, no network calls to us.</li>
+      <li><b>No fake urgency.</b> No dramatized "junk detected!" badges or red alarm counters — neutral facts, your decision.</li>
+      <li><b>No overpromising.</b> We don't claim to "reclaim purgeable space," "boost RAM," or "speed up your Mac" — things no app can reliably do.</li>
+      <li><b>You review before anything is removed.</b> Every item shows its real path, and high-risk system paths are hard-excluded in code.</li>
+      <li><b>Auditable.</b> It's MIT. Read the exact code that decides what gets removed, fork it, ship your own.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Install</h2>
+  <pre>brew install --cask appsift</pre>
+  <p>Or download the latest <a href="https://github.com/GravityPoet/AppSift/releases/latest">DMG from GitHub</a>. Check the release notes for signing status and checksums. Requires macOS 13 (Ventura) or later. Universal — Apple Silicon and Intel.</p>
+</section>
+
+<section>
+  <h2>Attribution</h2>
+  <p>AppSift is independently maintained by GravityPoet. It began as a fork of <a href="https://github.com/momenbasel/PureMac">PureMac</a>; the original copyright and MIT license notice are retained.</p>
+</section>
+
+<section>
+  <h2>FAQ</h2>
+  <details><summary>Is AppSift really free?</summary><p>Yes — completely free and open source under the MIT license on GitHub, and installable with Homebrew. No subscription, no trial, no paywalled features.</p></details>
+  <details><summary>Is it a good CleanMyMac alternative?</summary><p>AppSift does what people actually use CleanMyMac for — a real app uninstaller that catches every leftover, junk and cache cleanup, and orphaned-file detection — as a free, native, open-source app with no subscription and no fear-based scans.</p></details>
+  <details><summary>Is it safe?</summary><p>App uninstall, App Reset, and orphan removal use the Trash and local restore receipts. You review every item with its real path, and shared, ambiguous, executable, and high-risk paths are protected before action.</p></details>
+  <details><summary>Does it collect any data?</summary><p>No. AppSift has no telemetry, analytics, crash reporting, accounts, or servers. Core maintenance works offline; App Updates contacts only a verified Apple or vendor source after you request a check.</p></details>
+</section>
+
+<footer>
+  AppSift is free and open source under the MIT License · <a href="https://github.com/GravityPoet/AppSift">GitHub</a> · <a href="privacy.html">Privacy</a>
+  · Not affiliated with CleanMyMac (MacPaw).
+</footer>
+</div>
+</body>
+</html>

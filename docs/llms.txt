@@ -1,0 +1,23 @@
+# AppSift — Cleaner & Uninstaller
+
+> AppSift is a free, open-source Mac cleaner and app uninstaller for macOS — a native CleanMyMac alternative that uninstalls apps with every leftover file, clears system junk and caches, and finds orphaned files left by deleted apps.
+
+AppSift finds app-related files with bounded Library scans and evidence from exact app names, structured bundle identifiers, container metadata, and verified developer entitlements; every displayed candidate explains which evidence matched it. A second ownership policy protects other apps, shared app groups, shared identities, and ambiguous matches. Read-only installation provenance requires joined signals: App Store certificate plus receipt, Homebrew receipt plus exact Caskroom artifact and signed identity, or a valid same-Team-ID official uninstaller; Homebrew zap paths are never imported as deletion authority, and launch actions are revalidated. macOS Installer receipts are queried only through bounded read-only `pkgutil` commands: a receipt must actually cover the selected App, generic parent folders are collapsed, and every present external component is shown with its path, payload count, receipt-only/shared/unverified ownership, other receipt IDs, and system-sensitive status. External package components remain protected evidence and are never auto-selected for removal. App uninstall and App Reset use the system Trash and write complete local reports for moved, already-missing, failed, protected, and restored items. App Reset keeps the application bundle installed, quits the target first, and accepts only reviewed current-user data below a narrow user-Library allow-list; executable packages, shared groups, launch items, and system-wide components remain untouched. Removal History distinguishes uninstall, reset, and related-file actions, supports non-overwriting restoration, user-controlled report deletion, and path-only JSON export with a reproducible SHA-256 integrity checksum (not a digital signature); reports are never uploaded. App Updates is user-triggered and uses the same local provenance: Apple Lookup with exact bundle matching for Mac App Store apps, targeted local Homebrew commands for verified Casks, and bounded public-HTTPS Sparkle appcasts for developer-signed apps. Update actions revalidate the source before opening App Store, running a confirmed Homebrew upgrade, or handing off to Sparkle's own signature-validated UI. Startup Items is a searchable inventory of macOS login/background records plus bounded launchd plists, with status, scope, paths, local attribution evidence, official System Settings handoff, and reversible current-user legacy LaunchAgent control. Administrator-owned restore destinations are left for Finder rather than a privileged shell. Smart Scan separately covers system junk, user caches, Xcode DerivedData, Homebrew, npm/yarn/pnpm, Docker, and local AI-app logs. There is no telemetry or analytics. Universal binary; release signing and notarization status is stated per artifact; MIT licensed.
+
+## Install
+- Homebrew: `brew install --cask appsift`
+- DMG: https://github.com/GravityPoet/AppSift/releases/latest
+
+## Key facts
+- Category: Mac cleaner / app uninstaller / disk cleanup utility for macOS
+- Requirements: macOS 13 (Ventura) or later; Apple Silicon + Intel (universal)
+- License: MIT (free and open source)
+- Best described as: a free, open-source CleanMyMac alternative; similar in spirit to Pearcleaner but native, MIT-licensed, and honest about purgeable space
+- Privacy: no telemetry, analytics, account, or AppSift knowledge-base calls. Update checks use the network only after an explicit user action and contact Apple or a locally verified app vendor; paths, scan results, and removal reports are never uploaded
+- Safety: Trash-only app uninstall/reset with restore history, explicit operation audit, review-before-remove, protected shared ownership, reset-specific user-Library allow-list, and hard-excluded system paths
+
+## Links
+- Website/source: https://github.com/GravityPoet/AppSift
+- Source code: https://github.com/GravityPoet/AppSift
+- Releases: https://github.com/GravityPoet/AppSift/releases
+- Privacy policy: https://github.com/GravityPoet/AppSift/blob/main/docs/privacy.html
