@@ -4625,6 +4625,14 @@ final class AppState: ObservableObject {
 
     // MARK: - Scanning
 
+    /// Leaves scan or cleanup results available while returning the dashboard
+    /// to its storage overview. Active work remains visible until it finishes.
+    func showDashboardOverview() {
+        guard !scanState.isActive else { return }
+        scanState = .idle
+        totalFreedSpace = 0
+    }
+
     func startSmartScan() {
         guard !scanState.isActive else { return }
 
@@ -4829,7 +4837,9 @@ final class AppState: ObservableObject {
                 Int64(survivors.count)
             )
         } else if !survivors.isEmpty {
-            let preview = survivors.prefix(2).map { ($0.path as NSString).lastPathComponent }.joined(separator: ", ")
+            let preview = survivors.prefix(2)
+                .map { ($0.path as NSString).abbreviatingWithTildeInPath }
+                .joined(separator: ", ")
             let extra = survivors.count > 2 ? String(format: String(localized: " and %lld more"), Int64(survivors.count - 2)) : ""
             cleanError = String(
                 format: String(localized: "Couldn't remove %@%@. They may be in use or protected by macOS."),

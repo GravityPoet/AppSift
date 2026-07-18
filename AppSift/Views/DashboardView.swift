@@ -737,8 +737,12 @@ struct DashboardView: View {
                         }
                     }
                     Spacer()
-                    Button("Scan Again") { appState.startSmartScan() }
-                        .controlSize(.large)
+                    HStack(spacing: 8) {
+                        Button("Overview") { appState.showDashboardOverview() }
+                            .controlSize(.large)
+                        Button("Scan Again") { appState.startSmartScan() }
+                            .controlSize(.large)
+                    }
                 }
                 if !isClean {
                     HStack {
@@ -874,7 +878,7 @@ struct DashboardView: View {
                     Text("freed")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                    Button("Done") { appState.scanState = .idle }
+                    Button("Done") { appState.showDashboardOverview() }
                         .buttonStyle(GlowProminentButtonStyle(tint: Tint.green, gradient: TintGradient.of(Tint.green)))
                         .padding(.top, 4)
                 }

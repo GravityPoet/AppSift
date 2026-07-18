@@ -5,6 +5,71 @@ import XCTest
 
 @MainActor
 final class AppStateTests: XCTestCase {
+    func testDashboardOverviewPreservesCompletedScanResultsButNotActiveWork() {
+        let appState = AppState(performStartupTasks: false)
+        let item = CleanableItem(
+            name: "Cache",
+            path: "/tmp/cache",
+            size: 512,
+            category: .userCache,
+            isSelected: true,
+            lastModified: nil
+        )
+        appState.categoryResults[.userCache] = CategoryResult(
+            category: .userCache,
+            items: [item],
+            totalSize: item.size
+        )
+        appState.totalJunkSize = item.size
+        appState.scanState = .completed
+
+        appState.showDashboardOverview()
+
+        XCTAssertEqual(appState.scanState, .idle)
+        XCTAssertEqual(appState.totalJunkSize, item.size)
+        XCTAssertEqual(appState.categoryResults[.userCache]?.items, [item])
+
+        appState.scanState = .scanning(progress: 0.5, currentCategory: "User Cache")
+        appState.showDashboardOverview()
+        XCTAssertEqual(
+            appState.scanState,
+            .scanning(progress: 0.5, currentCategory: "User Cache")
+        )
+    }
+
+    func testCleaningEngineAllowsOnlyReviewedAIAppCleanupRoots() async {
+        let engine = CleaningEngine()
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+
+        let ollamaLogs = await engine.isSafeToDelete(resolvedPath: "\(home)/.ollama/logs")
+        let ollamaLogFile = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/.ollama/logs/server.log"
+        )
+        let ollamaHistory = await engine.isSafeToDelete(resolvedPath: "\(home)/.ollama/history")
+        let ollamaModels = await engine.isSafeToDelete(resolvedPath: "\(home)/.ollama/models")
+        let ollamaLogsSibling = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/.ollama/logs-backup"
+        )
+        let lmStudioLogs = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/.lmstudio/server-logs"
+        )
+        let lmStudioConversations = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/.lmstudio/conversations"
+        )
+        let lmStudioModels = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/.lmstudio/models"
+        )
+
+        XCTAssertTrue(ollamaLogs)
+        XCTAssertTrue(ollamaLogFile)
+        XCTAssertTrue(ollamaHistory)
+        XCTAssertFalse(ollamaModels)
+        XCTAssertFalse(ollamaLogsSibling)
+        XCTAssertTrue(lmStudioLogs)
+        XCTAssertTrue(lmStudioConversations)
+        XCTAssertFalse(lmStudioModels)
+    }
+
     func testScanForAppFilesTracksLocationsWhileResultsArePending() throws {
         var completion: ((Set<URL>) -> Void)?
         let expectedLocations = ["/one", "/two", "/three"]

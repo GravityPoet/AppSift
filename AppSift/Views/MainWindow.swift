@@ -176,13 +176,20 @@ struct MainWindow: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedSection = section
+            navigate(to: section)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction {
-            selectedSection = section
+            navigate(to: section)
         }
+    }
+
+    private func navigate(to section: AppSection) {
+        if section == .cleaning(.smartScan) {
+            appState.showDashboardOverview()
+        }
+        selectedSection = section
     }
 
     private var dashboardBadge: String? {

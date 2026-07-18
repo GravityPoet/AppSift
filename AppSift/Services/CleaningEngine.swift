@@ -255,7 +255,7 @@ actor CleaningEngine {
     /// Downloads, Documents, and Desktop are intentionally NOT whole-subtree
     /// allow-listed - scanLargeFiles emits per-file items instead, so those
     /// deletions can still happen through the explicit per-item flow.
-    private func isSafeToDelete(resolvedPath: String) -> Bool {
+    func isSafeToDelete(resolvedPath: String) -> Bool {
         let home = fileManager.homeDirectoryForCurrentUser.path
         let allowedRoots = [
             "\(home)/Library/Caches",
@@ -272,6 +272,13 @@ actor CleaningEngine {
             "\(home)/Library/Developer/Xcode/DerivedData",
             "\(home)/Library/Developer/Xcode/Archives",
             "\(home)/Library/Developer/CoreSimulator/Caches",
+            // AI-app scanner targets outside ~/Library. Keep these exact so
+            // logs and opt-in history can be cleaned without allowing model
+            // stores or other sibling data under ~/.ollama or ~/.lmstudio.
+            "\(home)/.ollama/logs",
+            "\(home)/.ollama/history",
+            "\(home)/.lmstudio/server-logs",
+            "\(home)/.lmstudio/conversations",
             "\(home)/.Trash",
             "\(home)/.npm",
             "\(home)/.cache",
