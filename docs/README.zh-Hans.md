@@ -1,15 +1,13 @@
+# 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
+
+---
+
 <p align="center">
-  <img src="../screenshot_v2.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
+  <img src="../screenshot_v3.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
 </p>
 
 <p align="center">
   <img src="../screenshots/breakdown.png" alt="AppSift scan results — by-category breakdown chart" width="820">
-</p>
-
-<p align="center">
-  <a href="../README.md">
-    <img src="https://img.shields.io/badge/Language-English-blue?style=for-the-badge&logo=github" alt="English Version">
-  </a>
 </p>
 
 <p align="center">

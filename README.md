@@ -1,15 +1,13 @@
+# 🌐 [点击这里切换到：简体中文版 (Chinese Version)](docs/README.zh-Hans.md)
+
+---
+
 <p align="center">
-  <img src="screenshot_v2.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
+  <img src="screenshot_v3.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
 </p>
 
 <p align="center">
   <img src="screenshots/breakdown.png" alt="AppSift scan results — by-category breakdown chart" width="820">
-</p>
-
-<p align="center">
-  <a href="docs/README.zh-Hans.md">
-    <img src="https://img.shields.io/badge/Language-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-blue?style=for-the-badge&logo=chinanet" alt="简体中文版">
-  </a>
 </p>
 
 <p align="center">
