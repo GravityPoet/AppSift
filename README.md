@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> ### 🌐 [点击这里：切换到简体中文版本 (Chinese Version)](docs/README.zh-Hans.md)
+> ### 🌐 [点击这里：切换到中文版本 (Chinese Version)](docs/README.zh-Hans.md)
 
 ---
 
