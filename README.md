@@ -1,4 +1,6 @@
-# 🌐 [点击这里切换到：简体中文版 (Chinese Version)](docs/README.zh-Hans.md)
+<p align="center">
+  <b>🌐 <a href="docs/README.zh-Hans.md">切换到中文版本</a></b>
+</p>
 
 ---
 

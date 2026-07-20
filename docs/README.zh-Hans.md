@@ -1,4 +1,6 @@
-# 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
+<p align="center">
+  <b>🌐 <a href="../README.md">Switch to English Version</a></b>
+</p>
 
 ---
 
