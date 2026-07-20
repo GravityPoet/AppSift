@@ -1,6 +1,4 @@
-> [!IMPORTANT]
-> ### 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
-
+# 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
 ---
 
 <p align="center">
