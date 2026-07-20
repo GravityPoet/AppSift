@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="screenshot.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
+  <img src="screenshot_v2.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
 </p>
 
 <p align="center">

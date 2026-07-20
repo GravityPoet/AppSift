@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../screenshot.png" alt="AppSift" width="700">
+  <img src="../screenshot_v2.png" alt="AppSift" width="700">
 </p>
 
 <p align="center">
