@@ -1,4 +1,5 @@
 import XCTest
+@testable import AppSift
 
 final class LocalizationFilesTests: XCTestCase {
     func testLegacyBrandOnlyAppearsInAttributionFiles() throws {
@@ -116,6 +117,17 @@ final class LocalizationFilesTests: XCTestCase {
                 "\(language).lproj/Localizable.strings has extra keys:\n\(extraKeys.joined(separator: "\n"))"
             )
         }
+    }
+
+    func testLocalizationDirectoriesMatchSelectableLanguages() throws {
+        let localizationDirectories = Set(try localizableStringsFiles().keys)
+        let selectableLanguages = Set(
+            AppLanguage.allCases
+                .filter { $0 != .system }
+                .map(\.rawValue)
+        )
+
+        XCTAssertEqual(localizationDirectories, selectableLanguages)
     }
 
     private func localizableStringsFiles() throws -> [String: URL] {

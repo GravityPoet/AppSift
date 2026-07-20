@@ -28,13 +28,23 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 
     static var current: AppLanguage {
-        if let selectedLanguage = UserDefaults.standard.string(forKey: preferenceKey),
+        resolve(
+            defaults: .standard,
+            bundleIdentifier: Bundle.main.bundleIdentifier
+        )
+    }
+
+    static func resolve(
+        defaults: UserDefaults,
+        bundleIdentifier: String?
+    ) -> AppLanguage {
+        if let selectedLanguage = defaults.string(forKey: preferenceKey),
            let language = AppLanguage(rawValue: selectedLanguage) {
             return language
         }
 
-        guard let bundleIdentifier = Bundle.main.bundleIdentifier,
-              let appDefaults = UserDefaults.standard.persistentDomain(forName: bundleIdentifier),
+        guard let bundleIdentifier,
+              let appDefaults = defaults.persistentDomain(forName: bundleIdentifier),
               let preferredLanguages = appDefaults["AppleLanguages"] as? [String],
               let preferredLanguage = preferredLanguages.first else {
             return .system

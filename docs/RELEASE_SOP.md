@@ -72,6 +72,15 @@ from memory or from an adjacent README.
   live external service dependency.
 - Marketed-locale strict i18n: the complete test suite must pass
   `LocalizationFilesTests.testAllLocalizableStringsFilesHaveEnglishKeyParity`.
+- System-language default: a fresh customer profile must resolve to
+  `AppLanguage.system`; every selectable language must have a matching packaged
+  `.lproj`, and Foundation preference matching must select the corresponding
+  localization for supported system languages while falling back to English
+  for unsupported languages. Only an explicit customer choice may override the
+  system default; selecting System Default must remove `AppleLanguages`. Launch
+  the packaged app under at least one clean supported system-language profile
+  and verify localized UI text at the main-app boundary; a non-main `Bundle`
+  probe is not sufficient evidence.
 - Platform package assets: the packaged app must contain the generated icon,
   the expected bundle ID/version, both `arm64` and `x86_64`, and valid strict
   signatures in the app, DMG, and ZIP.
@@ -197,6 +206,10 @@ URL to `AppSift-#{version}.zip` as well as changing version and checksum.
 - Candidate app: version/build/bundle ID are `MARKETING_VERSION`,
   `CURRENT_PROJECT_VERSION`, and `com.gravitypoet.appsift`; architectures are
   `arm64 x86_64`; strict signature and pinned requirement pass.
+- Localization: the package contains exactly the selectable `.lproj` resources;
+  a clean profile follows the customer's preferred system language, explicit
+  customer overrides remain honored, and unsupported languages fall back to
+  the English development region.
 - GitHub: `gh release view <tag> --json url,tagName,isDraft,isPrerelease,assets`
   reports a public stable release with all five expected assets.
 - Public download: download the release ZIP and both checksum files into a
@@ -257,3 +270,8 @@ URL to `AppSift-#{version}.zip` as well as changing version and checksum.
 | 2026-07-20 | 1.0.4 / v1.0.4 | `brew style --cask <tap>/Casks/appsift.rb` | `Cask/Desc`; `Layout/LineLength`; `Cask/ArrayAlphabetization` | The first tap cask used a platform word in `desc`, an overlong `lsregister` path line, and unsorted `zap` entries | Remove the platform word, split the path through a local variable, alphabetize `zap`, and rerun style/audit from the actual tap | Run Homebrew style from the real tap before declaring cask distribution complete |
 | 2026-07-20 | 1.0.4 / v1.0.4 | `brew audit --cask --online GravityPoet/tap/appsift` | `Your Xcode (26.6) ... is too outdated. Please update to Xcode 27.0 (or delete it).` | Homebrew 6 rejected the release host's macOS 27/Xcode 26.6 pair during its fatal setup-build-environment checks before cask auditing began | Preserve the host state, keep the successful real-tap style/fetch/info evidence, and run Homebrew's generated `brew test-bot` workflow on supported GitHub-hosted runners | Use the current `brew tap-new` CI template for tap auditing; do not spoof CI variables or change the host toolchain solely to bypass an audit precondition |
 | 2026-07-20 | 1.0.4 / v1.0.4 | first `brew tap-new`-derived tap workflow push | `Invalid workflow file ... (Line: 19, Col: 5): Unexpected value 'options'` | Homebrew 6.0.0's generated template placed the Linux container `options` key at job level, which GitHub Actions rejected before creating jobs | Keep the generated Homebrew setup/test-bot steps and macOS runner matrix, but remove the invalid Linux container and job-level `options` fields for this cask-only tap | Inspect a generated workflow's first GitHub annotation and require at least one real job before treating the current local template as executable |
+| 2026-07-20 | 1.0.4 / v1.0.4 | repaired tap workflow push and manual dispatch | `startup_failure` with zero jobs while GitHub Status reported a critical Actions incident and `partial_outage` | GitHub-hosted workflow runners were unavailable; the workflow never reached repository code | Preserve the exact commit and workflow, wait until the official Actions component is operational, then dispatch once and require both macOS matrix jobs to pass | When a run has zero jobs, correlate its annotation and timestamp with official service status before changing workflow code or creating retry loops |
+| 2026-07-20 | 1.0.4 / v1.0.4 | local `brew test-bot --only-tap-syntax` fallback | Test-bot installed `actionlint` and `shellcheck`, then stopped at the same host Xcode minimum before cask audit | Homebrew prepared validator dependencies before its fatal host-toolchain gate, leaving new formulae on the release host | Use the installed validators for syntax evidence, then uninstall only the exact formulae confirmed absent before the run; keep real-tap style/readall/fetch/info evidence | Snapshot relevant Homebrew leaves before local test-bot fallback and clean only test-added dependencies after validation |
+| 2026-07-20 | 1.0.4 / v1.0.4 | AppleScript Accessibility dump using `entire contents as Unicode text` | `不能将 ... 转换为 Unicode text (-1700)` | Accessibility element references are not directly coercible to one Unicode string even though the partial output exposed localized labels | Read each element's `AXValue`, title, or description individually, or use a focused UI probe | Do not stringify raw Accessibility references when verifying localized UI; assert concrete user-visible values |
+| 2026-07-20 | 1.0.4 / v1.0.4 | `bundle.preferredLocalizations` on `/Applications/AppSift.app` loaded as a non-main bundle | Every synthetic language preference appeared to select English, contradicting the live Chinese UI | Instance preference resolution for a separately loaded bundle followed the probe process context and was not a faithful main-app launch boundary | Use `Bundle.preferredLocalizations(from:forPreferences:)` for deterministic supported-locale matching, load strings from the selected `.lproj`, and confirm at least one packaged launch through visible UI | Never use a non-main bundle's `preferredLocalizations` as sole proof of an app's system-language default |
+| 2026-07-20 | 1.0.4 / v1.0.4 | `python3 .../quick_validate.py /Users/moonlitpoet/.agents/skills/mp-release` | `ModuleNotFoundError: No module named 'yaml'` | The host Python environment lacked the validator's undeclared `PyYAML` runtime dependency | Install `PyYAML` into a guarded temporary target, rerun with that directory in `PYTHONPATH`, then remove the temporary target | Check validator imports before treating a skill as invalid; keep fallback dependencies isolated from the host Python environment |
