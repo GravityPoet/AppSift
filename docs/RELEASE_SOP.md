@@ -92,7 +92,10 @@ from memory or from an adjacent README.
   claim Developer ID signing, notarization, or stapling. The public Release
   body must contain complete `## English` and `## 中文` sections with matching
   customer-facing facts; verify both headings and the final body through
-  `gh release view <tag> --json body` after publication.
+  `gh release view <tag> --json body` after publication. Keep the copy focused
+  on shipped customer value and operational facts; do not add novelty/status
+  claims such as “first public release” or “current code line” that reduce
+  perceived maturity without helping the customer.
 
 ## Commands
 
@@ -279,3 +282,4 @@ URL to `AppSift-#{version}.zip` as well as changing version and checksum.
 | 2026-07-20 | 1.0.4 / v1.0.4 | `bundle.preferredLocalizations` on `/Applications/AppSift.app` loaded as a non-main bundle | Every synthetic language preference appeared to select English, contradicting the live Chinese UI | Instance preference resolution for a separately loaded bundle followed the probe process context and was not a faithful main-app launch boundary | Use `Bundle.preferredLocalizations(from:forPreferences:)` for deterministic supported-locale matching, load strings from the selected `.lproj`, and confirm at least one packaged launch through visible UI | Never use a non-main bundle's `preferredLocalizations` as sole proof of an app's system-language default |
 | 2026-07-20 | 1.0.4 / v1.0.4 | `python3 .../quick_validate.py /Users/moonlitpoet/.agents/skills/mp-release` | `ModuleNotFoundError: No module named 'yaml'` | The host Python environment lacked the validator's undeclared `PyYAML` runtime dependency | Install `PyYAML` into a guarded temporary target, rerun with that directory in `PYTHONPATH`, then remove the temporary target | Check validator imports before treating a skill as invalid; keep fallback dependencies isolated from the host Python environment |
 | 2026-07-20 | 1.0.4 / v1.0.4 | `gh release view v1.0.4 --json body` | Public Release body contained only the English version despite the required English/Chinese release introduction | The release-note draft was not checked against the repository's bilingual customer-copy convention before publication | Edit only the existing Release body, add complete `## English` and `## 中文` sections, then verify both headings and unchanged tag/assets through the GitHub API and public page | Treat bilingual headings as a release gate; never infer language completeness from README language switchers or a single translated paragraph |
+| 2026-07-20 | 1.0.4 / v1.0.4 | `gh release view v1.0.4 --json body` | Release body used “first public customer release/current code line” wording that added no customer value and weakened perceived maturity | The draft copied internal release context instead of customer-facing product value | Remove novelty/status framing from both language sections; retain only shipped capabilities, installation, signing, checksum, and verification facts | Review every introductory sentence for customer utility; do not use “first”, “new code line”, or similar maturity-undermining claims unless the customer explicitly needs that fact |
