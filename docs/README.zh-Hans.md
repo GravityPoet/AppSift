@@ -1,6 +1,3 @@
-## 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
----
-
 <p align="center">
   <img src="../screenshot_v3.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
 </p>
@@ -8,6 +5,9 @@
 <p align="center">
   <img src="../screenshots/breakdown.png" alt="AppSift scan results — by-category breakdown chart" width="820">
 </p>
+
+## 🌐 [Click Here to Switch to: English Version (英文版)](../README.md)
+---
 
 <p align="center">
   <img src="assets/icon.png" alt="AppSift eraser app icon" width="128">

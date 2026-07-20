@@ -1,6 +1,3 @@
-## 🌐 [点击这里：切换到中文版本 (Chinese Version)](docs/README.zh-Hans.md)
----
-
 <p align="center">
   <img src="screenshot_v3.png" alt="AppSift dashboard — animated storage health ring and live composition donut" width="820">
 </p>
@@ -8,6 +5,9 @@
 <p align="center">
   <img src="screenshots/breakdown.png" alt="AppSift scan results — by-category breakdown chart" width="820">
 </p>
+
+## 🌐 [点击这里：切换到中文版本 (Chinese Version)](docs/README.zh-Hans.md)
+---
 
 <p align="center">
   <img src="docs/assets/icon.png" alt="AppSift eraser app icon" width="128">
