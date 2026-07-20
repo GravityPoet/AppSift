@@ -1,6 +1,5 @@
-<p align="center">
-  <b>🌐 <a href="docs/README.zh-Hans.md">切换到中文版本</a></b>
-</p>
+> [!IMPORTANT]
+> ### 🌐 [点击这里：切换到简体中文版本 (Chinese Version)](docs/README.zh-Hans.md)
 
 ---
 
