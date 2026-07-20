@@ -89,7 +89,10 @@ from memory or from an adjacent README.
   baseline when present.
 - Customer copy: release notes must say `self-signed` and `not Apple-notarized`,
   provide SHA-256 values, and explain Finder **Open** for first launch. Do not
-  claim Developer ID signing, notarization, or stapling.
+  claim Developer ID signing, notarization, or stapling. The public Release
+  body must contain complete `## English` and `## 中文` sections with matching
+  customer-facing facts; verify both headings and the final body through
+  `gh release view <tag> --json body` after publication.
 
 ## Commands
 
@@ -275,3 +278,4 @@ URL to `AppSift-#{version}.zip` as well as changing version and checksum.
 | 2026-07-20 | 1.0.4 / v1.0.4 | AppleScript Accessibility dump using `entire contents as Unicode text` | `不能将 ... 转换为 Unicode text (-1700)` | Accessibility element references are not directly coercible to one Unicode string even though the partial output exposed localized labels | Read each element's `AXValue`, title, or description individually, or use a focused UI probe | Do not stringify raw Accessibility references when verifying localized UI; assert concrete user-visible values |
 | 2026-07-20 | 1.0.4 / v1.0.4 | `bundle.preferredLocalizations` on `/Applications/AppSift.app` loaded as a non-main bundle | Every synthetic language preference appeared to select English, contradicting the live Chinese UI | Instance preference resolution for a separately loaded bundle followed the probe process context and was not a faithful main-app launch boundary | Use `Bundle.preferredLocalizations(from:forPreferences:)` for deterministic supported-locale matching, load strings from the selected `.lproj`, and confirm at least one packaged launch through visible UI | Never use a non-main bundle's `preferredLocalizations` as sole proof of an app's system-language default |
 | 2026-07-20 | 1.0.4 / v1.0.4 | `python3 .../quick_validate.py /Users/moonlitpoet/.agents/skills/mp-release` | `ModuleNotFoundError: No module named 'yaml'` | The host Python environment lacked the validator's undeclared `PyYAML` runtime dependency | Install `PyYAML` into a guarded temporary target, rerun with that directory in `PYTHONPATH`, then remove the temporary target | Check validator imports before treating a skill as invalid; keep fallback dependencies isolated from the host Python environment |
+| 2026-07-20 | 1.0.4 / v1.0.4 | `gh release view v1.0.4 --json body` | Public Release body contained only the English version despite the required English/Chinese release introduction | The release-note draft was not checked against the repository's bilingual customer-copy convention before publication | Edit only the existing Release body, add complete `## English` and `## 中文` sections, then verify both headings and unchanged tag/assets through the GitHub API and public page | Treat bilingual headings as a release gate; never infer language completeness from README language switchers or a single translated paragraph |
