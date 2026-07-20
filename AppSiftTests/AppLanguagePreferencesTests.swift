@@ -2,6 +2,86 @@ import XCTest
 @testable import AppSift
 
 final class AppLanguagePreferencesTests: XCTestCase {
+    func testFreshInstallDefaultsToSystemLanguage() {
+        let context = makeDefaults()
+
+        XCTAssertEqual(
+            AppLanguage.resolve(
+                defaults: context.defaults,
+                bundleIdentifier: context.suiteName
+            ),
+            .system
+        )
+    }
+
+    func testExplicitCustomerChoiceOverridesSystemDefault() {
+        let context = makeDefaults()
+        context.defaults.set(
+            AppLanguage.japanese.rawValue,
+            forKey: AppLanguage.preferenceKey
+        )
+
+        XCTAssertEqual(
+            AppLanguage.resolve(
+                defaults: context.defaults,
+                bundleIdentifier: context.suiteName
+            ),
+            .japanese
+        )
+    }
+
+    func testLegacyAppLanguageOverrideIsPreserved() {
+        let context = makeDefaults()
+        context.defaults.set(["zh_Hant"], forKey: "AppleLanguages")
+
+        XCTAssertEqual(
+            AppLanguage.resolve(
+                defaults: context.defaults,
+                bundleIdentifier: context.suiteName
+            ),
+            .traditionalChinese
+        )
+    }
+
+    func testUnsupportedLegacyOverrideFallsBackToSystemLanguage() {
+        let context = makeDefaults()
+        context.defaults.set(["fr-FR"], forKey: "AppleLanguages")
+
+        XCTAssertEqual(
+            AppLanguage.resolve(
+                defaults: context.defaults,
+                bundleIdentifier: context.suiteName
+            ),
+            .system
+        )
+    }
+
+    func testSupportedLocalizationsFollowSystemLanguagePreferences() {
+        let supported = AppLanguage.allCases
+            .filter { $0 != .system }
+            .map(\.rawValue)
+        let expectations = [
+            "zh-Hans-CN": "zh-Hans",
+            "zh-Hant-TW": "zh-Hant",
+            "ja-JP": "ja",
+            "es-ES": "es",
+            "ar-SA": "ar",
+            "pt-BR": "pt-BR",
+            "fr-FR": "en",
+        ]
+
+        for (systemLanguage, expectedLocalization) in expectations {
+            XCTAssertEqual(
+                Bundle.preferredLocalizations(
+                    from: supported,
+                    forPreferences: [systemLanguage]
+                ).first,
+                expectedLocalization,
+                "Expected \(systemLanguage) to select \(expectedLocalization)"
+            )
+        }
+    }
+
     func testApplyCustomLanguageSetsAppleLanguagesAndPreservesLocale() {
         let context = makeDefaults()
         let defaults = context.defaults
