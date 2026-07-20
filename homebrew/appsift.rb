@@ -1,10 +1,11 @@
 cask "appsift" do
-  # Set to the published ZIP checksum by the release workflow. Until the
-  # first AppSift release exists, Homebrew cannot verify a remote artifact.
+  # Set to the published ZIP checksum after each release. Current customer
+  # artifacts are explicitly self-signed; a future Developer ID migration
+  # rewrites this URL to the notarized artifact name.
   version "1.0.0"
   sha256 :no_check
 
-  url "https://github.com/GravityPoet/AppSift/releases/download/v#{version}/AppSift-#{version}.zip"
+  url "https://github.com/GravityPoet/AppSift/releases/download/v#{version}/AppSift-#{version}-self-signed.zip"
   name "AppSift"
   desc "Free, open-source macOS app manager and system cleaner"
   homepage "https://github.com/GravityPoet/AppSift"

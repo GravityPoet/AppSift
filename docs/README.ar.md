@@ -52,6 +52,7 @@
 
 ```bash
 brew update
+brew tap GravityPoet/tap
 brew install --cask appsift
 ```
 

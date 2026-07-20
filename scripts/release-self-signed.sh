@@ -7,7 +7,6 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIGNING_SCRIPT="$ROOT_DIR/scripts/ensure-local-codesign-cert.sh"
 PROJECT_VERSION="$(
   sed -n 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"\([^"]*\)".*/\1/p' \
     "$ROOT_DIR/project.yml"
@@ -16,6 +15,11 @@ VERSION="${1:-$PROJECT_VERSION}"
 APP_NAME="AppSift.app"
 BUNDLE_ID="com.gravitypoet.appsift"
 EXECUTABLE_NAME="AppSift"
+SIGNING_NAME="AppSift Local Code Signing"
+SIGNING_SHA1="90F1896851E020316315F97A149EABA00F9CFD8C"
+SIGNING_SHA256="D3C9F51F87A9826C44F53999C2D2F535F0CA921D6982C54939AF3DF30B5E797D"
+EXPECTED_REQUIREMENT='designated => identifier "com.gravitypoet.appsift" and certificate leaf = H"90f1896851e020316315f97a149eaba00f9cfd8c"'
+KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 ARCHS="${ARCHS:-arm64 x86_64}"
 OUTPUT_DIR="$ROOT_DIR/build"
 DMG="$OUTPUT_DIR/AppSift-$VERSION-self-signed.dmg"
@@ -23,6 +27,8 @@ ZIP="$OUTPUT_DIR/AppSift-$VERSION-self-signed.zip"
 STATUS_FILE="$OUTPUT_DIR/AppSift-$VERSION-self-signed.txt"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/appsift-customer-release.XXXXXX")"
 DERIVED_DATA="$TEMP_ROOT/DerivedData.noindex"
+GENERATED_PROJECT_DIR="$TEMP_ROOT/project"
+GENERATED_PROJECT="$GENERATED_PROJECT_DIR/AppSift.xcodeproj"
 BUILT_APP="$DERIVED_DATA/Build/Products/Release/$APP_NAME"
 DMG_ROOT="$TEMP_ROOT/dmg-root"
 VERIFY_ROOT="$TEMP_ROOT/archive-verification"
@@ -56,17 +62,61 @@ if [[ -z "$PROJECT_VERSION" || "$VERSION" != "$PROJECT_VERSION" ]]; then
   echo "Error: release version '$VERSION' does not match project.yml '$PROJECT_VERSION'." >&2
   exit 2
 fi
+if ! command -v xcodegen >/dev/null 2>&1; then
+  echo "Error: xcodegen is required to build the release project from project.yml." >&2
+  exit 1
+fi
 
-mkdir -p "$OUTPUT_DIR" "$DMG_ROOT" "$VERIFY_ROOT" "$DMG_VERIFY_MOUNT"
+IDENTITY_MATCHES="$(
+  /usr/bin/security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null \
+    | /usr/bin/grep -F "\"$SIGNING_NAME\"" || true
+)"
+if [[ "$IDENTITY_MATCHES" != *"$SIGNING_SHA1"* ]]; then
+  echo "Error: the pinned AppSift release identity is missing or changed." >&2
+  echo "Expected SHA-1: $SIGNING_SHA1" >&2
+  echo "Release builds must not create or replace the customer signing identity." >&2
+  exit 1
+fi
+CERTIFICATE_INFO="$(
+  /usr/bin/security find-certificate -Z -c "$SIGNING_NAME" "$KEYCHAIN" 2>/dev/null || true
+)"
+if [[ "$CERTIFICATE_INFO" != *"SHA-256 hash: $SIGNING_SHA256"* ]]; then
+  echo "Error: the AppSift release certificate does not match the pinned SHA-256 fingerprint." >&2
+  exit 1
+fi
+if [[ -d "/Applications/$APP_NAME/Contents" ]]; then
+  INSTALLED_REQUIREMENT="$(
+    /usr/bin/codesign -d -r- "/Applications/$APP_NAME" 2>&1 \
+      | /usr/bin/awk '/^designated =>/ && !printed { print; printed = 1 }'
+  )"
+  if [[ "$INSTALLED_REQUIREMENT" != "$EXPECTED_REQUIREMENT" ]]; then
+    echo "Error: /Applications/$APP_NAME does not match the pinned release identity." >&2
+    echo "Refusing to publish an update that would silently break macOS privacy permissions." >&2
+    exit 1
+  fi
+fi
+
+mkdir -p \
+  "$OUTPUT_DIR" \
+  "$DMG_ROOT" \
+  "$VERIFY_ROOT" \
+  "$DMG_VERIFY_MOUNT" \
+  "$GENERATED_PROJECT_DIR"
 : >"$TEMP_ROOT/.metadata_never_index"
 : >"$VERIFY_ROOT/.metadata_never_index"
 /bin/rm -f -- "$DMG" "$ZIP" "$STATUS_FILE" "$DMG_TEMP" "$ZIP_TEMP" "$STATUS_TEMP"
 
-SIGN_IDENTITY="$("$SIGNING_SCRIPT")"
+/bin/ln -s "$ROOT_DIR/AppSift" "$GENERATED_PROJECT_DIR/AppSift"
+/bin/ln -s "$ROOT_DIR/AppSiftTests" "$GENERATED_PROJECT_DIR/AppSiftTests"
+xcodegen generate \
+  --no-env \
+  --spec "$ROOT_DIR/project.yml" \
+  --project "$GENERATED_PROJECT_DIR" \
+  --project-root "$ROOT_DIR"
 
 xcodebuild \
   -quiet \
-  -project "$ROOT_DIR/AppSift.xcodeproj" \
+  -project "$GENERATED_PROJECT" \
   -scheme AppSift \
   -configuration Release \
   -destination 'generic/platform=macOS' \
@@ -76,23 +126,23 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=YES \
   CODE_SIGNING_REQUIRED=YES \
   CODE_SIGN_STYLE=Manual \
-  CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+  CODE_SIGN_IDENTITY="$SIGNING_SHA1" \
   DEVELOPMENT_TEAM="" \
   OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
   build
 
 codesign --verify --deep --strict --verbose=2 "$BUILT_APP"
 if ! codesign -dvv "$BUILT_APP" 2>&1 \
-    | grep -F "Authority=$SIGN_IDENTITY" >/dev/null; then
-  echo "Error: customer build did not use $SIGN_IDENTITY." >&2
+    | grep -F "Authority=$SIGNING_NAME" >/dev/null; then
+  echo "Error: customer build did not use $SIGNING_NAME." >&2
   exit 1
 fi
 REQUIREMENT="$(
   codesign -d -r- "$BUILT_APP" 2>&1 \
     | awk '/^designated =>/ && !printed { print; printed = 1 }'
 )"
-if [[ "$REQUIREMENT" != *'certificate leaf = H"'* ]]; then
-  echo "Error: customer build has a content-bound code requirement." >&2
+if [[ "$REQUIREMENT" != "$EXPECTED_REQUIREMENT" ]]; then
+  echo "Error: customer build does not match the pinned designated requirement." >&2
   exit 1
 fi
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
@@ -113,7 +163,7 @@ hdiutil create \
   -format UDZO \
   -ov \
   "$DMG_TEMP"
-codesign --force --sign "$SIGN_IDENTITY" --timestamp=none "$DMG_TEMP" >/dev/null
+codesign --force --sign "$SIGNING_SHA1" --timestamp=none "$DMG_TEMP" >/dev/null
 codesign --verify --strict "$DMG_TEMP"
 hdiutil attach \
   -readonly \
@@ -157,6 +207,7 @@ Signing: self-signed with AppSift Local Code Signing
 Notarization: not notarized by Apple
 Gatekeeper: customers may need to use Open from the Finder context menu
 Bundle ID: $BUNDLE_ID
+Certificate SHA-256: $SIGNING_SHA256
 Designated requirement: $REQUIREMENT
 DMG SHA-256: $DMG_SHA256
 ZIP SHA-256: $ZIP_SHA256
