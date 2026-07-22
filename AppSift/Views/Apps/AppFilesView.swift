@@ -955,6 +955,11 @@ struct AppFilesView: View {
                 metadata.token
             )
         }
+        if appState.selectedFilesRequireAdministratorAccess {
+            message += "\n\n" + String(
+                localized: "Some selected items are owned by macOS or a system installer. AppSift will request administrator authorization once, stop matching background services, move the reviewed batch to Trash, and roll it back if verification fails."
+            )
+        }
         return message
     }
 
@@ -1627,6 +1632,14 @@ struct RemovalHistoryView: View {
                 .foregroundStyle(item.evidence == .legacyUnknown ? .secondary : Tint.blue)
                 .lineLimit(1)
                 .padding(.leading, 36)
+
+            if let failure = item.failure {
+                Label(failure.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(Tint.red)
+                    .lineLimit(2)
+                    .padding(.leading, 36)
+            }
         }
         .padding(.vertical, 3)
         .help(item.originalPath)

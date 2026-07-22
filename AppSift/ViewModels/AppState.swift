@@ -103,6 +103,17 @@ struct ProtectedAppFile: Identifiable, Hashable {
 struct TrashedAppFile: Hashable, Sendable {
     let originalURL: URL
     let trashURL: URL
+    let launchdWasLoaded: Bool?
+
+    init(
+        originalURL: URL,
+        trashURL: URL,
+        launchdWasLoaded: Bool? = nil
+    ) {
+        self.originalURL = originalURL
+        self.trashURL = trashURL
+        self.launchdWasLoaded = launchdWasLoaded
+    }
 }
 
 struct AppFileTrashResult: Sendable {
@@ -110,6 +121,25 @@ struct AppFileTrashResult: Sendable {
     let missing: [URL]
     let needsFullDiskAccess: Bool
     let failed: [URL]
+    let failureDetails: [String: AppFileRemovalFailure]
+
+    init(
+        trashed: [TrashedAppFile],
+        missing: [URL],
+        needsFullDiskAccess: Bool,
+        failed: [URL],
+        failureDetails: [String: AppFileRemovalFailure] = [:]
+    ) {
+        self.trashed = trashed
+        self.missing = missing
+        self.needsFullDiskAccess = needsFullDiskAccess
+        self.failed = failed
+        self.failureDetails = failureDetails
+    }
+
+    func failure(for url: URL) -> AppFileRemovalFailure? {
+        failureDetails[url.standardizedFileURL.path]
+    }
 }
 
 /// Finder-semantic Trash boundary for app removal. Unlike the general junk
@@ -126,16 +156,44 @@ enum AppFileTrashService {
             )
         }
 
+        let privilegedService = PrivilegedAppRemovalService()
+        if privilegedService.shouldHandleTrash(urls) {
+            return await privilegedService.trash(urls)
+        }
+
         let hasFullDiskAccess = FullDiskAccessManager.shared.hasFullDiskAccess
         return await withCheckedContinuation { continuation in
             NSWorkspace.shared.recycle(urls) { recycled, error in
-                let result = classify(
+                let finderResult = classify(
                     requested: urls,
                     recycled: recycled,
                     error: error as NSError?,
                     hasFullDiskAccess: hasFullDiskAccess
                 )
-                continuation.resume(returning: result)
+                guard hasFullDiskAccess,
+                      !finderResult.failed.isEmpty,
+                      containsPermissionDenied(error as NSError?) else {
+                    continuation.resume(returning: finderResult)
+                    return
+                }
+
+                Task { @MainActor in
+                    let adminResult = await privilegedService.trash(finderResult.failed)
+                    var failureDetails = finderResult.failureDetails
+                    for item in adminResult.trashed + finderResult.trashed {
+                        failureDetails.removeValue(
+                            forKey: item.originalURL.standardizedFileURL.path
+                        )
+                    }
+                    failureDetails.merge(adminResult.failureDetails) { _, latest in latest }
+                    continuation.resume(returning: AppFileTrashResult(
+                        trashed: finderResult.trashed + adminResult.trashed,
+                        missing: finderResult.missing + adminResult.missing,
+                        needsFullDiskAccess: false,
+                        failed: adminResult.failed,
+                        failureDetails: failureDetails
+                    ))
+                }
             }
         }
     }
@@ -176,13 +234,25 @@ enum AppFileTrashService {
             )
         }
 
+        let permissionDenied = containsPermissionDenied(error)
+        let failure = AppFileRemovalFailure(
+            kind: permissionDenied
+                ? (hasFullDiskAccess ? .administratorAccessRequired : .fullDiskAccessRequired)
+                : .finderRejected,
+            detail: error?.localizedDescription
+        )
         return AppFileTrashResult(
             trashed: trashed,
             missing: missing,
             needsFullDiskAccess: !hasFullDiskAccess
                 && !failed.isEmpty
-                && containsPermissionDenied(error),
-            failed: failed
+                && permissionDenied,
+            failed: failed,
+            failureDetails: Dictionary(
+                uniqueKeysWithValues: failed.map {
+                    ($0.standardizedFileURL.path, failure)
+                }
+            )
         )
     }
 
@@ -253,6 +323,8 @@ struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
     let trashPath: String?
     let outcome: AppRemovalItemOutcome
     let evidence: AppFileMatchEvidence
+    let failure: AppFileRemovalFailure?
+    let launchdWasLoaded: Bool?
     var restoredAt: Date?
 
     init(
@@ -261,6 +333,8 @@ struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
         trashPath: String? = nil,
         outcome: AppRemovalItemOutcome = .movedToTrash,
         evidence: AppFileMatchEvidence = .legacyUnknown,
+        failure: AppFileRemovalFailure? = nil,
+        launchdWasLoaded: Bool? = nil,
         restoredAt: Date? = nil
     ) {
         self.id = id
@@ -268,6 +342,8 @@ struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
         self.trashPath = trashPath
         self.outcome = outcome
         self.evidence = evidence
+        self.failure = failure
+        self.launchdWasLoaded = launchdWasLoaded
         self.restoredAt = restoredAt
     }
 
@@ -277,6 +353,8 @@ struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
         case trashPath
         case outcome
         case evidence
+        case failure
+        case launchdWasLoaded
         case restoredAt
     }
 
@@ -293,6 +371,14 @@ struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
             AppFileMatchEvidence.self,
             forKey: .evidence
         ) ?? .legacyUnknown
+        failure = try container.decodeIfPresent(
+            AppFileRemovalFailure.self,
+            forKey: .failure
+        )
+        launchdWasLoaded = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .launchdWasLoaded
+        )
         restoredAt = try container.decodeIfPresent(Date.self, forKey: .restoredAt)
     }
 }
@@ -315,7 +401,7 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
     let protectedItems: [AppRemovalProtectedItem]
 
     init(
-        schemaVersion: Int = 3,
+        schemaVersion: Int = 4,
         id: UUID = UUID(),
         appName: String,
         bundleIdentifier: String,
@@ -625,12 +711,13 @@ final class AppRemovalHistoryStore: @unchecked Sendable {
                     && !record.bundleIdentifier.isEmpty
                     && record.appName.count <= 512
                     && record.bundleIdentifier.count <= 1_024
-                    && (1...3).contains(record.schemaVersion)
+                    && (1...4).contains(record.schemaVersion)
                     && !record.items.isEmpty
                     && record.items.allSatisfy {
                         !$0.originalPath.isEmpty
                             && $0.originalPath.count <= 4_096
                             && ($0.trashPath?.count ?? 0) <= 4_096
+                            && ($0.failure?.detail?.count ?? 0) <= 2_048
                             && ($0.outcome != .movedToTrash
                                 || $0.trashPath?.isEmpty == false)
                     }
@@ -667,6 +754,7 @@ struct AppRemovalRestorer: Sendable {
         case sourceMissing
         case destinationExists
         case requiresAdministratorAccess
+        case authorizationCancelled
         case blocked
         case failed(String)
     }
@@ -1620,6 +1708,13 @@ final class AppState: ObservableObject {
                 evidence: evidenceFinder.evidence(for: $0)
             ) != nil
         }
+    }
+
+    var selectedFilesRequireAdministratorAccess: Bool {
+        guard !selectedFiles.isEmpty else { return false }
+        return PrivilegedAppRemovalService().requiresAdministratorAccess(
+            for: Array(selectedFiles)
+        )
     }
 
     var availableAppResetFiles: Set<URL> {
@@ -3647,6 +3742,7 @@ final class AppState: ObservableObject {
                 removedAny: !removed.isEmpty,
                 needsFullDiskAccess: result.needsFullDiskAccess,
                 failed: result.failed,
+                failureDetails: result.failureDetails,
                 app: app,
                 historyRecordID: recordID,
                 operation: operation
@@ -3777,6 +3873,7 @@ final class AppState: ObservableObject {
         removedAny: Bool,
         needsFullDiskAccess: Bool,
         failed: [URL],
+        failureDetails: [String: AppFileRemovalFailure],
         app: InstalledApp,
         historyRecordID: UUID,
         operation: AppRemovalOperation
@@ -3794,7 +3891,8 @@ final class AppState: ObservableObject {
         removalNeedsFullDiskAccess = needsFullDiskAccess
         if let message = removalFailureMessage(
             needsFullDiskAccess: needsFullDiskAccess,
-            failed: failed
+            failed: failed,
+            failureDetails: failureDetails
         ) {
             if let existing = removalError, !existing.isEmpty {
                 removalError = existing + "\n" + message
@@ -3836,9 +3934,9 @@ final class AppState: ObservableObject {
             (existingRecord?.items ?? []).map { ($0.originalPath, $0) },
             uniquingKeysWith: { existing, _ in existing }
         )
-        let trashedByPath = Dictionary(
+        let trashedByPath: [String: TrashedAppFile] = Dictionary(
             result.trashed.map {
-                ($0.originalURL.standardizedFileURL.path, $0.trashURL.path)
+                ($0.originalURL.standardizedFileURL.path, $0)
             },
             uniquingKeysWith: { existing, _ in existing }
         )
@@ -3850,15 +3948,23 @@ final class AppState: ObservableObject {
                 let previous = existingItemsByPath[url.path]
                 let outcome: AppRemovalItemOutcome
                 let trashPath: String?
-                if let movedPath = trashedByPath[url.path] {
+                let launchdWasLoaded: Bool?
+                let failure: AppFileRemovalFailure?
+                if let movedItem = trashedByPath[url.path] {
                     outcome = .movedToTrash
-                    trashPath = movedPath
+                    trashPath = movedItem.trashURL.path
+                    launchdWasLoaded = movedItem.launchdWasLoaded
+                    failure = nil
                 } else if missingPaths.contains(url.path) {
                     outcome = .alreadyMissing
                     trashPath = nil
+                    launchdWasLoaded = nil
+                    failure = nil
                 } else {
                     outcome = .failed
                     trashPath = nil
+                    launchdWasLoaded = nil
+                    failure = result.failure(for: url)
                 }
                 return AppRemovalHistoryItem(
                     id: previous?.id ?? UUID(),
@@ -3868,13 +3974,15 @@ final class AppState: ObservableObject {
                     evidence: previous?.evidence
                         ?? appFileMatchEvidenceByPath[url.path]
                         ?? .legacyUnknown,
+                    failure: failure,
+                    launchdWasLoaded: launchdWasLoaded,
                     restoredAt: outcome == .movedToTrash ? previous?.restoredAt : nil
                 )
             }
 
         let record: AppRemovalRecord
         let reportSaved: Bool
-        if var existingRecord {
+        if let existingRecord {
             var mergedItems = existingRecord.items
             for item in attemptItems {
                 if let index = mergedItems.firstIndex(where: {
@@ -3886,8 +3994,17 @@ final class AppState: ObservableObject {
                 }
             }
             mergedItems.sort { $0.originalPath < $1.originalPath }
-            existingRecord.items = mergedItems
-            record = existingRecord
+            record = AppRemovalRecord(
+                schemaVersion: 4,
+                id: existingRecord.id,
+                appName: existingRecord.appName,
+                bundleIdentifier: existingRecord.bundleIdentifier,
+                removedAt: existingRecord.removedAt,
+                operation: existingRecord.operation,
+                searchSensitivity: existingRecord.searchSensitivity,
+                items: mergedItems,
+                protectedItems: existingRecord.protectedItems
+            )
             reportSaved = removalHistoryStore.replace(record)
         } else {
             let protectedItems = protectedAppFiles.map {
@@ -3968,10 +4085,21 @@ final class AppState: ObservableObject {
 
         restoringRemovalItemIDs.formUnion(items.map(\.id))
         removalHistoryError = nil
-        let restorer = appRemovalRestorer
-        let restorationTask = Task.detached(priority: .userInitiated) {
-            items.map { item in
-                (item, restorer.restore(item))
+        let privilegedService = PrivilegedAppRemovalService()
+        let restorationTask: Task<[(AppRemovalHistoryItem, AppRemovalRestorer.Outcome)], Never>
+        if privilegedService.requiresAdministratorAccessForRestore(items) {
+            restorationTask = Task(priority: .userInitiated) {
+                let privilegedOutcomes = await privilegedService.restore(items)
+                return items.map { item in
+                    (item, privilegedOutcomes[item.id] ?? .blocked)
+                }
+            }
+        } else {
+            let restorer = appRemovalRestorer
+            restorationTask = Task.detached(priority: .userInitiated) {
+                items.map { item in
+                    (item, restorer.restore(item))
+                }
             }
         }
         Task { @MainActor [weak self] in
@@ -4017,6 +4145,13 @@ final class AppState: ObservableObject {
                     failures.append(
                         String(
                             format: String(localized: "%@: macOS requires administrator access. Restore it from Trash with Finder."),
+                            (item.originalPath as NSString).lastPathComponent
+                        )
+                    )
+                case .authorizationCancelled:
+                    failures.append(
+                        String(
+                            format: String(localized: "%@: administrator authorization was cancelled"),
                             (item.originalPath as NSString).lastPathComponent
                         )
                     )
@@ -4123,7 +4258,8 @@ final class AppState: ObservableObject {
 
     private func removalFailureMessage(
         needsFullDiskAccess: Bool,
-        failed: [URL]
+        failed: [URL],
+        failureDetails: [String: AppFileRemovalFailure]
     ) -> String? {
         if needsFullDiskAccess {
             let prefix = failed.isEmpty ? "Some selected files" : "\(failed.count) file\(failed.count == 1 ? "" : "s")"
@@ -4131,7 +4267,16 @@ final class AppState: ObservableObject {
         }
 
         if !failed.isEmpty {
-            return "\(failed.count) file\(failed.count == 1 ? "" : "s") could not be moved to Trash. Check that the items still exist and are not in use."
+            let headline = String(
+                format: String(localized: "%lld file(s) could not be moved to Trash."),
+                Int64(failed.count)
+            )
+            let details = failed.prefix(5).map { url in
+                let reason = failureDetails[url.standardizedFileURL.path]
+                    ?? AppFileRemovalFailure(kind: .finderRejected)
+                return "\(url.lastPathComponent): \(reason.localizedDescription)"
+            }
+            return ([headline] + details).joined(separator: "\n")
         }
         return nil
     }

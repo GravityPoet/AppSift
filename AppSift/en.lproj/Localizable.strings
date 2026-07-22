@@ -1039,3 +1039,21 @@
 "Filter by the last reliable app-open evidence" = "Filter by the last reliable app-open evidence";
 "Spotlight has no reliable last-opened date for this app" = "Spotlight has no reliable last-opened date for this app";
 "AppSift tools" = "AppSift tools";
+
+/* Privileged app removal */
+"Full Disk Access is required." = "Full Disk Access is required.";
+"Administrator access is required." = "Administrator access is required.";
+"Administrator authorization was cancelled; nothing in the protected batch was moved." = "Administrator authorization was cancelled; nothing in the protected batch was moved.";
+"Administrator authorization failed; nothing in the protected batch was moved." = "Administrator authorization failed; nothing in the protected batch was moved.";
+"The selected batch is too large to authorize safely in one transaction. Select fewer top-level items and try again." = "The selected batch is too large to authorize safely in one transaction. Select fewer top-level items and try again.";
+"The path changed after review or is outside AppSift’s removal boundary." = "The path changed after review or is outside AppSift’s removal boundary.";
+"A file already occupies the planned Trash or restore location." = "A file already occupies the planned Trash or restore location.";
+"A background service could not be stopped or restored safely." = "A background service could not be stopped or restored safely.";
+"The operation failed and AppSift restored every item to its starting location." = "The operation failed and AppSift restored every item to its starting location.";
+"The operation failed and at least one item could not be rolled back automatically." = "The operation failed and at least one item could not be rolled back automatically.";
+"The item changed after review, so AppSift left the batch untouched." = "The item changed after review, so AppSift left the batch untouched.";
+"Finder could not move this item to Trash." = "Finder could not move this item to Trash.";
+"AppSift could not verify the item’s final location." = "AppSift could not verify the item’s final location.";
+"%@: administrator authorization was cancelled" = "%@: administrator authorization was cancelled";
+"%lld file(s) could not be moved to Trash." = "%lld file(s) could not be moved to Trash.";
+"Some selected items are owned by macOS or a system installer. AppSift will request administrator authorization once, stop matching background services, move the reviewed batch to Trash, and roll it back if verification fails." = "Some selected items are owned by macOS or a system installer. AppSift will request administrator authorization once, stop matching background services, move the reviewed batch to Trash, and roll it back if verification fails.";

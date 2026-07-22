@@ -88,6 +88,8 @@
 		EDEF28CAD23E936FBED1783B /* AppSiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63581B70F9B10231964E3602 /* AppSiftApp.swift */; };
 		F1F506C146E17D6CEC4A12F3 /* AppInfoFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23486A54A82EE3865B784D1C /* AppInfoFetcher.swift */; };
 		F2FA881A4B2209CC2A6342FB /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01B2C5F66B6D812572BD4F05 /* CLI.swift */; };
+		F0A100000000000000000001 /* PrivilegedAppRemovalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */; };
+		F0A100000000000000000003 /* PrivilegedAppRemovalServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000004 /* PrivilegedAppRemovalServiceTests.swift */; };
 		FDA30FE6349CA01C8D859F04 /* OrphanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71E8F62DB76D85F41F9A2E9 /* OrphanListView.swift */; };
 /* End PBXBuildFile section */
 
@@ -193,6 +195,8 @@
 		F661A0F64CF93E482CB1728F /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		7E411EBA73B642F1974B8703 /* TimeMachineSnapshotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeMachineSnapshotsView.swift; sourceTree = "<group>"; };
 		F9DCBD97CC88D77AE8DB01A4 /* PermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCoordinator.swift; sourceTree = "<group>"; };
+		F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedAppRemovalService.swift; sourceTree = "<group>"; };
+		F0A100000000000000000004 /* PrivilegedAppRemovalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedAppRemovalServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -230,6 +234,7 @@
 				IFC10000000000000000000A /* InstallationFileControllerTests.swift */,
 				IFC100000000000000000008 /* InstallationFileScannerTests.swift */,
 				155CE1B8CDCCCA6F9FD028C1 /* LocalizationFilesTests.swift */,
+				F0A100000000000000000004 /* PrivilegedAppRemovalServiceTests.swift */,
 				C0D3C0DE0000000000000004 /* StartupItemControllerTests.swift */,
 				7A5A00000000000000000004 /* TrashAppWatcherTests.swift */,
 				E7E100000000000000000006 /* ManagedExtensionScannerTests.swift */,
@@ -286,6 +291,7 @@
 				913E3064AA9BD7BE94A315CF /* MenuBarController.swift */,
 				7A5A00000000000000000002 /* TrashAppWatcher.swift */,
 				F9DCBD97CC88D77AE8DB01A4 /* PermissionCoordinator.swift */,
+				F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */,
 				A711CDF5285F68775D9B5513 /* ScanEngine.swift */,
 				28181F034530331A550C6A3D /* SchedulerService.swift */,
 				DB798781B99987F55D77E2E3 /* SystemMonitor.swift */,
@@ -582,6 +588,7 @@
 				A9C3A1F643C26930F442E729 /* OrphanSafetyPolicy.swift in Sources */,
 				6E72022A661CBB41331A442C /* PermissionCoordinator.swift in Sources */,
 				61D285E96DED76FDCD54570F /* PermissionSheet.swift in Sources */,
+				F0A100000000000000000001 /* PrivilegedAppRemovalService.swift in Sources */,
 				EDEF28CAD23E936FBED1783B /* AppSiftApp.swift in Sources */,
 				D9445C2641A8637B65DA5ACE /* ScanEngine.swift in Sources */,
 				D50EB059E741011EB2523731 /* ScanError.swift in Sources */,
@@ -612,6 +619,7 @@
 				IFC100000000000000000009 /* InstallationFileControllerTests.swift in Sources */,
 				IFC100000000000000000007 /* InstallationFileScannerTests.swift in Sources */,
 				CFA64F54CDBF8A4765E0068D /* LocalizationFilesTests.swift in Sources */,
+				F0A100000000000000000003 /* PrivilegedAppRemovalServiceTests.swift in Sources */,
 				E7E100000000000000000005 /* ManagedExtensionScannerTests.swift in Sources */,
 				C0D3C0DE0000000000000003 /* StartupItemControllerTests.swift in Sources */,
 				7A5A00000000000000000003 /* TrashAppWatcherTests.swift in Sources */,
@@ -687,7 +695,7 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -708,7 +716,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AppSift/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = NO;
@@ -808,7 +816,7 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -823,7 +831,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AppSift/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = NO;
