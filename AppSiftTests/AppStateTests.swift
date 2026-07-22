@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Security
 import XCTest
 @testable import AppSift
@@ -888,7 +889,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(appState.discoveredFiles.contains(support))
 
         let record = try XCTUnwrap(appState.removalHistory.first)
-        XCTAssertEqual(record.schemaVersion, 3)
+        XCTAssertEqual(record.schemaVersion, 4)
         XCTAssertEqual(record.operation, .reset)
         XCTAssertEqual(Set(record.items.map(\.originalPath)), Set([cache.path, support.path]))
         XCTAssertFalse(record.items.contains { $0.originalPath == appBundle.path })
@@ -1130,6 +1131,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
         XCTAssertEqual(item.id, itemID)
         XCTAssertEqual(item.outcome, .movedToTrash)
         XCTAssertEqual(item.evidence, .legacyUnknown)
+        XCTAssertNil(item.failure)
+        XCTAssertNil(item.launchdWasLoaded)
     }
 
     func testLegacyRemovalRecordDecodesWithoutInventingAuditEvidence() throws {
@@ -1271,6 +1274,27 @@ final class AppRemovalRecoveryTests: XCTestCase {
         XCTAssertTrue(result.missing.isEmpty)
         XCTAssertEqual(result.failed, [second])
         XCTAssertTrue(result.needsFullDiskAccess)
+        XCTAssertEqual(result.failure(for: second)?.kind, .fullDiskAccessRequired)
+    }
+
+    func testWorkspaceRecycleClassificationDistinguishesAdministratorAccess() {
+        let app = URL(fileURLWithPath: "/Applications/Protected.app")
+        let permissionError = NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(EPERM)
+        )
+
+        let result = AppFileTrashService.classify(
+            requested: [app],
+            recycled: [:],
+            error: permissionError,
+            hasFullDiskAccess: true,
+            fileExists: { $0 == app.path }
+        )
+
+        XCTAssertFalse(result.needsFullDiskAccess)
+        XCTAssertEqual(result.failed, [app])
+        XCTAssertEqual(result.failure(for: app)?.kind, .administratorAccessRequired)
     }
 
     func testRemovalHistoryStorePersistsReceipt() throws {
@@ -1292,6 +1316,39 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let reloaded = AppRemovalHistoryStore(fileURL: fileURL).snapshot()
 
         XCTAssertEqual(reloaded, [record])
+    }
+
+    func testRemovalHistoryStorePersistsPrivilegedRemovalMetadata() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftPrivilegedHistory-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = root.appendingPathComponent("history.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let moved = AppRemovalHistoryItem(
+            originalPath: "/Library/LaunchDaemons/com.example.helper.plist",
+            trashPath: "/Users/test/.Trash/com.example.helper.plist",
+            launchdWasLoaded: true
+        )
+        let failed = AppRemovalHistoryItem(
+            originalPath: "/Library/PrivilegedHelperTools/com.example.helper",
+            outcome: .failed,
+            failure: AppFileRemovalFailure(
+                kind: .transactionRolledBack,
+                detail: "move"
+            )
+        )
+        let record = AppRemovalRecord(
+            appName: "Example",
+            bundleIdentifier: "com.example.editor",
+            items: [moved, failed]
+        )
+
+        AppRemovalHistoryStore(fileURL: fileURL).append(record)
+        let reloaded = AppRemovalHistoryStore(fileURL: fileURL).snapshot()
+
+        XCTAssertEqual(reloaded, [record])
+        XCTAssertEqual(reloaded.first?.schemaVersion, 4)
+        XCTAssertEqual(reloaded.first?.items.first?.launchdWasLoaded, true)
+        XCTAssertEqual(reloaded.first?.items.last?.failure?.kind, .transactionRolledBack)
     }
 
     func testRemovalHistoryStorePersistsRestoredState() throws {
