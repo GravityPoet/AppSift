@@ -467,6 +467,7 @@
 "%lld protected" = "%lld protected";
 "%lld failed" = "%lld failed";
 "%lld missing" = "%lld missing";
+"%lld inactive records" = "%lld inactive records";
 "%lld restored" = "%lld restored";
 "Already absent" = "Already absent";
 "Not moved" = "Not moved";
@@ -516,6 +517,8 @@
 "Disabled" = "Disabled";
 "Needs Approval" = "Needs Approval";
 "Missing" = "Missing";
+"Inactive Record" = "Inactive Record";
+"The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes." = "The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes.";
 "Reading macOS startup records..." = "Reading macOS startup records...";
 "Review login items, background tasks, launch agents, and system daemons with their local evidence." = "Review login items, background tasks, launch agents, and system daemons with their local evidence.";
 "Scan Startup Items" = "Scan Startup Items";
@@ -532,6 +535,7 @@
 "%lld enabled" = "%lld enabled";
 "%lld disabled" = "%lld disabled";
 "%lld need approval" = "%lld need approval";
+"%lld need attention" = "%lld need attention";
 "macOS background registry was unavailable or incomplete" = "macOS background registry was unavailable or incomplete";
 "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry." = "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry.";
 "Login Items" = "Login Items";

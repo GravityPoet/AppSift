@@ -467,6 +467,7 @@
 "%lld protected" = "%lld protegidos";
 "%lld failed" = "%lld com falha";
 "%lld missing" = "%lld ausentes";
+"%lld inactive records" = "%lld registros inativos";
 "%lld restored" = "%lld restaurados";
 "Already absent" = "Já estava ausente";
 "Not moved" = "Não movido";
@@ -516,6 +517,8 @@
 "Disabled" = "Desativado";
 "Needs Approval" = "Requer aprovação";
 "Missing" = "Ausente";
+"Inactive Record" = "Registro inativo";
+"The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes." = "O app ou auxiliar não está mais no caminho registrado. Esse registro inativo do macOS não pode iniciá-lo e pode continuar visível até o sistema atualizar.";
 "Reading macOS startup records..." = "Lendo registros de inicialização do macOS…";
 "Review login items, background tasks, launch agents, and system daemons with their local evidence." = "Revise itens de início de sessão, tarefas em segundo plano, agentes e daemons do sistema com suas evidências locais.";
 "Scan Startup Items" = "Verificar itens de inicialização";
@@ -532,6 +535,7 @@
 "%lld enabled" = "%lld ativados";
 "%lld disabled" = "%lld desativados";
 "%lld need approval" = "%lld requerem aprovação";
+"%lld need attention" = "%lld precisam de atenção";
 "macOS background registry was unavailable or incomplete" = "O registro de itens em segundo plano do macOS estava indisponível ou incompleto";
 "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry." = "As listas de propriedades LaunchAgent e LaunchDaemon ainda são exibidas. Atualize para tentar novamente o registro completo.";
 "Login Items" = "Itens de Início";

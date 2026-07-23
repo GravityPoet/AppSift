@@ -626,6 +626,66 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(appState.discoveredFiles.isEmpty)
     }
 
+    func testSuccessfulUninstallRefreshesPreviouslyScannedStartupItems() async throws {
+        var completion: ((Set<URL>) -> Void)?
+        let refreshCalls = expectation(description: "startup items scanned before and after uninstall")
+        refreshCalls.expectedFulfillmentCount = 2
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftStartupRefresh-\(UUID().uuidString)", isDirectory: true)
+        let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
+        let trashURL = root.appendingPathComponent("Trash/Example.app", isDirectory: true)
+        let historyURL = root.appendingPathComponent("history.json")
+        try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let app = makeApp(
+            name: "Example",
+            bundleIdentifier: "com.example.editor",
+            path: appBundle.path
+        )
+        let appState = AppState(
+            performStartupTasks: false,
+            appFileScanner: { _, _, pendingCompletion in
+                completion = pendingCompletion
+                return nil
+            },
+            appFileTrashHandler: { urls in
+                XCTAssertEqual(urls, [appBundle])
+                return AppFileTrashResult(
+                    trashed: [
+                        TrashedAppFile(originalURL: appBundle, trashURL: trashURL),
+                    ],
+                    missing: [],
+                    needsFullDiskAccess: false,
+                    failed: []
+                )
+            },
+            trashAppSuppressor: { _ in },
+            removalHistoryStore: AppRemovalHistoryStore(fileURL: historyURL),
+            appTerminationHandler: { _, _ in .notRunning },
+            startupItemsScanner: {
+                refreshCalls.fulfill()
+                return StartupItemScanResult(
+                    items: [],
+                    backgroundTaskDataAvailable: true,
+                    backgroundTaskDataTruncated: false
+                )
+            }
+        )
+
+        appState.scanStartupItems()
+        try await waitUntil { appState.hasScannedStartupItems }
+        appState.scanForAppFiles(app)
+        try XCTUnwrap(completion)([appBundle])
+        appState.removeSelectedFiles()
+
+        await fulfillment(of: [refreshCalls], timeout: 1)
+        try await waitUntil {
+            !appState.isRemovingAppFiles && !appState.isScanningStartupItems
+        }
+        XCTAssertEqual(appState.removalHistory.first?.operation, .uninstall)
+    }
+
     func testRemovalRecordCapturesEveryOutcomeAndProtectedGroup() async throws {
         var completion: ((Set<URL>) -> Void)?
         let historyURL = FileManager.default.temporaryDirectory
@@ -3401,13 +3461,17 @@ final class StartupItemScannerTests: XCTestCase {
     }
 
     func testBackgroundRegistryTreatsDisallowedAsRequiringApproval() throws {
+        let app = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftApproval-\(UUID().uuidString).app", isDirectory: true)
+        try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: app) }
         let output = """
          #1:
           Name: Approval Helper
           Type: login item
           Disposition: [disabled, disallowed, visible, notified]
           Identifier: 1.com.example.approval
-          URL: file:///Applications/Approval.app
+          URL: \(app.absoluteString)
         """
 
         let item = try XCTUnwrap(
@@ -3416,6 +3480,51 @@ final class StartupItemScannerTests: XCTestCase {
 
         XCTAssertEqual(item.kind, .loginItem)
         XCTAssertEqual(item.state, .requiresApproval)
+        XCTAssertTrue(item.requiresUserAttention)
+    }
+
+    func testBackgroundRegistryIdentifiesMissingMacOSRecordAsInactive() throws {
+        let missingApp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftMissing-\(UUID().uuidString).app", isDirectory: true)
+        let output = """
+         #1:
+          Name: Removed App
+          Type: login item
+          Disposition: [enabled, allowed, visible, notified]
+          Identifier: 1.com.example.removed
+          URL: \(missingApp.absoluteString)
+          Bundle Identifier: [com.example.removed]
+        """
+
+        let item = try XCTUnwrap(
+            StartupItemScanner.parseBackgroundTaskOutput(output).first
+        )
+
+        XCTAssertTrue(item.isMissing)
+        XCTAssertTrue(item.isInactiveRegistration)
+        XCTAssertFalse(item.requiresUserAttention)
+    }
+
+    func testLaunchdEvidenceKeepsMissingRegistryRecordActionable() {
+        let item = StartupItem(
+            id: "btm|com.example.helper",
+            name: "Example Helper",
+            developerName: nil,
+            teamIdentifier: nil,
+            serviceIdentifier: "com.example.helper",
+            kind: .launchAgent,
+            state: .enabled,
+            scope: .user,
+            itemURL: URL(fileURLWithPath: "/tmp/com.example.helper.plist"),
+            executableURL: nil,
+            associatedBundleIdentifiers: ["com.example.app"],
+            evidence: [.backgroundTaskManagement, .launchdPropertyList],
+            isLegacy: true,
+            isMissing: true
+        )
+
+        XCTAssertFalse(item.isInactiveRegistration)
+        XCTAssertTrue(item.requiresUserAttention)
     }
 
     func testBackgroundRegistryDecodesRelativePercentEscapesInsideParentBundle() throws {

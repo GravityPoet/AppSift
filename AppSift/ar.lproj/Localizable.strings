@@ -467,6 +467,7 @@
 "%lld protected" = "تمت حماية %lld";
 "%lld failed" = "فشل %lld";
 "%lld missing" = "%lld مفقود";
+"%lld inactive records" = "%lld من السجلات غير النشطة";
 "%lld restored" = "تمت استعادة %lld";
 "Already absent" = "كان غير موجود بالفعل";
 "Not moved" = "لم يُنقل";
@@ -516,6 +517,8 @@
 "Disabled" = "معطّل";
 "Needs Approval" = "يتطلب موافقة";
 "Missing" = "مفقود";
+"Inactive Record" = "سجل غير نشط";
+"The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes." = "لم يعد التطبيق أو البرنامج المساعد موجودًا في المسار المسجل. لا يمكن لسجل macOS غير النشط هذا تشغيله، وقد يظل ظاهرًا حتى يحدّث النظام بياناته.";
 "Reading macOS startup records..." = "جارٍ قراءة سجلات بدء التشغيل في macOS…";
 "Review login items, background tasks, launch agents, and system daemons with their local evidence." = "راجع عناصر تسجيل الدخول والمهام الخلفية ووكلاء التشغيل وبرامج النظام مع أدلتها المحلية.";
 "Scan Startup Items" = "فحص عناصر بدء التشغيل";
@@ -532,6 +535,7 @@
 "%lld enabled" = "%lld مفعّل";
 "%lld disabled" = "%lld معطّل";
 "%lld need approval" = "%lld يتطلب موافقة";
+"%lld need attention" = "%lld يحتاج إلى اهتمام";
 "macOS background registry was unavailable or incomplete" = "سجل عناصر الخلفية في macOS غير متاح أو غير مكتمل";
 "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry." = "لا تزال قوائم خصائص LaunchAgent وLaunchDaemon ظاهرة. حدّث لإعادة محاولة قراءة سجل النظام الكامل.";
 "Login Items" = "عناصر تسجيل الدخول";

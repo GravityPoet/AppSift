@@ -467,6 +467,7 @@
 "%lld protected" = "%lld 件を保護";
 "%lld failed" = "%lld 件失敗";
 "%lld missing" = "%lld 件見つからず";
+"%lld inactive records" = "%lld 件の無効な記録";
 "%lld restored" = "%lld 件復元済み";
 "Already absent" = "すでに存在しません";
 "Not moved" = "移動されませんでした";
@@ -516,6 +517,8 @@
 "Disabled" = "無効";
 "Needs Approval" = "承認が必要";
 "Missing" = "見つかりません";
+"Inactive Record" = "無効な記録";
+"The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes." = "アプリまたはヘルパーは記録されたパスにありません。この無効な macOS レコードから起動することはできず、システムが更新されるまで表示される場合があります。";
 "Reading macOS startup records..." = "macOS の起動記録を読み込んでいます…";
 "Review login items, background tasks, launch agents, and system daemons with their local evidence." = "ログイン項目、バックグラウンドタスク、Launch Agent、システムデーモンをローカル証拠とともに確認します。";
 "Scan Startup Items" = "起動項目をスキャン";
@@ -532,6 +535,7 @@
 "%lld enabled" = "%lld 件有効";
 "%lld disabled" = "%lld 件無効";
 "%lld need approval" = "%lld 件承認待ち";
+"%lld need attention" = "%lld 件に対応が必要";
 "macOS background registry was unavailable or incomplete" = "macOS のバックグラウンドレジストリが利用できないか不完全です";
 "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry." = "LaunchAgent と LaunchDaemon のプロパティリストは引き続き表示されます。更新すると完全なシステムレジストリを再試行します。";
 "Login Items" = "ログイン項目";
