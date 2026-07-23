@@ -200,9 +200,7 @@ struct MainWindow: View {
 
     private var startupItemsBadge: String? {
         guard appState.hasScannedStartupItems else { return nil }
-        let attentionCount = appState.startupItems.count {
-            $0.state == .requiresApproval || $0.isMissing
-        }
+        let attentionCount = appState.startupItems.count(where: \.requiresUserAttention)
         return attentionCount == 0 ? nil : "\(attentionCount)"
     }
 

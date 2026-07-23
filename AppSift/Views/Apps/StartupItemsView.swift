@@ -251,9 +251,19 @@ struct StartupItemsView: View {
                     tint: Tint.orange
                 )
             }
-            if missingCount > 0 {
+            if inactiveRegistrationCount > 0 {
                 StatusChip(
-                    label: String(format: String(localized: "%lld missing"), missingCount),
+                    label: String(
+                        format: String(localized: "%lld inactive records"),
+                        inactiveRegistrationCount
+                    ),
+                    systemImage: "exclamationmark.triangle.fill",
+                    tint: Tint.orange
+                )
+            }
+            if missingFileCount > 0 {
+                StatusChip(
+                    label: String(format: String(localized: "%lld missing"), missingFileCount),
                     systemImage: "questionmark.folder.fill",
                     tint: Tint.red
                 )
@@ -461,8 +471,14 @@ struct StartupItemsView: View {
         Int64(appState.startupItems.count { $0.state == state && !$0.isMissing })
     }
 
-    private var missingCount: Int64 {
-        Int64(appState.startupItems.count(where: \.isMissing))
+    private var inactiveRegistrationCount: Int64 {
+        Int64(appState.startupItems.count(where: \.isInactiveRegistration))
+    }
+
+    private var missingFileCount: Int64 {
+        Int64(appState.startupItems.count {
+            $0.isMissing && !$0.isInactiveRegistration
+        })
     }
 
     private var controllableCount: Int64 {
@@ -501,6 +517,17 @@ private struct StartupItemRow: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                    }
+
+                    if item.isInactiveRegistration {
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(Tint.orange)
+                            Text("The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes.")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Text(item.displayIdentifier)
@@ -665,7 +692,13 @@ private struct StartupStateChip: View {
     let item: StartupItem
 
     var body: some View {
-        if item.isMissing {
+        if item.isInactiveRegistration {
+            StatusChip(
+                label: String(localized: "Inactive Record"),
+                systemImage: "exclamationmark.triangle.fill",
+                tint: Tint.orange
+            )
+        } else if item.isMissing {
             StatusChip(label: String(localized: "Missing"), systemImage: "questionmark", tint: Tint.red)
         } else {
             StatusChip(label: item.state.title, systemImage: item.state.icon, tint: item.state.tint)

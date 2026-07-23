@@ -482,14 +482,12 @@ struct DashboardView: View {
     }
 
     private var startupAttentionCount: Int {
-        appState.startupItems.count {
-            $0.state == .requiresApproval || $0.isMissing
-        }
+        appState.startupItems.count(where: \.requiresUserAttention)
     }
 
     private var startupItemStatus: String {
         let result = startupAttentionCount > 0
-            ? countText("%lld need approval", startupAttentionCount)
+            ? countText("%lld need attention", startupAttentionCount)
             : countText("%lld items", appState.startupItems.count)
         return scanStatus(
             isScanning: appState.isScanningStartupItems,

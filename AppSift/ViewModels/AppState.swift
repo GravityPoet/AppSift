@@ -3747,7 +3747,31 @@ final class AppState: ObservableObject {
                 historyRecordID: recordID,
                 operation: operation
             )
+            self.refreshStartupItemsAfterSuccessfulUninstall(
+                removed,
+                app: app,
+                operation: operation
+            )
         }
+    }
+
+    private func refreshStartupItemsAfterSuccessfulUninstall(
+        _ removedURLs: [URL],
+        app: InstalledApp,
+        operation: AppRemovalOperation
+    ) {
+        guard operation == .uninstall else { return }
+        let appPath = app.path.standardizedFileURL.path
+        guard removedURLs.contains(where: {
+            $0.standardizedFileURL.path == appPath
+        }) else { return }
+
+        // A startup scan is relatively expensive because macOS owns the BTM
+        // registry. Refresh only an already-visible or in-flight inventory;
+        // otherwise the Startup Items screen will perform its normal first
+        // scan when opened.
+        guard hasScannedStartupItems || isScanningStartupItems else { return }
+        scanStartupItems(force: true)
     }
 
     private static func defaultAppTerminationHandler(

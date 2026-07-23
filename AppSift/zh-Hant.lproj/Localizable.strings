@@ -467,6 +467,7 @@
 "%lld protected" = "%lld 個已保護";
 "%lld failed" = "%lld 個失敗";
 "%lld missing" = "%lld 個已缺失";
+"%lld inactive records" = "%lld 條失效記錄";
 "%lld restored" = "%lld 個已還原";
 "Already absent" = "原本已不存在";
 "Not moved" = "未移動";
@@ -516,6 +517,8 @@
 "Disabled" = "已停用";
 "Needs Approval" = "需要核准";
 "Missing" = "路徑遺失";
+"Inactive Record" = "僅剩失效記錄";
+"The app or helper is no longer at the recorded path. This inactive macOS record cannot launch it and may remain visible until the system refreshes." = "App 或輔助程式已不在記錄路徑中。此 macOS 記錄已無法啟動它，在系統重新整理前仍可能繼續顯示。";
 "Reading macOS startup records..." = "正在讀取 macOS 啟動記錄…";
 "Review login items, background tasks, launch agents, and system daemons with their local evidence." = "查看登入項目、背景工作、Launch Agent 與系統常駐程式及其本機證據。";
 "Scan Startup Items" = "掃描啟動項目";
@@ -532,6 +535,7 @@
 "%lld enabled" = "%lld 項已啟用";
 "%lld disabled" = "%lld 項已停用";
 "%lld need approval" = "%lld 項需要核准";
+"%lld need attention" = "%lld 項需要處理";
 "macOS background registry was unavailable or incomplete" = "macOS 背景項目登錄資料無法使用或不完整";
 "LaunchAgent and LaunchDaemon property lists are still shown. Refresh to retry the full system registry." = "仍會顯示 LaunchAgent 與 LaunchDaemon 屬性列表。重新整理可重試完整系統登錄資料。";
 "Login Items" = "登入項目";

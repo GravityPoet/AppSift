@@ -59,6 +59,19 @@ struct StartupItem: Identifiable, Hashable, Sendable {
         return executableURL
     }
 
+    /// Background Task Management can retain a registration after its app or
+    /// helper has moved or been removed. The missing executable makes the
+    /// record inactive even though macOS may continue to display it.
+    var isInactiveRegistration: Bool {
+        isMissing
+            && evidence.contains(.backgroundTaskManagement)
+            && !evidence.contains(.launchdPropertyList)
+    }
+
+    var requiresUserAttention: Bool {
+        !isInactiveRegistration && (state == .requiresApproval || isMissing)
+    }
+
     func replacingState(_ state: StartupItemState) -> StartupItem {
         StartupItem(
             id: id,
