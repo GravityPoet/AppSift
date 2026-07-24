@@ -76,32 +76,9 @@ final class AppPermissionController: @unchecked Sendable {
         client: AppPermissionClient,
         service: AppPermissionService
     ) async throws -> AppPermissionResetOutcome {
-        guard client.clientType == 0,
-              let bundleIdentifier = client.bundleIdentifier,
-              bundleIdentifier == client.clientIdentifier else {
-            throw AppPermissionControllerError.unsupportedClient
-        }
-        guard Self.isValidBundleIdentifier(bundleIdentifier) else {
-            throw AppPermissionControllerError.invalidBundleIdentifier
-        }
-        guard let resetServiceName = service.resetServiceName else {
-            throw AppPermissionControllerError.unsupportedService
-        }
-
-        let result = try await commandRunner(
-            URL(fileURLWithPath: "/usr/bin/tccutil"),
-            ["reset", resetServiceName, bundleIdentifier]
-        )
-        guard result.terminationStatus == 0 else {
-            throw AppPermissionControllerError.commandFailed(
-                Self.normalizedOutput(result.output)
-            )
-        }
-        return AppPermissionResetOutcome(
-            bundleIdentifier: bundleIdentifier,
-            service: service,
-            resetServiceName: resetServiceName
-        )
+        // One-click batch TCC permission reset is an AppSift Pro feature.
+        // In the Community Edition, users can navigate directly to System Settings using openSystemSettings().
+        throw AppPermissionControllerError.commandFailed("TCC reset operation requires AppSift Pro.")
     }
 
     @MainActor
