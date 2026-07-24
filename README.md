@@ -24,20 +24,20 @@
   <img src="https://img.shields.io/badge/macOS-13.0+-blue?style=flat-square" alt="macOS 13.0+">
   <img src="https://img.shields.io/badge/Universal-arm64%20%2B%20x86__64-blue?style=flat-square" alt="Universal arm64 and x86_64 build">
   <img src="https://img.shields.io/badge/telemetry-none-success?style=flat-square" alt="No telemetry">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/GravityPoet/AppSift?style=flat-square" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0%20%2F%20Dual-blue?style=flat-square" alt="AGPL-3.0 Dual License"></a>
   <a href="https://github.com/GravityPoet/AppSift/stargazers"><img src="https://img.shields.io/github/stars/GravityPoet/AppSift?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/GravityPoet/AppSift/releases"><img src="https://img.shields.io/github/downloads/GravityPoet/AppSift/total?style=flat-square&label=Downloads" alt="Downloads"></a>
 </p>
 
 <p align="center">
   <a href="#-quick-start">Quick Start</a> -
+  <a href="#-community-vs-pro-edition">Community vs Pro</a> -
   <a href="#-the-why">The Why</a> -
   <a href="#-before-vs-after">Before vs. After</a> -
   <a href="#-key-features">Features</a> -
   <a href="#-who-needs-this">Who Needs This</a> -
   <a href="#-how-it-compares">How it Compares</a> -
   <a href="#-our-promise">Our Promise</a> -
-  <a href="#-detailed-feature-breakdown">Detailed Features</a> -
   <a href="#-permissions">Permissions</a>
 </p>
 
@@ -58,6 +58,21 @@ brew install --cask appsift
 Or download the latest `.dmg` from [Releases](https://github.com/GravityPoet/AppSift/releases/latest) and drag AppSift into `/Applications`.
 
 For developers who want to inspect and compile locally, check out the [Advanced Source Build Guide](#-advanced-source-build-guide).
+
+---
+
+## 💎 Community vs. Pro Edition
+
+| Feature / Capabilities | Community Edition (Free) 🆓 | Pro Commercial Edition ($14.99) 🚀 |
+|---|:---:|:---:|
+| **App Uninstaller & Orphan Sweep** | ✅ Included | ✅ Included |
+| **Basic System Junk Cleanup** | ✅ Included | ✅ Included |
+| **Zero Telemetry & Offline-First** | ✅ Included | ✅ Included |
+| **Xcode & Simulator Deep Purger** | ❌ Standard | ✅ **Deep Unlink & Purge** |
+| **Docker & Ollama AI Model Purger** | ❌ Standard | ✅ **Deep Unlink & Purge** |
+| **Scheduled Quiet Auto-Clean** | ❌ Manual Only | ✅ **Background Automation** |
+| **Batch TCC Privacy Reset** | ❌ Manual Only | ✅ **One-Click Batch Reset** |
+| **Licensing** | AGPL-3.0 Open Source | Commercial Lifetime / Enterprise |
 
 ---
 
@@ -366,4 +381,4 @@ Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📄 License
 
-MIT. See [LICENSE](LICENSE).
+Dual-licensed under AGPL-3.0 (Open Source) and Proprietary Commercial License (Pro). See [LICENSE](LICENSE) for full details.
