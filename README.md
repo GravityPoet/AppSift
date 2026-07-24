@@ -16,7 +16,7 @@
 <h1 align="center">AppSift</h1>
 
 <p align="center">
-  <b>Reclaim your soldered SSD. A 100% offline, zero-telemetry, 100% open-source macOS cleaner & uninstaller that kills predatory subscriptions.</b>
+  <b>Reclaim your soldered SSD. An offline-first, zero-telemetry, 100% open-source macOS cleaner & uninstaller that kills predatory subscriptions.</b>
 </p>
 
 <p align="center">
@@ -72,7 +72,7 @@ AppSift Community Edition is open source under the **[AGPL-3.0 License](LICENSE)
 
 ## 🎯 The Why
 
-Why does the world need another Mac cleaner? Because Apple sells base-model Macs with **soldered, non-upgradable SSDs** at astronomical prices, while commercial cleaning utilities charge predatory annual subscriptions, leak your app usage metadata, and trade on fake urgency and FUD (Fear, Uncertainty, and Doubt) like *"47 GB of critical junk detected!"* to scare you into buying.
+Why does the world need another Mac cleaner? Because Apple sells base-model Macs with **soldered, non-upgradable SSDs** at astronomical prices, while commercial cleaning utilities charge predatory annual subscriptions, may include telemetry or opaque data collection that users cannot independently audit, and trade on fake urgency and FUD (Fear, Uncertainty, and Doubt) like *"47 GB of critical junk detected!"* to scare you into buying.
 
 AppSift is the antidote. It is **100% free & open source**, completely **offline-first**, and brutally honest about what can actually be purged. It recovers gigabytes of lost space by targeting actual system and developer clutter, without gimmicks.
 
@@ -93,7 +93,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 ## 🚀 Key Features
 
 - **⚡ Smart Uninstaller & Deep Orphan Finder**
-  Dragging apps to the Trash leaves up to 70% of their data behind. AppSift maps application bundle identifiers and containers to trace every plist, launch agent, and log, deleting them safely via Finder-semantic recycle or letting you restore them instantly.
+  Dragging an app to the Trash often leaves preferences, caches, containers, logs, and background components behind. AppSift maps application bundle identifiers and containers to trace every plist, launch agent, and log, deleting them safely via Finder-semantic recycle or letting you restore them instantly.
 
 - **⚙️ Developer-First Cache Purger**
   Modern development stacks are storage vampires. AppSift scans and safely flushes giant cache folders from Xcode (`DerivedData`, simulators), Node (`npm`, `yarn`, `pnpm`), Docker (dangling images/containers), and local AI tools like Ollama and LM Studio.
@@ -116,7 +116,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 | | **AppSift** | CleanMyMac | Pearcleaner | Mole | OnyX |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Price** | **Free** | $40+/yr | Free | CLI free / GUI paid | Free |
-| **Open Source** | **Yes (MIT)** | No | Source-available¹ | CLI only | No |
+| **Open Source** | **Yes (AGPL-3.0)** | No | Source-available¹ | CLI only | No |
 | **No Telemetry** | **Yes** | No | Yes | Yes | Yes |
 | **No Subscription** | **Yes** | No | Yes | — | Yes |
 | **Native Mac GUI** | **Yes** | Yes | Yes | Terminal-first | Yes |
@@ -125,7 +125,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 | **Trash-first Removal** | **Yes** | Partial | Yes | Partial | No |
 | **Honest Purgeable** | **Yes** | No | n/a | n/a | n/a |
 
-<sub>¹ Pearcleaner is Apache 2.0 **+ Commons Clause** - source-available but not OSI-approved (you may not sell it). AppSift is true MIT. Comparison reflects publicly documented features as of 2026; corrections welcome via PR.</sub>
+<sub>¹ Pearcleaner is Apache 2.0 **+ Commons Clause** - source-available but not OSI-approved (you may not sell it). AppSift is open source under AGPL-3.0 with a separate commercial licensing option. Comparison reflects publicly documented features as of 2026; corrections welcome via PR.</sub>
 
 ---
 
