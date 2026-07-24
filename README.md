@@ -16,7 +16,7 @@
 <h1 align="center">AppSift</h1>
 
 <p align="center">
-  <b>Reclaim your soldered SSD. A 100% offline, zero-telemetry, AGPL-3.0 open-source macOS cleaner & uninstaller that kills predatory subscriptions.</b>
+  <b>Reclaim your soldered SSD. A 100% offline, zero-telemetry, 100% open-source macOS cleaner & uninstaller that kills predatory subscriptions.</b>
 </p>
 
 <p align="center">
