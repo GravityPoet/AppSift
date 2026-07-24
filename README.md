@@ -63,7 +63,7 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 
 ## 💎 Community vs. Pro Edition
 
-| Feature / Capabilities | Community Edition (Free) 🆓 | Pro Commercial Edition ($14.99) 🚀 |
+| Feature / Capabilities | Community Edition (Free) 🆓 | Pro Commercial Edition 🚀 |
 |---|:---:|:---:|
 | **App Uninstaller & Orphan Sweep** | ✅ Included | ✅ Included |
 | **Basic System Junk Cleanup** | ✅ Included | ✅ Included |
