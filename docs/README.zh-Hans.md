@@ -16,7 +16,7 @@
 <h1 align="center">AppSift</h1>
 
 <p align="center">
-  <b>夺回被焊死的 Mac 空间。一款零隐私泄露的 Mac 清理与卸载神器，专治存储焦虑。</b>
+  <b>夺回被焊死的 Mac 空间。100% 离线、零隐私泄露、AGPL-3.0 正统开源的 Mac 清理卸载神器，终结高昂订阅。</b>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/macOS-13.0+-blue?style=flat-square" alt="macOS 13.0+">
   <img src="https://img.shields.io/badge/Universal-arm64%20%2B%20x86__64-blue?style=flat-square" alt="Universal arm64 and x86_64 build">
   <img src="https://img.shields.io/badge/telemetry-none-success?style=flat-square" alt="No telemetry">
-  <a href="../LICENSE"><img src="https://img.shields.io/github/license/GravityPoet/AppSift?style=flat-square" alt="MIT License"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0%20%2F%20Dual-blue?style=flat-square" alt="AGPL-3.0 许可"></a>
   <a href="https://github.com/GravityPoet/AppSift/stargazers"><img src="https://img.shields.io/github/stars/GravityPoet/AppSift?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/GravityPoet/AppSift/releases"><img src="https://img.shields.io/github/downloads/GravityPoet/AppSift/total?style=flat-square&label=%E4%B8%8B%E8%BD%BD%E9%87%8F" alt="Downloads"></a>
 </p>
