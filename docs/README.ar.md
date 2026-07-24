@@ -30,7 +30,7 @@
   <a href="https://github.com/GravityPoet/AppSift/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/GravityPoet/AppSift/build.yml?style=flat-square&label=Build" alt="حالة البناء"></a>
   <img src="https://img.shields.io/badge/macOS-13.0+-blue?style=flat-square" alt="macOS 13.0+">
   <img src="https://img.shields.io/badge/Swift-5.9-orange?style=flat-square" alt="Swift 5.9">
-  <a href="../LICENSE"><img src="https://img.shields.io/github/license/GravityPoet/AppSift?style=flat-square" alt="رخصة MIT"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0%20%2F%20Dual-blue?style=flat-square" alt="رخصة AGPL-3.0"></a>
   <a href="https://github.com/GravityPoet/AppSift/stargazers"><img src="https://img.shields.io/github/stars/GravityPoet/AppSift?style=flat-square" alt="النجوم"></a>
   <a href="https://github.com/GravityPoet/AppSift/releases"><img src="https://img.shields.io/github/downloads/GravityPoet/AppSift/total?style=flat-square&label=%D8%A7%D9%84%D8%AA%D9%86%D8%B2%D9%8A%D9%84%D8%A7%D8%AA" alt="التنزيلات"></a>
 </p>
@@ -170,6 +170,6 @@ AppSift/
 
 ## الرخصة
 
-رخصة MIT. راجع [LICENSE](../LICENSE) للتفاصيل.
+رخصة AGPL-3.0. راجع [LICENSE](../LICENSE) للتفاصيل.
 
 </div>

@@ -30,7 +30,7 @@
   <a href="https://github.com/GravityPoet/AppSift/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/GravityPoet/AppSift/build.yml?style=flat-square&label=Build" alt="ビルド状況"></a>
   <img src="https://img.shields.io/badge/macOS-13.0+-blue?style=flat-square" alt="macOS 13.0+">
   <img src="https://img.shields.io/badge/Swift-5.9-orange?style=flat-square" alt="Swift 5.9">
-  <a href="../LICENSE"><img src="https://img.shields.io/github/license/GravityPoet/AppSift?style=flat-square" alt="MIT License"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0%20%2F%20Dual-blue?style=flat-square" alt="AGPL-3.0 License"></a>
   <a href="https://github.com/GravityPoet/AppSift/stargazers"><img src="https://img.shields.io/github/stars/GravityPoet/AppSift?style=flat-square" alt="スター数"></a>
   <a href="https://github.com/GravityPoet/AppSift/releases"><img src="https://img.shields.io/github/downloads/GravityPoet/AppSift/total?style=flat-square&label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89%E6%95%B0" alt="ダウンロード数"></a>
 </p>
@@ -166,4 +166,4 @@ AppSift/
 
 ## ライセンス
 
-MIT ライセンス。詳細は [LICENSE](../LICENSE) を参照してください。
+AGPL-3.0 ライセンス。詳細は [LICENSE](../LICENSE) を参照してください。
