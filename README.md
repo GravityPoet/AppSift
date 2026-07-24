@@ -31,7 +31,7 @@
 
 <p align="center">
   <a href="#-quick-start">Quick Start</a> -
-  <a href="#-community-vs-pro-edition">Community vs Pro</a> -
+  <a href="#️-licensing--commercial-terms">Licensing</a> -
   <a href="#-the-why">The Why</a> -
   <a href="#-before-vs-after">Before vs. After</a> -
   <a href="#-key-features">Features</a> -
@@ -61,18 +61,10 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 
 ---
 
-## 💎 Community vs. Pro Edition
+## ⚖️ Licensing & Commercial Terms
 
-| Feature / Capabilities | Community Edition (Free) 🆓 | Pro Commercial Edition 🚀 |
-|---|:---:|:---:|
-| **App Uninstaller & Orphan Sweep** | ✅ Included | ✅ Included |
-| **Basic System Junk Cleanup** | ✅ Included | ✅ Included |
-| **Zero Telemetry & Offline-First** | ✅ Included | ✅ Included |
-| **Xcode & Simulator Deep Purger** | ❌ Standard | ✅ **Deep Unlink & Purge** |
-| **Docker & Ollama AI Model Purger** | ❌ Standard | ✅ **Deep Unlink & Purge** |
-| **Scheduled Quiet Auto-Clean** | ❌ Manual Only | ✅ **Background Automation** |
-| **Batch TCC Privacy Reset** | ❌ Manual Only | ✅ **One-Click Batch Reset** |
-| **Licensing** | AGPL-3.0 Open Source | Commercial Lifetime / Enterprise |
+- **Community Edition (AGPL-3.0)**: **100% Free** for personal and individual use. Full-featured app uninstaller, system cleaner, orphan finder, and developer cache purger with zero telemetry.
+- **Commercial & Enterprise Use**: For commercial deployment, closed-source integration, or business usage, explicit authorization and a Commercial License from GravityPoet is required.
 
 ---
 
