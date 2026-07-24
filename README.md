@@ -63,8 +63,8 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 
 ## ⚖️ Licensing & Commercial Terms
 
-- **Community Edition (AGPL-3.0)**: **100% Free** for personal and individual use. Full-featured app uninstaller, system cleaner, orphan finder, and developer cache purger with zero telemetry.
-- **Commercial & Enterprise Use**: For commercial deployment, closed-source integration, or business usage, explicit authorization and a Commercial License from GravityPoet is required.
+- **Community Edition (AGPL-3.0)**: **100% Free & Open Source** for everyone under AGPL-3.0. Full-featured app uninstaller, system cleaner, orphan finder, and developer cache purger with zero telemetry.
+- **Commercial Dual-License**: For closed-source integration, re-licensing without AGPL obligations, or proprietary redistribution, a Commercial License from GravityPoet is available.
 
 ---
 
@@ -72,7 +72,7 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 
 Why does the world need another Mac cleaner? Because Apple sells base-model Macs with **soldered, non-upgradable SSDs** at astronomical prices, while commercial cleaning utilities charge predatory annual subscriptions, leak your app usage metadata, and trade on fake urgency and FUD (Fear, Uncertainty, and Doubt) like *"47 GB of critical junk detected!"* to scare you into buying.
 
-AppSift is the antidote. It is **100% free**, **MIT-licensed**, completely **offline-first**, and brutally honest about what can actually be purged. It recovers gigabytes of lost space by targeting actual system and developer clutter, without gimmicks.
+AppSift is the antidote. It is **100% free & open source**, completely **offline-first**, and brutally honest about what can actually be purged. It recovers gigabytes of lost space by targeting actual system and developer clutter, without gimmicks.
 
 ---
 
@@ -80,7 +80,7 @@ AppSift is the antidote. It is **100% free**, **MIT-licensed**, completely **off
 
 | Before AppSift (The Pain) ❌ | After AppSift (The Joy) 🎉 |
 |---|---|
-| Paying $40+/year for disk utilities just to click "Clean". | **100% Free (MIT)**. Keep your hard-earned budget. |
+| Paying $40+/year for disk utilities just to click "Clean". | **100% Free & Open Source**. Keep your hard-earned budget. |
 | Creepy trackers & telemetry profiling your app usage history. | **Zero Telemetry**. Bounded, offline-first. It doesn't even know you exist. |
 | Leftovers from deleted apps (plists, containers, launchdaemons) silently rotting in `~/Library`. | **Deep Orphan Scan**. Matches bundles to trace and sweep every hidden byte. |
 | Dev caches (Xcode, Node, Docker, Ollama) eating 50GB without you knowing. | **Developer-First Purger**. Safely wipes giant compiler, package, and LLM caches in one click. |
@@ -373,4 +373,4 @@ Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📄 License
 
-Dual-licensed under AGPL-3.0 (Open Source) and Proprietary Commercial License (Pro). See [LICENSE](LICENSE) for full details.
+Dual-licensed under AGPL-3.0 (Open Source) and Proprietary Commercial License (Pro). See [LICENSE](LICENSE) and [NOTICE](NOTICE) for full details.
