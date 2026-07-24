@@ -63,8 +63,10 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 
 ## ⚖️ Licensing & Commercial Terms
 
-- **Community Edition (AGPL-3.0)**: **100% Free & Open Source** for everyone under AGPL-3.0. Full-featured app uninstaller, system cleaner, orphan finder, and developer cache purger with zero telemetry.
-- **Commercial Dual-License**: For closed-source integration, re-licensing without AGPL obligations, or proprietary redistribution, a Commercial License from GravityPoet is available.
+AppSift Community Edition is open source under the **[AGPL-3.0 License](LICENSE)**.
+
+- **Open Source Free Use**: Any individual or enterprise may use and distribute AppSift for free in accordance with the AGPL-3.0 license terms.
+- **Commercial Dual-License**: If you or your organization need closed-source integration, exemption from AGPL-3.0 copyleft obligations, or proprietary redistribution rights, please contact us for a [Commercial License](mailto:moonlitpoet@proton.me).
 
 ---
 
@@ -371,6 +373,4 @@ Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## 📄 License
-
-Dual-licensed under AGPL-3.0 (Open Source) and Proprietary Commercial License (Pro). See [LICENSE](LICENSE) and [NOTICE](NOTICE) for full details.
+AppSift Community Edition is licensed under **[AGPL-3.0](LICENSE)**. Any individual or enterprise can use and distribute it for free under the terms of AGPL-3.0. For proprietary commercial licensing or closed-source integration, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
