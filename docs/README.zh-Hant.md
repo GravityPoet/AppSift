@@ -60,7 +60,6 @@ brew install --cask appsift
 
 > 每個版本的發行說明會註明簽署、公證狀態與 SHA-256 校驗值。
 
-> AppSift 是由 GravityPoet 獨立維護的產品，最初基於 [PureMac](https://github.com/momenbasel/PureMac) 分支開發。原專案致謝與授權請參閱[歸屬說明](../README.md#attribution)。
 
 ### 由原始碼建置
 
