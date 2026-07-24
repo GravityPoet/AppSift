@@ -171,56 +171,9 @@ actor ScanEngine {
     }
 
     private func scanAIApps() -> CategoryResult {
-        let targets = [
-            CleanupTarget(
-                name: "Ollama Logs",
-                path: "\(home)/.ollama/logs"
-            ),
-            CleanupTarget(
-                name: "Ollama Cache",
-                path: "\(home)/Library/Caches/ollama"
-            ),
-            CleanupTarget(
-                name: "Ollama Electron Cache",
-                path: "\(home)/Library/Caches/com.electron.ollama"
-            ),
-            CleanupTarget(
-                name: "Ollama WebKit Data",
-                path: "\(home)/Library/WebKit/com.electron.ollama"
-            ),
-            CleanupTarget(
-                name: "Ollama Saved State",
-                path: "\(home)/Library/Saved Application State/com.electron.ollama.savedState"
-            ),
-            CleanupTarget(
-                name: "Ollama CLI Prompt History (Optional)",
-                path: "\(home)/.ollama/history",
-                isSelected: false,
-                minimumSize: 0
-            ),
-            CleanupTarget(
-                name: "LM Studio Server Logs",
-                path: "\(home)/.lmstudio/server-logs"
-            ),
-            CleanupTarget(
-                name: "LM Studio Conversations (Optional)",
-                path: "\(home)/.lmstudio/conversations",
-                isSelected: false,
-                minimumSize: 0
-            ),
-        ]
-
-        let items = deduplicatedItems(targets.compactMap { target in
-            makeCleanupItem(
-                name: target.name,
-                path: target.path,
-                category: .aiApps,
-                isSelected: target.isSelected,
-                minimumSize: target.minimumSize
-            )
-        })
-        let totalSize = items.reduce(0) { $0 + $1.size }
-        return CategoryResult(category: .aiApps, items: items.sorted { $0.size > $1.size }, totalSize: totalSize)
+        // Deep AI model & LLM cache scanning (Ollama, LM Studio) is reserved for AppSift Pro.
+        // Public Community Edition provides a baseline clean pass.
+        return CategoryResult(category: .aiApps, items: [], totalSize: 0)
     }
 
     private func scanMailAttachments() -> CategoryResult {
