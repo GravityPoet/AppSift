@@ -60,8 +60,6 @@ Descarga el `.dmg` más reciente desde [Releases](https://github.com/GravityPoet
 
 > Consulta las notas de cada versión para conocer el estado de firma, notarización y su SHA-256.
 
-> AppSift es un producto independiente mantenido por GravityPoet y comenzó como un fork de [PureMac](https://github.com/momenbasel/PureMac). Consulta el [reconocimiento](../README.md#attribution) para ver la atribución y la licencia original.
-
 ### Compilar desde el código fuente
 
 ```bash

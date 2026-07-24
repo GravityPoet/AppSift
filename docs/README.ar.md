@@ -62,7 +62,6 @@ brew install --cask appsift
 
 > راجع ملاحظات الإصدار لمعرفة حالة التوقيع والمصادقة وقيمة SHA-256.
 
-> AppSift منتج مستقل تديره GravityPoet، وقد بدأ كفرع من [PureMac](https://github.com/momenbasel/PureMac). راجع [الإسناد](../README.md#attribution) للاطلاع على الشكر والترخيص الأصلي.
 
 ### البناء من الكود المصدري
 

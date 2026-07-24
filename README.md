@@ -352,21 +352,6 @@ Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## 🤝 Acknowledgments & Attribution
-
-- **[@nguyenhuy158](https://github.com/nguyenhuy158)** - Search and filter feature
-- **[@edufalcao](https://github.com/edufalcao)** - Cleaning safety guards and confirmation dialogs
-- **[@zeck00](https://github.com/zeck00)** - UI overhaul, app uninstaller with system app protection, onboarding experience
-- **[@0x-man](https://github.com/0x-man)** - Symlink security vulnerability report
-- **[@ansidev](https://github.com/ansidev)** - Checkbox interaction bug report
-- **[@fengcheng01](https://github.com/fengcheng01)** - App uninstaller feature request
-- **[@scholzfuni](https://github.com/scholzfuni)** - Modularization proposal
-- **[@Zonharo](https://github.com/Zonharo)** - In-app auto-update request
-
-AppSift is an independent product maintained by **GravityPoet**. It began as a fork of [PureMac](https://github.com/momenbasel/PureMac), and the original PureMac contributors and MIT license notice are retained. AppSift-specific changes are Copyright © 2026 GravityPoet.
-
----
-
 ## 📈 Star History
 
 <a href="https://star-history.com/#GravityPoet/AppSift&Date">
