@@ -30,7 +30,7 @@
   <a href="https://github.com/GravityPoet/AppSift/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/GravityPoet/AppSift/build.yml?style=flat-square&label=Build" alt="Estado de build"></a>
   <img src="https://img.shields.io/badge/macOS-13.0+-blue?style=flat-square" alt="macOS 13.0+">
   <img src="https://img.shields.io/badge/Swift-5.9-orange?style=flat-square" alt="Swift 5.9">
-  <a href="../LICENSE"><img src="https://img.shields.io/github/license/GravityPoet/AppSift?style=flat-square" alt="Licencia MIT"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0%20%2F%20Dual-blue?style=flat-square" alt="Licencia AGPL-3.0"></a>
   <a href="https://github.com/GravityPoet/AppSift/stargazers"><img src="https://img.shields.io/github/stars/GravityPoet/AppSift?style=flat-square" alt="Estrellas"></a>
   <a href="https://github.com/GravityPoet/AppSift/releases"><img src="https://img.shields.io/github/downloads/GravityPoet/AppSift/total?style=flat-square&label=Descargas" alt="Descargas"></a>
 </p>
@@ -165,4 +165,4 @@ Las contribuciones son bienvenidas. Consulta [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ## Licencia
 
-Licencia MIT. Consulta [LICENSE](../LICENSE) para más detalles.
+Licencia AGPL-3.0. Consulta [LICENSE](../LICENSE) para más detalles.
