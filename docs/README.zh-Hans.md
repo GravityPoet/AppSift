@@ -16,7 +16,7 @@
 <h1 align="center">AppSift</h1>
 
 <p align="center">
-  <b>夺回被焊死的 Mac 空间。100% 离线、零隐私泄露、AGPL-3.0 正统开源的 Mac 清理卸载神器，终结高昂订阅。</b>
+  <b>夺回被焊死的 Mac 空间。100% 离线、零隐私泄露、100% 开源的 Mac 清理与卸载神器，终结高昂订阅。</b>
 </p>
 
 <p align="center">
