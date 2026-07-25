@@ -1223,3 +1223,37 @@
 "Unreadable" = "読み取り不可";
 "Use the owning app to manage this library or application." = "このライブラリまたはアプリケーションを所有するアプリで管理してください。";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "物理割り当てがゼロの別名や使用できないプレースホルダも、順位リストには表示されます。";
+
+/* ストレージ、プライバシー、メンテナンス、ヘルス */
+"Maintenance" = "メンテナンス";
+"System Health" = "システムヘルス";
+"Browser Privacy" = "ブラウザプライバシー";
+"Similar Images" = "類似画像";
+"iPhone & iPad Backups" = "iPhoneとiPadのバックアップ";
+"Downloads by Source" = "ダウンロード元別";
+"System Maintenance" = "システムメンテナンス";
+"System Residue" = "システム残留データ";
+"System Residue Diagnostics" = "システム残留データ診断";
+"Battery" = "バッテリー";
+"External Disks" = "外付けディスク";
+"Connected Devices" = "接続中のデバイス";
+"System Alerts" = "システムアラート";
+"Background Alerts" = "バックグラウンドアラート";
+"Device Backups" = "デバイスバックアップ";
+"macOS Software Update" = "macOSソフトウェアアップデート";
+"DNS Cache" = "DNSキャッシュ";
+"Spotlight Index" = "Spotlightインデックス";
+"Mail Search Index" = "Mail検索インデックス";
+"Old User Account Residue" = "古いユーザーアカウントの残留データ";
+"Damaged Preference Files" = "破損した環境設定ファイル";
+"Document History Versions" = "書類の履歴バージョン";
+"Rule-Based Recommendations" = "ルールに基づく推奨事項";
+"Current Alerts" = "現在のアラート";
+"Alert History" = "アラート履歴";
+"Live System Status" = "ライブシステム状況";
+"Refresh Health Checks" = "ヘルスチェックを更新";
+"Enable Alerts" = "アラートを有効にする";
+"No Current Issues Detected" = "現在問題は検出されていません";
+"Review Current Alerts" = "現在のアラートを確認";
+"A Few Actions Are Suggested" = "推奨される操作があります";
+"Urgent Attention Needed" = "早急な対応が必要です";

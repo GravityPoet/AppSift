@@ -18,7 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let keepsTrashWatcher = UserDefaults.standard.bool(
             forKey: TrashAppWatcher.settingsKey
         )
-        return !keepsMenuBarMonitor && !keepsTrashWatcher
+        let keepsSystemAlerts = UserDefaults.standard.bool(
+            forKey: SystemAlertCenter.settingsKey
+        )
+        return !keepsMenuBarMonitor && !keepsTrashWatcher && !keepsSystemAlerts
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,6 +33,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             syncMenuBarMonitor()
             configureTrashAppNotifications()
             syncTrashAppWatcher()
+            syncSystemAlerts()
             NotificationCenter.default.addObserver(
                 self, selector: #selector(syncMenuBarMonitor),
                 name: .appSiftMenuBarMonitorChanged, object: nil
@@ -37,6 +41,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             NotificationCenter.default.addObserver(
                 self, selector: #selector(trashAppWatcherSettingChanged(_:)),
                 name: .appSiftTrashAppWatcherChanged, object: nil
+            )
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(systemAlertSettingChanged(_:)),
+                name: .appSiftSystemAlertsChanged, object: nil
             )
         }
         // Touch TCC-protected paths so macOS registers AppSift in the
@@ -138,6 +146,41 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
+    @objc private func systemAlertSettingChanged(_ notification: Notification) {
+        syncSystemAlerts()
+        if UserDefaults.standard.bool(forKey: SystemAlertCenter.settingsKey) {
+            requestSystemAlertAuthorizationIfNeeded()
+        }
+    }
+
+    private func syncSystemAlerts() {
+        if UserDefaults.standard.bool(forKey: SystemAlertCenter.settingsKey) {
+            SystemAlertCenter.shared.start()
+        } else {
+            SystemAlertCenter.shared.stop()
+        }
+    }
+
+    private func requestSystemAlertAuthorizationIfNeeded() {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .notDetermined else { return }
+            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+                if let error {
+                    Logger.shared.log(
+                        "System alert notification permission failed: \(error.localizedDescription)",
+                        level: .warning
+                    )
+                } else if !granted {
+                    Logger.shared.log(
+                        "System notifications were declined; in-app alerts remain available",
+                        level: .info
+                    )
+                }
+            }
+        }
+    }
+
     private func configureTrashAppNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
@@ -234,6 +277,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             completionHandler()
             return
         }
+        if response.notification.request.content.userInfo[
+            SystemAlertNotificationContract.markerKey
+        ] as? Bool == true {
+            Task { @MainActor in
+                NSApp.activate(ignoringOtherApps: true)
+                WindowOpener.shared.open?("main")
+                completionHandler()
+            }
+            return
+        }
         let paths = response.notification.request.content.userInfo[
             TrashAppNotificationContract.pathsUserInfoKey
         ] as? [String] ?? []
@@ -263,6 +316,7 @@ extension Notification.Name {
     /// Posted when the "Show system monitor in menu bar" Settings toggle flips,
     /// so AppDelegate can add/remove the status item live.
     static let appSiftMenuBarMonitorChanged = Notification.Name("AppSift.MenuBarMonitorChanged")
+    static let appSiftSystemAlertsChanged = Notification.Name("AppSift.SystemAlertsChanged")
 }
 
 @main

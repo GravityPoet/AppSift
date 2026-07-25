@@ -4,6 +4,43 @@ import XCTest
 @testable import AppSift
 
 final class StartupItemControllerTests: XCTestCase {
+    func testCreatesRecoverableCandidateForBrokenCurrentUserLaunchAgent() throws {
+        let missingExecutable = "/tmp/AppSiftMissing-\(UUID().uuidString)"
+        let fixture = try makeFixture(
+            executablePath: missingExecutable,
+            itemIsMissing: true
+        )
+        defer { fixture.cleanup() }
+
+        XCTAssertTrue(fixture.controller.canRemoveBroken(fixture.item))
+        let candidate = try fixture.controller.brokenRemovalCandidate(for: fixture.item)
+
+        XCTAssertEqual(candidate.url, fixture.propertyListURL)
+        XCTAssertEqual(candidate.allowedRoot, fixture.root)
+        XCTAssertTrue(candidate.requiresDirectChild)
+        XCTAssertEqual(candidate.fingerprint, ReviewedTrashFingerprint.read(at: fixture.propertyListURL))
+    }
+
+    func testBrokenLaunchAgentRemovalStopsWhenExecutableReappears() throws {
+        let executableURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftReappeared-\(UUID().uuidString)")
+        let fixture = try makeFixture(
+            executablePath: executableURL.path,
+            itemIsMissing: true
+        )
+        defer {
+            fixture.cleanup()
+            try? FileManager.default.removeItem(at: executableURL)
+        }
+        try Data("executable".utf8).write(to: executableURL)
+
+        XCTAssertThrowsError(
+            try fixture.controller.brokenRemovalCandidate(for: fixture.item)
+        ) { error in
+            XCTAssertEqual(error as? StartupItemControlError, .noLongerBroken)
+        }
+    }
+
     func testRejectsSystemLaunchAgent() throws {
         let fixture = try makeFixture(scope: .system)
         defer { fixture.cleanup() }
@@ -410,6 +447,8 @@ final class StartupItemControllerTests: XCTestCase {
         scope: StartupItemScope = .user,
         isLegacy: Bool = true,
         evidence: Set<StartupItemEvidence> = [.launchdPropertyList],
+        executablePath: String = "/bin/sleep",
+        itemIsMissing: Bool = false,
         initialState: StartupItemRuntimeState = StartupItemRuntimeState(
             isDisabled: false,
             isLoaded: true
@@ -419,7 +458,11 @@ final class StartupItemControllerTests: XCTestCase {
             .appendingPathComponent("AppSiftStartupControl-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let propertyListURL = root.appendingPathComponent("helper.plist")
-        try writePropertyList(label: label, to: propertyListURL)
+        try writePropertyList(
+            label: label,
+            to: propertyListURL,
+            executablePath: executablePath
+        )
         try FileManager.default.setAttributes(
             [.posixPermissions: permissions],
             ofItemAtPath: propertyListURL.path
@@ -446,7 +489,9 @@ final class StartupItemControllerTests: XCTestCase {
                 state: state,
                 scope: scope,
                 isLegacy: isLegacy,
-                evidence: evidence
+                evidence: evidence,
+                executableURL: URL(fileURLWithPath: executablePath),
+                isMissing: itemIsMissing
             ),
             controller: controller,
             runtime: runtime
@@ -478,7 +523,9 @@ final class StartupItemControllerTests: XCTestCase {
         state: StartupItemState = .enabled,
         scope: StartupItemScope = .user,
         isLegacy: Bool = true,
-        evidence: Set<StartupItemEvidence> = [.launchdPropertyList]
+        evidence: Set<StartupItemEvidence> = [.launchdPropertyList],
+        executableURL: URL = URL(fileURLWithPath: "/bin/sleep"),
+        isMissing: Bool = false
     ) -> StartupItem {
         StartupItem(
             id: "launchd|\(url.path)",
@@ -490,22 +537,23 @@ final class StartupItemControllerTests: XCTestCase {
             state: state,
             scope: scope,
             itemURL: url,
-            executableURL: URL(fileURLWithPath: "/bin/sleep"),
+            executableURL: executableURL,
             associatedBundleIdentifiers: ["com.example.app"],
             evidence: evidence,
             isLegacy: isLegacy,
-            isMissing: false
+            isMissing: isMissing
         )
     }
 
     private func writePropertyList(
         label: String,
         to url: URL,
+        executablePath: String = "/bin/sleep",
         extra: [String: Any] = [:]
     ) throws {
         var propertyList: [String: Any] = [
             "Label": label,
-            "ProgramArguments": ["/bin/sleep", "300"],
+            "ProgramArguments": [executablePath, "300"],
         ]
         propertyList.merge(extra) { _, new in new }
         let data = try PropertyListSerialization.data(

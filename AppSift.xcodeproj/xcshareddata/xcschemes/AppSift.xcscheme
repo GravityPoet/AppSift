@@ -15,7 +15,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B19E38DEAA0144A77120F39C"
+               BlueprintIdentifier = "DCF6523D7F8B2CD07CBFE4FE"
                BuildableName = "AppSift.app"
                BlueprintName = "AppSift"
                ReferencedContainer = "container:AppSift.xcodeproj">
@@ -29,7 +29,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FBA8B0DE95746207A043B802"
+               BlueprintIdentifier = "13DF52A578E53E0FB1624C4A"
                BuildableName = "AppSiftTests.xctest"
                BlueprintName = "AppSiftTests"
                ReferencedContainer = "container:AppSift.xcodeproj">
@@ -46,7 +46,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B19E38DEAA0144A77120F39C"
+            BlueprintIdentifier = "DCF6523D7F8B2CD07CBFE4FE"
             BuildableName = "AppSift.app"
             BlueprintName = "AppSift"
             ReferencedContainer = "container:AppSift.xcodeproj">
@@ -58,7 +58,7 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FBA8B0DE95746207A043B802"
+               BlueprintIdentifier = "13DF52A578E53E0FB1624C4A"
                BuildableName = "AppSiftTests.xctest"
                BlueprintName = "AppSiftTests"
                ReferencedContainer = "container:AppSift.xcodeproj">
@@ -82,7 +82,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B19E38DEAA0144A77120F39C"
+            BlueprintIdentifier = "DCF6523D7F8B2CD07CBFE4FE"
             BuildableName = "AppSift.app"
             BlueprintName = "AppSift"
             ReferencedContainer = "container:AppSift.xcodeproj">
@@ -99,7 +99,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B19E38DEAA0144A77120F39C"
+            BlueprintIdentifier = "DCF6523D7F8B2CD07CBFE4FE"
             BuildableName = "AppSift.app"
             BlueprintName = "AppSift"
             ReferencedContainer = "container:AppSift.xcodeproj">

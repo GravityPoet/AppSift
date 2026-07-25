@@ -8,14 +8,21 @@ import ServiceManagement
 // InstalledApp is defined in AppInfoFetcher.swift
 
 enum AppSection: Hashable {
+    case systemHealth
     case apps
     case appUpdates
     case installationFiles
     case duplicateFiles
     case spaceLens
+    case iosBackups
+    case downloadsBySource
+    case similarImages
+    case systemMaintenance
+    case systemResidue
     case startupItems
     case extensions
     case appPermissions
+    case browserPrivacy
     case defaultApplications
     case removalHistory
     case orphans
@@ -1497,6 +1504,14 @@ final class AppState: ObservableObject {
 
     // MARK: - Time Machine Snapshot State
 
+    let iosBackupCenter = IOSBackupCenter()
+    let browserPrivacyCenter = BrowserPrivacyCenter()
+    let macOSUpdateCenter = MacOSUpdateCenter()
+    let downloadSourceCenter = DownloadSourceCenter()
+    let similarImageCenter = SimilarImageCenter()
+    let systemMaintenanceCenter = SystemMaintenanceCenter()
+    let systemResidueCenter = SystemResidueCenter()
+
     @Published var localTimeMachineSnapshots: [TimeMachineSnapshot] = []
     @Published var selectedTimeMachineSnapshotIDs: Set<String> = []
     @Published var isScanningTimeMachineSnapshots = false
@@ -1580,6 +1595,7 @@ final class AppState: ObservableObject {
     @Published private(set) var startupBackgroundTaskDataAvailable = true
     @Published private(set) var startupBackgroundTaskDataTruncated = false
     @Published private(set) var startupItemControlHistory: [StartupItemControlRecord] = []
+    @Published private(set) var brokenStartupItemRemovalHistory: [ReviewedTrashRecord] = []
     @Published private(set) var activeStartupItemActionID: String?
     @Published var startupItemActionError: String?
     @Published var startupItemActionMessage: String?
@@ -1643,6 +1659,7 @@ final class AppState: ObservableObject {
     private var externalAppActionObserver: AnyCancellable?
     private var trashAppsDetectedObserver: AnyCancellable?
     private var trashAppsReviewObserver: AnyCancellable?
+    private var featureSummaryObservers = Set<AnyCancellable>()
     private var installedAppsLoadTask: Task<Void, Never>?
     private var activeInstalledAppsLoadID = UUID()
     private var activeAppFileScanCancellation: AppFileScanCancellation?
@@ -1696,6 +1713,7 @@ final class AppState: ObservableObject {
     private let appRelationshipsScanner: AppRelationshipsScanner
     private let startupItemsScanner: StartupItemsScanner
     private let startupItemController: StartupItemController
+    private let reviewedTrashService = ReviewedTrashService()
     private let managedExtensionsScanner: ManagedExtensionsScanner
     private let appPermissionsScanner: AppPermissionsScanner
     private let appPermissionController: AppPermissionController
@@ -1722,6 +1740,7 @@ final class AppState: ObservableObject {
         "AppSift.SpaceLensScanRoot"
     private static let spaceLensSizeModeDefaultsKey =
         "AppSift.SpaceLensSizeMode"
+    private static let brokenStartupItemsFeature = "broken-startup-items"
 
     // MARK: - Computed
 
@@ -1834,6 +1853,10 @@ final class AppState: ObservableObject {
 
     var availableAppUpdateCount: Int {
         appUpdates.count { $0.status == .updateAvailable }
+    }
+
+    var availableUpdateCount: Int {
+        availableAppUpdateCount + macOSUpdateCenter.updates.count
     }
 
     var highImpactAllowedAppPermissionCount: Int {
@@ -2009,6 +2032,8 @@ final class AppState: ObservableObject {
             duplicateFileQuickLookController ?? DuplicateFileQuickLookController()
         self.removalHistory = removalHistoryStore.snapshot()
         self.startupItemControlHistory = startupItemController.historySnapshot()
+        self.brokenStartupItemRemovalHistory = ReviewedTrashHistoryStore.shared
+            .snapshot(feature: Self.brokenStartupItemsFeature)
         self.defaultApplicationControlHistory = defaultApplicationController
             .historySnapshot()
         self.installationFileRemovalHistory = installationFileController
@@ -2107,6 +2132,8 @@ final class AppState: ObservableObject {
             reviewTrashApp(paths: paths)
         }
 
+        observeFeatureSummaries()
+
         if performStartupTasks {
             loadDiskInfo()
             checkFullDiskAccess()
@@ -2122,6 +2149,65 @@ final class AppState: ObservableObject {
                 scheduler.start()
             }
         }
+    }
+
+    /// Feature centers own their detailed progress so high-frequency scans do
+    /// not invalidate the entire app. Relay only low-frequency summary changes
+    /// that feed navigation badges and the updates toolbar.
+    private func observeFeatureSummaries() {
+        macOSUpdateCenter.$updates
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        macOSUpdateCenter.$isChecking
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        iosBackupCenter.$backups
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        browserPrivacyCenter.$groups
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        downloadSourceCenter.$items
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        similarImageCenter.$groups
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        systemResidueCenter.$legacyUsers
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        systemResidueCenter.$corruptPreferences
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
+        systemResidueCenter.$documentVersions
+            .map(\.count)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &featureSummaryObservers)
     }
 
     // MARK: - App Loading
@@ -2541,6 +2627,10 @@ final class AppState: ObservableObject {
         startupItemController.canControl(item)
     }
 
+    func isBrokenStartupItemRemovable(_ item: StartupItem) -> Bool {
+        startupItemController.canRemoveBroken(item)
+    }
+
     func canControlStartupItem(_ item: StartupItem) -> Bool {
         activeStartupItemActionID == nil
             && !isScanningStartupItems
@@ -2555,6 +2645,95 @@ final class AppState: ObservableObject {
         activeStartupItemActionID == nil
             && !isScanningStartupItems
             && isStartupItemControlUndoable(record)
+    }
+
+    func removeBrokenStartupItem(_ item: StartupItem) {
+        guard activeStartupItemActionID == nil,
+              !isScanningStartupItems,
+              isBrokenStartupItemRemovable(item) else {
+            startupItemActionError = String(
+                localized: "Only broken current-user legacy LaunchAgents can be moved to the Trash."
+            )
+            return
+        }
+
+        let operationID = UUID()
+        activeStartupItemControlOperationID = operationID
+        activeStartupItemActionID = item.id
+        startupItemActionError = nil
+        startupItemActionMessage = nil
+        let controller = startupItemController
+        let trashService = reviewedTrashService
+
+        Task { @MainActor [weak self] in
+            let candidateResult = await Task.detached(priority: .userInitiated) {
+                Result { try controller.brokenRemovalCandidate(for: item) }
+            }.value
+            guard let self,
+                  self.activeStartupItemControlOperationID == operationID else { return }
+            switch candidateResult {
+            case let .failure(error):
+                self.activeStartupItemActionID = nil
+                self.startupItemActionError = error.localizedDescription
+            case let .success(candidate):
+                let outcome = await trashService.moveToTrash(
+                    [candidate],
+                    feature: Self.brokenStartupItemsFeature
+                )
+                guard self.activeStartupItemControlOperationID == operationID else { return }
+                self.activeStartupItemActionID = nil
+                self.brokenStartupItemRemovalHistory = await trashService.history(
+                    feature: Self.brokenStartupItemsFeature
+                )
+                if outcome.movedCount == 1, outcome.historyPersisted {
+                    self.startupItemActionMessage = String(
+                        format: String(localized: "%@'s broken LaunchAgent was moved to the Trash."),
+                        item.name
+                    )
+                } else if !outcome.historyPersisted {
+                    self.startupItemActionError = String(
+                        localized: "The LaunchAgent cleanup was rolled back because recovery history could not be saved."
+                    )
+                } else {
+                    self.startupItemActionError = String(
+                        localized: "The broken LaunchAgent could not be moved to the Trash."
+                    )
+                }
+            }
+            self.scanStartupItems(force: true)
+        }
+    }
+
+    func undoBrokenStartupItemRemoval(_ record: ReviewedTrashRecord) {
+        guard activeStartupItemActionID == nil,
+              record.feature == Self.brokenStartupItemsFeature else { return }
+        let operationID = UUID()
+        activeStartupItemControlOperationID = operationID
+        activeStartupItemActionID = record.id.uuidString
+        startupItemActionError = nil
+        startupItemActionMessage = nil
+        let trashService = reviewedTrashService
+
+        Task { @MainActor [weak self] in
+            let outcome = await trashService.undo(record)
+            guard let self,
+                  self.activeStartupItemControlOperationID == operationID else { return }
+            self.activeStartupItemActionID = nil
+            self.brokenStartupItemRemovalHistory = await trashService.history(
+                feature: Self.brokenStartupItemsFeature
+            )
+            if outcome.restoredCount > 0 {
+                self.startupItemActionMessage = String(
+                    localized: "The broken LaunchAgent plist was restored from the Trash."
+                )
+            }
+            if outcome.failedCount > 0 || !outcome.historyPersisted {
+                self.startupItemActionError = String(
+                    localized: "AppSift could not safely restore every LaunchAgent plist."
+                )
+            }
+            self.scanStartupItems(force: true)
+        }
     }
 
     func controlStartupItem(

@@ -27,6 +27,7 @@ struct GeneralSettingsView: View {
     @AppStorage(SearchSensitivity.defaultsKey) private var sensitivity: SearchSensitivity = .enhanced
     @AppStorage("settings.general.confirmBeforeDelete") private var confirmBeforeDelete = true
     @AppStorage("settings.general.menuBarMonitor") private var menuBarMonitor = false
+    @AppStorage(SystemAlertCenter.settingsKey) private var systemAlerts = false
     @AppStorage(TrashAppWatcher.settingsKey) private var watchTrashApps = false
     @AppStorage(Haptics.soundEffectsKey) private var soundEffects = true
     @AppStorage(AppLanguage.preferenceKey) private var appLanguageRaw = AppLanguage.current.rawValue
@@ -105,7 +106,12 @@ struct GeneralSettingsView: View {
 
             Section("System Monitor") {
                 Toggle("Show system monitor in menu bar", isOn: menuBarMonitorBinding)
-                Text("Live CPU, memory, and disk meters in the menu bar. AppSift keeps running in the background while this is on.")
+                Text("Live CPU, memory, network, disk, battery, and connected-device status in the menu bar. AppSift keeps running in the background while this is on.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Notify when storage or batteries run low", isOn: systemAlertsBinding)
+                Text("Checks internal and external disks every 15 minutes, plus Mac and supported Bluetooth battery levels. Repeated notifications are limited to once every 12 hours per condition.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -137,6 +143,16 @@ struct GeneralSettingsView: View {
                 menuBarMonitor = newValue
                 // Tell AppDelegate to add/remove the status item without relaunch.
                 NotificationCenter.default.post(name: .appSiftMenuBarMonitorChanged, object: nil)
+            }
+        )
+    }
+
+    private var systemAlertsBinding: Binding<Bool> {
+        Binding(
+            get: { systemAlerts },
+            set: { newValue in
+                systemAlerts = newValue
+                NotificationCenter.default.post(name: .appSiftSystemAlertsChanged, object: nil)
             }
         )
     }

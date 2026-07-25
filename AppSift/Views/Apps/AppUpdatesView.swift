@@ -63,6 +63,11 @@ struct AppUpdatesView: View {
             header
             Divider()
 
+            MacOSUpdateCard(center: appState.macOSUpdateCenter)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            Divider()
+
             if appState.isScanningAppUpdates && !appState.hasScannedAppUpdates {
                 checkingState
             } else if !appState.hasScannedAppUpdates {
@@ -75,16 +80,16 @@ struct AppUpdatesView: View {
         .searchable(text: $searchText, prompt: "Search update results")
         .toolbar {
             ToolbarItemGroup {
-                if appState.isScanningAppUpdates {
+                if appState.isScanningAppUpdates || appState.macOSUpdateCenter.isChecking {
                     ProgressView()
                         .controlSize(.small)
                 }
                 Button {
-                    appState.scanAppUpdates(force: true)
+                    checkAllUpdates(force: true)
                 } label: {
                     Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
                 }
-                .disabled(appState.isScanningAppUpdates || appState.installedApps.isEmpty)
+                .disabled(appState.isScanningAppUpdates || appState.macOSUpdateCenter.isChecking)
             }
         }
         .confirmationDialog(
@@ -170,7 +175,7 @@ struct AppUpdatesView: View {
             "Check App Updates",
             systemImage: "arrow.triangle.2.circlepath",
             description: "Check App Store, Homebrew, Sparkle, and signed Electron updater sources backed by evidence on this Mac.",
-            action: { appState.scanAppUpdates() },
+            action: { checkAllUpdates() },
             actionLabel: "Check for Updates",
             tint: Tint.blue
         )
@@ -322,6 +327,109 @@ struct AppUpdatesView: View {
 
     private func count(status: AppUpdateStatus) -> Int64 {
         Int64(appState.appUpdates.count { $0.status == status })
+    }
+
+    private func checkAllUpdates(force: Bool = false) {
+        appState.macOSUpdateCenter.check()
+        guard !appState.installedApps.isEmpty else { return }
+        appState.scanAppUpdates(force: force)
+    }
+}
+
+private struct MacOSUpdateCard: View {
+    @ObservedObject var center: MacOSUpdateCenter
+
+    var body: some View {
+        CardSurface(padding: 14, elevation: .flat) {
+            HStack(alignment: .top, spacing: 12) {
+                IconTile(systemName: "apple.logo", tint: Tint.blue, size: 32)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        Text("macOS Software Update")
+                            .font(.headline)
+                        statusChip
+                    }
+
+                    if center.isChecking {
+                        Text("Checking Apple's system update catalog…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if let error = center.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(Tint.orange)
+                    } else if center.hasChecked, center.updates.isEmpty {
+                        Text("No macOS updates are currently offered to this Mac.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if center.updates.isEmpty {
+                        Text("Uses macOS's built-in Software Update service. AppSift never downloads or installs an update itself.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(center.updates) { update in
+                            updateRow(update)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                if center.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if center.updates.isEmpty {
+                    Button("Check macOS") { center.check() }
+                } else {
+                    Button("Open Software Update") {
+                        center.openSoftwareUpdateSettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statusChip: some View {
+        if center.isChecking {
+            StatusChip(label: "Checking", systemImage: "clock", tint: Tint.blue)
+        } else if center.hasChecked, center.updates.isEmpty, center.errorMessage == nil {
+            StatusChip(label: "Up to Date", systemImage: "checkmark.circle.fill", tint: Tint.green)
+        } else if !center.updates.isEmpty {
+            StatusChip(
+                label: String(
+                    format: String(localized: "%lld system updates"),
+                    Int64(center.updates.count)
+                ),
+                systemImage: "arrow.down.circle.fill",
+                tint: Tint.blue
+            )
+        }
+    }
+
+    private func updateRow(_ update: MacOSSoftwareUpdate) -> some View {
+        HStack(spacing: 7) {
+            Text(update.title)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+            if let version = update.version {
+                Text(version)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            if let size = update.sizeBytes {
+                Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            if update.requiresRestart {
+                StatusChip(label: "Restart Required", systemImage: "restart", tint: Tint.orange)
+            } else if update.isRecommended {
+                StatusChip(label: "Recommended", systemImage: "checkmark.seal.fill", tint: Tint.green)
+            }
+        }
     }
 }
 

@@ -1223,3 +1223,37 @@
 "Unreadable" = "Unreadable";
 "Use the owning app to manage this library or application." = "Use the owning app to manage this library or application.";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list.";
+
+/* Storage, privacy, maintenance, and health */
+"Maintenance" = "Maintenance";
+"System Health" = "System Health";
+"Browser Privacy" = "Browser Privacy";
+"Similar Images" = "Similar Images";
+"iPhone & iPad Backups" = "iPhone & iPad Backups";
+"Downloads by Source" = "Downloads by Source";
+"System Maintenance" = "System Maintenance";
+"System Residue" = "System Residue";
+"System Residue Diagnostics" = "System Residue Diagnostics";
+"Battery" = "Battery";
+"External Disks" = "External Disks";
+"Connected Devices" = "Connected Devices";
+"System Alerts" = "System Alerts";
+"Background Alerts" = "Background Alerts";
+"Device Backups" = "Device Backups";
+"macOS Software Update" = "macOS Software Update";
+"DNS Cache" = "DNS Cache";
+"Spotlight Index" = "Spotlight Index";
+"Mail Search Index" = "Mail Search Index";
+"Old User Account Residue" = "Old User Account Residue";
+"Damaged Preference Files" = "Damaged Preference Files";
+"Document History Versions" = "Document History Versions";
+"Rule-Based Recommendations" = "Rule-Based Recommendations";
+"Current Alerts" = "Current Alerts";
+"Alert History" = "Alert History";
+"Live System Status" = "Live System Status";
+"Refresh Health Checks" = "Refresh Health Checks";
+"Enable Alerts" = "Enable Alerts";
+"No Current Issues Detected" = "No Current Issues Detected";
+"Review Current Alerts" = "Review Current Alerts";
+"A Few Actions Are Suggested" = "A Few Actions Are Suggested";
+"Urgent Attention Needed" = "Urgent Attention Needed";

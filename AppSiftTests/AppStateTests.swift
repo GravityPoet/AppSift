@@ -5003,8 +5003,12 @@ final class AppPermissionStateTests: XCTestCase {
 
         let calls = await capture.snapshot()
         XCTAssertEqual(calls.count, 1)
-        XCTAssertEqual(calls[0].0.path, "/usr/bin/tccutil")
-        XCTAssertEqual(calls[0].1, ["reset", "Camera", "com.example.Camera"])
+        guard let call = calls.first else {
+            XCTFail("Expected one tccutil invocation")
+            return
+        }
+        XCTAssertEqual(call.0.path, "/usr/bin/tccutil")
+        XCTAssertEqual(call.1, ["reset", "Camera", "com.example.Camera"])
         XCTAssertNil(appState.appPermissionActionError)
         XCTAssertNotNil(appState.appPermissionActionMessage)
         XCTAssertTrue(appState.hasScannedAppPermissions)

@@ -1223,3 +1223,37 @@
 "Unreadable" = "غير قابل للقراءة";
 "Use the owning app to manage this library or application." = "استخدم التطبيق المالك لإدارة هذه المكتبة أو هذا التطبيق.";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "تظل الأسماء البديلة ذات التخصيص الصفري والعناصر النائبة غير المتاحة ظاهرة في القائمة المرتبة.";
+
+/* التخزين والخصوصية والصيانة وصحة النظام */
+"Maintenance" = "الصيانة";
+"System Health" = "صحة النظام";
+"Browser Privacy" = "خصوصية المتصفح";
+"Similar Images" = "الصور المتشابهة";
+"iPhone & iPad Backups" = "نسخ iPhone وiPad الاحتياطية";
+"Downloads by Source" = "التنزيلات حسب المصدر";
+"System Maintenance" = "صيانة النظام";
+"System Residue" = "بقايا النظام";
+"System Residue Diagnostics" = "تشخيص بقايا النظام";
+"Battery" = "البطارية";
+"External Disks" = "الأقراص الخارجية";
+"Connected Devices" = "الأجهزة المتصلة";
+"System Alerts" = "تنبيهات النظام";
+"Background Alerts" = "تنبيهات الخلفية";
+"Device Backups" = "نسخ الأجهزة الاحتياطية";
+"macOS Software Update" = "تحديث برامج macOS";
+"DNS Cache" = "ذاكرة DNS المؤقتة";
+"Spotlight Index" = "فهرس Spotlight";
+"Mail Search Index" = "فهرس بحث Mail";
+"Old User Account Residue" = "بقايا حسابات المستخدمين القديمة";
+"Damaged Preference Files" = "ملفات التفضيلات التالفة";
+"Document History Versions" = "إصدارات سجل المستندات";
+"Rule-Based Recommendations" = "توصيات قائمة على قواعد";
+"Current Alerts" = "التنبيهات الحالية";
+"Alert History" = "سجل التنبيهات";
+"Live System Status" = "حالة النظام المباشرة";
+"Refresh Health Checks" = "تحديث فحوصات النظام";
+"Enable Alerts" = "تفعيل التنبيهات";
+"No Current Issues Detected" = "لم يتم اكتشاف مشكلات حالية";
+"Review Current Alerts" = "مراجعة التنبيهات الحالية";
+"A Few Actions Are Suggested" = "توجد بعض الإجراءات المقترحة";
+"Urgent Attention Needed" = "مطلوب اهتمام عاجل";

@@ -3,6 +3,7 @@ import SwiftUI
 struct MainWindow: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject private var permission = PermissionCoordinator.shared
+    @ObservedObject private var systemAlertCenter = SystemAlertCenter.shared
     @State private var selectedSection: AppSection? = .cleaning(.smartScan)
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -84,6 +85,11 @@ struct MainWindow: View {
                         navRow(section: .cleaning(.smartScan), label: "Dashboard",
                                icon: "sparkles", tint: Tint.blue,
                                badge: dashboardBadge)
+                        navRow(section: .systemHealth, label: "System Health",
+                               icon: "waveform.path.ecg", tint: Tint.green,
+                               badge: systemAlertCenter.activeConditions.isEmpty
+                                   ? nil
+                                   : "\(systemAlertCenter.activeConditions.count)")
                     }
 
                     sidebarSection("Applications") {
@@ -92,9 +98,9 @@ struct MainWindow: View {
                                badge: appState.installedApps.isEmpty ? nil : "\(appState.installedApps.count)")
                         navRow(section: .appUpdates, label: "App Updates",
                                icon: "arrow.triangle.2.circlepath.circle.fill", tint: Tint.blue,
-                               badge: appState.availableAppUpdateCount == 0
+                               badge: appState.availableUpdateCount == 0
                                    ? nil
-                                   : "\(appState.availableAppUpdateCount)")
+                                   : "\(appState.availableUpdateCount)")
                         navRow(section: .installationFiles, label: "Installation Files",
                                icon: "shippingbox.fill", tint: Tint.orange,
                                badge: nil)
@@ -107,6 +113,11 @@ struct MainWindow: View {
                         navRow(section: .appPermissions, label: "Privacy Permissions",
                                icon: "hand.raised.fill", tint: Tint.blue,
                                badge: appPermissionsBadge)
+                        navRow(section: .browserPrivacy, label: "Browser Privacy",
+                               icon: "hand.raised.square.fill", tint: Tint.purple,
+                               badge: appState.browserPrivacyCenter.groups.isEmpty
+                                   ? nil
+                                   : "\(appState.browserPrivacyCenter.groups.count)")
                         navRow(section: .defaultApplications, label: "Default Applications",
                                icon: "arrow.up.forward.app.fill", tint: Tint.blue,
                                badge: defaultApplicationsBadge)
@@ -134,11 +145,26 @@ struct MainWindow: View {
                                badge: appState.duplicateFileCount == 0
                                    ? nil
                                    : "\(appState.duplicateFileCount)")
+                        navRow(section: .similarImages, label: "Similar Images",
+                               icon: "photo.stack.fill", tint: Tint.purple,
+                               badge: appState.similarImageCenter.groups.isEmpty
+                                   ? nil
+                                   : "\(appState.similarImageCenter.groups.count)")
                         navRow(section: .timeMachine, label: "Time Machine Snapshots",
                                icon: "clock.arrow.circlepath", tint: Tint.orange,
                                badge: appState.localTimeMachineSnapshots.isEmpty
                                    ? nil
                                    : "\(appState.localTimeMachineSnapshots.count)")
+                        navRow(section: .iosBackups, label: "iPhone & iPad Backups",
+                               icon: "iphone", tint: Tint.blue,
+                               badge: appState.iosBackupCenter.backups.isEmpty
+                                   ? nil
+                                   : "\(appState.iosBackupCenter.backups.count)")
+                        navRow(section: .downloadsBySource, label: "Downloads by Source",
+                               icon: "arrow.down.doc.fill", tint: Tint.blue,
+                               badge: appState.downloadSourceCenter.items.isEmpty
+                                   ? nil
+                                   : "\(appState.downloadSourceCenter.items.count)")
                     }
 
                     sidebarSection("Cleanup") {
@@ -149,6 +175,15 @@ struct MainWindow: View {
                                    tint: category.color,
                                    badge: sizeBadge(for: category))
                         }
+                    }
+
+                    sidebarSection("Maintenance") {
+                        navRow(section: .systemMaintenance, label: "System Maintenance",
+                               icon: "wrench.and.screwdriver.fill", tint: Tint.blue,
+                               badge: nil)
+                        navRow(section: .systemResidue, label: "System Residue",
+                               icon: "stethoscope", tint: Tint.orange,
+                               badge: systemResidueBadge)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -233,6 +268,14 @@ struct MainWindow: View {
         guard appState.hasScannedAppPermissions,
               appState.highImpactAllowedAppPermissionCount > 0 else { return nil }
         return "\(appState.highImpactAllowedAppPermissionCount)"
+    }
+
+    private var systemResidueBadge: String? {
+        guard appState.systemResidueCenter.hasScanned else { return nil }
+        let count = appState.systemResidueCenter.legacyUsers.count
+            + appState.systemResidueCenter.corruptPreferences.count
+            + appState.systemResidueCenter.documentVersions.count
+        return count == 0 ? nil : "\(count)"
     }
 
     private func sizeBadge(for category: CleaningCategory) -> String? {
@@ -340,6 +383,14 @@ struct MainWindow: View {
     @ViewBuilder
     private var detailView: some View {
         switch selectedSection {
+        case .systemHealth:
+            SystemHealthView(
+                macOSUpdateCenter: appState.macOSUpdateCenter,
+                iosBackupCenter: appState.iosBackupCenter,
+                residueCenter: appState.systemResidueCenter
+            ) { section in
+                selectedSection = section
+            }
         case .apps:
             AppListView()
         case .appUpdates:
@@ -350,12 +401,16 @@ struct MainWindow: View {
             SpaceLensView()
         case .duplicateFiles:
             DuplicateFilesView()
+        case .similarImages:
+            SimilarImagesView(center: appState.similarImageCenter)
         case .startupItems:
             StartupItemsView()
         case .extensions:
             ExtensionsView()
         case .appPermissions:
             AppPermissionsView()
+        case .browserPrivacy:
+            BrowserPrivacyView(center: appState.browserPrivacyCenter)
         case .defaultApplications:
             DefaultApplicationsView()
         case .removalHistory:
@@ -364,6 +419,14 @@ struct MainWindow: View {
             OrphanListView()
         case .timeMachine:
             TimeMachineSnapshotsView()
+        case .iosBackups:
+            IOSBackupsView(center: appState.iosBackupCenter)
+        case .downloadsBySource:
+            DownloadsBySourceView(center: appState.downloadSourceCenter)
+        case .systemMaintenance:
+            SystemMaintenanceView(center: appState.systemMaintenanceCenter)
+        case .systemResidue:
+            SystemResidueView(center: appState.systemResidueCenter)
         case .cleaning(let category):
             if category == .smartScan {
                 DashboardView { section in

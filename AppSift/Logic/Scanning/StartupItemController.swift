@@ -76,6 +76,7 @@ enum StartupItemControlError: LocalizedError, Equatable {
     case historySaveFailedRollbackFailed
     case staleHistory
     case propertyListChanged
+    case noLongerBroken
 
     var errorDescription: String? {
         switch self {
@@ -103,6 +104,8 @@ enum StartupItemControlError: LocalizedError, Equatable {
             return String(localized: "Undo newer changes for this LaunchAgent first.")
         case .propertyListChanged:
             return String(localized: "This LaunchAgent plist changed after the recorded action, so AppSift refused to restore an outdated state.")
+        case .noLongerBroken:
+            return String(localized: "The LaunchAgent target is available again, so AppSift did not remove its plist.")
         }
     }
 }
@@ -382,6 +385,7 @@ final class StartupItemController: @unchecked Sendable {
         let url: URL
         let label: String
         let sha256: String
+        let executableURL: URL?
     }
 
     private struct FileSnapshot: Equatable {
@@ -472,6 +476,60 @@ final class StartupItemController: @unchecked Sendable {
         return StartupItemControlValidation.isDirectChild(
             itemURL,
             of: allowedLaunchAgentsRoot
+        )
+    }
+
+    func canRemoveBroken(_ item: StartupItem) -> Bool {
+        guard item.kind == .launchAgent,
+              item.scope == .user,
+              item.isLegacy,
+              item.isMissing,
+              item.evidence.contains(.launchdPropertyList),
+              item.executableURL != nil,
+              let itemURL = item.itemURL,
+              StartupItemControlValidation.isSafeServiceIdentifier(
+                item.displayIdentifier
+              ) else {
+            return false
+        }
+        return StartupItemControlValidation.isDirectChild(
+            itemURL,
+            of: allowedLaunchAgentsRoot
+        )
+    }
+
+    func brokenRemovalCandidate(
+        for item: StartupItem
+    ) throws -> ReviewedTrashCandidate {
+        operationLock.lock()
+        defer { operationLock.unlock() }
+
+        guard canRemoveBroken(item),
+              let itemURL = item.itemURL,
+              let scannedExecutableURL = item.executableURL else {
+            throw StartupItemControlError.unsupportedItem
+        }
+        let validated = try readValidatedPropertyList(at: itemURL)
+        guard validated.label == item.displayIdentifier,
+              validated.executableURL?.standardizedFileURL == scannedExecutableURL.standardizedFileURL else {
+            throw StartupItemControlError.identityChanged
+        }
+        guard !FileManager.default.fileExists(atPath: scannedExecutableURL.path) else {
+            throw StartupItemControlError.noLongerBroken
+        }
+        guard let fingerprint = ReviewedTrashFingerprint.read(at: validated.url),
+              fingerprint.owner == UInt32(uid),
+              let values = try? validated.url.resourceValues(forKeys: [.fileSizeKey]) else {
+            throw StartupItemControlError.unsafePropertyList
+        }
+        return ReviewedTrashCandidate(
+            id: item.id,
+            name: item.name,
+            url: validated.url,
+            size: Int64(values.fileSize ?? 0),
+            fingerprint: fingerprint,
+            allowedRoot: allowedLaunchAgentsRoot,
+            requiresDirectChild: true
         )
     }
 
@@ -681,11 +739,32 @@ final class StartupItemController: @unchecked Sendable {
         let digest = SHA256.hash(data: data)
             .map { String(format: "%02x", $0) }
             .joined()
+        let rawProgram = Self.boundedProgram(document["Program"] as? String)
+            ?? Self.boundedProgram((document["ProgramArguments"] as? [String])?.first)
         return ValidatedLaunchAgent(
             url: url.standardizedFileURL,
             label: label,
-            sha256: digest
+            sha256: digest,
+            executableURL: Self.executableURL(from: rawProgram)
         )
+    }
+
+    private static func boundedProgram(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 8_192 else { return nil }
+        return trimmed
+    }
+
+    private static func executableURL(from rawValue: String?) -> URL? {
+        guard let rawValue, rawValue != "(null)" else { return nil }
+        if rawValue.hasPrefix("file://"),
+           let url = URL(string: rawValue),
+           url.isFileURL {
+            return url.standardizedFileURL
+        }
+        guard rawValue.hasPrefix("/") else { return nil }
+        return URL(fileURLWithPath: rawValue).standardizedFileURL
     }
 
     private func fileSnapshot(at url: URL) -> FileSnapshot? {

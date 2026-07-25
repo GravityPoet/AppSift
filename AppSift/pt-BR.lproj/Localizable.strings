@@ -1223,3 +1223,37 @@
 "Unreadable" = "Ilegível";
 "Use the owning app to manage this library or application." = "Use o app responsável para gerenciar esta biblioteca ou aplicativo.";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "Aliases com alocação zero e espaços reservados indisponíveis continuam visíveis na lista ordenada.";
+
+/* Armazenamento, privacidade, manutenção e integridade */
+"Maintenance" = "Manutenção";
+"System Health" = "Integridade do sistema";
+"Browser Privacy" = "Privacidade do navegador";
+"Similar Images" = "Imagens semelhantes";
+"iPhone & iPad Backups" = "Backups do iPhone e iPad";
+"Downloads by Source" = "Downloads por origem";
+"System Maintenance" = "Manutenção do sistema";
+"System Residue" = "Resíduos do sistema";
+"System Residue Diagnostics" = "Diagnóstico de resíduos do sistema";
+"Battery" = "Bateria";
+"External Disks" = "Discos externos";
+"Connected Devices" = "Dispositivos conectados";
+"System Alerts" = "Alertas do sistema";
+"Background Alerts" = "Alertas em segundo plano";
+"Device Backups" = "Backups de dispositivos";
+"macOS Software Update" = "Atualização de Software do macOS";
+"DNS Cache" = "Cache DNS";
+"Spotlight Index" = "Índice do Spotlight";
+"Mail Search Index" = "Índice de busca do Mail";
+"Old User Account Residue" = "Resíduos de contas de usuário antigas";
+"Damaged Preference Files" = "Arquivos de preferências danificados";
+"Document History Versions" = "Versões do histórico de documentos";
+"Rule-Based Recommendations" = "Recomendações baseadas em regras";
+"Current Alerts" = "Alertas atuais";
+"Alert History" = "Histórico de alertas";
+"Live System Status" = "Status do sistema em tempo real";
+"Refresh Health Checks" = "Atualizar verificações do sistema";
+"Enable Alerts" = "Ativar alertas";
+"No Current Issues Detected" = "Nenhum problema atual detectado";
+"Review Current Alerts" = "Revisar alertas atuais";
+"A Few Actions Are Suggested" = "Há algumas ações sugeridas";
+"Urgent Attention Needed" = "Atenção urgente necessária";

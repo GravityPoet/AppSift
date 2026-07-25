@@ -32,15 +32,21 @@ private enum StartupItemFilter: String, CaseIterable, Identifiable {
 
 private enum StartupItemConfirmation: Identifiable {
     case control(StartupItem, StartupItemControlAction)
+    case removeBroken(StartupItem)
     case undo(StartupItemControlRecord)
+    case undoBroken(ReviewedTrashRecord)
     case clearHistory
 
     var id: String {
         switch self {
         case let .control(item, action):
             return "control|\(item.id)|\(action.rawValue)"
+        case let .removeBroken(item):
+            return "remove-broken|\(item.id)"
         case let .undo(record):
             return "undo|\(record.id.uuidString)"
+        case let .undoBroken(record):
+            return "undo-broken|\(record.id.uuidString)"
         case .clearHistory:
             return "clear-history"
         }
@@ -73,6 +79,16 @@ struct StartupItemsView: View {
         showsAllHistory
             ? appState.startupItemControlHistory
             : Array(appState.startupItemControlHistory.prefix(5))
+    }
+
+    private var latestUndoableBrokenRemoval: ReviewedTrashRecord? {
+        appState.brokenStartupItemRemovalHistory.first { record in
+            record.items.contains { item in
+                item.status == .movedToTrash
+                    && item.restoredAt == nil
+                    && item.trashPath.map(FileManager.default.fileExists(atPath:)) == true
+            }
+        }
     }
 
     var body: some View {
@@ -150,7 +166,7 @@ struct StartupItemsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Startup Items")
                     .font(.title2.weight(.semibold))
-                Text("Modern and system startup items stay read-only. Current-user legacy LaunchAgents can be safely controlled with undo history.")
+                Text("Modern and system startup items stay read-only. Current-user legacy LaunchAgents can be controlled, and broken plists can be moved to the Trash with undo.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -211,6 +227,10 @@ struct StartupItemsView: View {
 
                 if !appState.startupItemControlHistory.isEmpty {
                     controlHistory
+                }
+
+                if let record = latestUndoableBrokenRemoval {
+                    brokenCleanupHistory(record)
                 }
             }
             .padding(20)
@@ -370,6 +390,31 @@ struct StartupItemsView: View {
         }
     }
 
+    private func brokenCleanupHistory(_ record: ReviewedTrashRecord) -> some View {
+        CardSurface(padding: 12, elevation: .flat) {
+            HStack(spacing: 10) {
+                Image(systemName: "trash.slash.fill")
+                    .foregroundStyle(Tint.orange)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Recoverable Broken Item Cleanup")
+                        .font(.subheadline.weight(.semibold))
+                    Text("The most recent LaunchAgent plist is still in the Trash and can be restored.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    pendingConfirmation = .undoBroken(record)
+                } label: {
+                    Label("Undo Cleanup", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(appState.activeStartupItemActionID != nil)
+            }
+        }
+    }
+
     private func confirmationAlert(
         _ confirmation: StartupItemConfirmation
     ) -> Alert {
@@ -389,6 +434,20 @@ struct StartupItemsView: View {
                 },
                 secondaryButton: .cancel()
             )
+        case let .removeBroken(item):
+            return Alert(
+                title: Text("Move Broken LaunchAgent to Trash?"),
+                message: Text(
+                    String(
+                        format: String(localized: "%@ points to an executable that no longer exists. AppSift will revalidate the plist and move only that current-user plist to the Trash."),
+                        item.name
+                    )
+                ),
+                primaryButton: .destructive(Text("Move to Trash")) {
+                    appState.removeBrokenStartupItem(item)
+                },
+                secondaryButton: .cancel()
+            )
         case let .undo(record):
             let format = record.originalDisabled
                 ? String(localized: "Undo this change and restore %@ to its previous disabled state? AppSift will revalidate the plist first.")
@@ -398,6 +457,15 @@ struct StartupItemsView: View {
                 message: Text(String(format: format, record.itemName)),
                 primaryButton: .default(Text("Undo")) {
                     appState.undoStartupItemControl(record)
+                },
+                secondaryButton: .cancel()
+            )
+        case let .undoBroken(record):
+            return Alert(
+                title: Text("Restore Broken LaunchAgent?"),
+                message: Text("AppSift will restore the unchanged plist to its original LaunchAgents folder. Its missing executable will not be recreated."),
+                primaryButton: .default(Text("Restore")) {
+                    appState.undoBrokenStartupItemRemoval(record)
                 },
                 secondaryButton: .cancel()
             )
@@ -433,6 +501,7 @@ struct StartupItemsView: View {
                 StartupItemRow(
                     item: item,
                     controlAction: controlAction,
+                    canRemoveBroken: appState.isBrokenStartupItemRemovable(item),
                     isWorking: appState.activeStartupItemActionID == item.id,
                     actionsDisabled: appState.activeStartupItemActionID != nil
                         || appState.isScanningStartupItems,
@@ -441,6 +510,9 @@ struct StartupItemsView: View {
                     },
                     control: { action in
                         pendingConfirmation = .control(item, action)
+                    },
+                    removeBroken: {
+                        pendingConfirmation = .removeBroken(item)
                     }
                 )
             }
@@ -489,10 +561,12 @@ struct StartupItemsView: View {
 private struct StartupItemRow: View {
     let item: StartupItem
     let controlAction: StartupItemControlAction?
+    let canRemoveBroken: Bool
     let isWorking: Bool
     let actionsDisabled: Bool
     let reveal: () -> Void
     let control: (StartupItemControlAction) -> Void
+    let removeBroken: () -> Void
 
     var body: some View {
         CardSurface(padding: 12, elevation: .flat) {
@@ -589,7 +663,24 @@ private struct StartupItemRow: View {
                         .disabled(actionsDisabled)
                     }
 
-                    if item.revealURL != nil && !item.isMissing {
+                    if canRemoveBroken {
+                        Button(role: .destructive, action: removeBroken) {
+                            if isWorking {
+                                HStack(spacing: 6) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text("Removing…")
+                                }
+                            } else {
+                                Label("Remove Broken Item", systemImage: "trash")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(actionsDisabled)
+                    }
+
+                    if item.itemURL != nil || (item.revealURL != nil && !item.isMissing) {
                         Button(action: reveal) {
                             Label("Reveal", systemImage: "folder")
                         }
