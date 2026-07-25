@@ -212,6 +212,38 @@ final class SimilarImageScannerLogicTests: XCTestCase {
             XCTAssertEqual(error as? SimilarImageScanError, .invalidRoot)
         }
     }
+
+    func testProtectsManagedPhotoLibrariesAtAnyDepth() {
+        XCTAssertTrue(
+            SimilarImageScanner.isProtectedPhotoLibraryPath(
+                URL(fileURLWithPath: "/Users/test/Pictures/Photos Library.photoslibrary/originals/a.jpg")
+            )
+        )
+        XCTAssertTrue(
+            SimilarImageScanner.isProtectedPhotoLibraryPath(
+                URL(fileURLWithPath: "/Volumes/Archive/iPhoto Library.photolibrary")
+            )
+        )
+        XCTAssertFalse(
+            SimilarImageScanner.isProtectedPhotoLibraryPath(
+                URL(fileURLWithPath: "/Users/test/Pictures/Trip/a.jpg")
+            )
+        )
+    }
+
+    func testRejectsManagedPhotoLibraryAsScanRoot() async {
+        do {
+            _ = try await SimilarImageScanner().scan(
+                rootURL: URL(
+                    fileURLWithPath: "/Users/test/Pictures/Photos Library.photoslibrary",
+                    isDirectory: true
+                )
+            )
+            XCTFail("Managed Photos libraries must not be scanned directly.")
+        } catch {
+            XCTAssertEqual(error as? SimilarImageScanError, .managedPhotoLibrary)
+        }
+    }
 }
 
 final class SystemAlertCenterTests: XCTestCase {

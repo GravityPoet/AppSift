@@ -152,6 +152,9 @@ final class SimilarImageCenter: ObservableObject {
         var preservedCount = 0
         for group in groups {
             var groupSelection = group.items.filter { selectedIDs.contains($0.id) }
+            groupSelection.removeAll {
+                SimilarImageScanner.isProtectedPhotoLibraryPath($0.url)
+            }
             let currentUnselectedItemExists = group.items.contains { item in
                 !selectedIDs.contains(item.id)
                     && ReviewedTrashFingerprint.read(at: item.url) != nil

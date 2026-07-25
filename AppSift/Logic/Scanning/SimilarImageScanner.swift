@@ -42,12 +42,15 @@ struct SimilarImageScanResult: Sendable {
 
 enum SimilarImageScanError: LocalizedError, Equatable {
     case invalidRoot
+    case managedPhotoLibrary
     case rootUnavailable
 
     var errorDescription: String? {
         switch self {
         case .invalidRoot:
             return String(localized: "Choose a specific local folder or mounted disk to scan for similar images.")
+        case .managedPhotoLibrary:
+            return String(localized: "Photos Library packages cannot be scanned or cleaned directly. Export photos to a regular folder first.")
         case .rootUnavailable:
             return String(localized: "The selected image folder is unavailable or inaccessible.")
         }
@@ -77,6 +80,9 @@ actor SimilarImageScanner {
     private static let supportedExtensions: Set<String> = [
         "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "gif", "bmp", "webp"
     ]
+    private static let managedPhotoLibraryExtensions: Set<String> = [
+        "aplibrary", "migratedphotolibrary", "photolibrary", "photoslibrary"
+    ]
 
     func scan(
         rootURL: URL,
@@ -88,7 +94,12 @@ actor SimilarImageScanner {
               !Self.isProtectedSystemPath(root.path) else {
             throw SimilarImageScanError.invalidRoot
         }
-        guard Self.isSafeDirectory(root) else { throw SimilarImageScanError.rootUnavailable }
+        guard !Self.isProtectedPhotoLibraryPath(root) else {
+            throw SimilarImageScanError.managedPhotoLibrary
+        }
+        guard Self.isSafeDirectory(root), !Self.isPackage(root) else {
+            throw SimilarImageScanError.rootUnavailable
+        }
         try Task.checkCancellation()
 
         let discovery = try discoverImages(in: root)
@@ -119,12 +130,21 @@ actor SimilarImageScanner {
         (lhs ^ rhs).nonzeroBitCount
     }
 
+    static func isProtectedPhotoLibraryPath(_ url: URL) -> Bool {
+        url.standardizedFileURL.pathComponents.contains { component in
+            managedPhotoLibraryExtensions.contains(
+                URL(fileURLWithPath: component).pathExtension.lowercased()
+            )
+        }
+    }
+
     private func discoverImages(
         in root: URL
     ) throws -> (urls: [URL], unreadable: Int, cloudPlaceholders: Int, truncated: Bool) {
         let keys: Set<URLResourceKey> = [
             .isRegularFileKey,
             .isDirectoryKey,
+            .isPackageKey,
             .isSymbolicLinkKey,
             .isUbiquitousItemKey,
             .ubiquitousItemDownloadingStatusKey,
@@ -148,6 +168,11 @@ actor SimilarImageScanner {
             }
             if values.isSymbolicLink == true {
                 if values.isDirectory == true { enumerator.skipDescendants() }
+                continue
+            }
+            if values.isDirectory == true,
+               values.isPackage == true || Self.isProtectedPhotoLibraryPath(candidate) {
+                enumerator.skipDescendants()
                 continue
             }
             guard values.isRegularFile == true,
@@ -457,6 +482,13 @@ actor SimilarImageScanner {
         guard lstat(url.path, &information) == 0 else { return false }
         return information.st_mode & S_IFMT == S_IFDIR
             && information.st_mode & S_IWOTH == 0
+    }
+
+    private static func isPackage(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.isPackageKey]) else {
+            return false
+        }
+        return values.isPackage == true
     }
 
     private static func isProtectedSystemPath(_ path: String) -> Bool {
