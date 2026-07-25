@@ -121,6 +121,14 @@ struct MainWindow: View {
                     }
 
                     sidebarSection("Storage") {
+                        navRow(section: .spaceLens, label: "Space Lens",
+                               icon: "square.3.layers.3d", tint: Tint.purple,
+                               badge: appState.spaceLensResult.map {
+                                   ByteCountFormatter.string(
+                                       fromByteCount: $0.root.allocatedSize,
+                                       countStyle: .file
+                                   )
+                               })
                         navRow(section: .duplicateFiles, label: "Duplicate Files",
                                icon: "doc.on.doc.fill", tint: Tint.cyan,
                                badge: appState.duplicateFileCount == 0
@@ -338,6 +346,8 @@ struct MainWindow: View {
             AppUpdatesView()
         case .installationFiles:
             InstallationFilesView()
+        case .spaceLens:
+            SpaceLensView()
         case .duplicateFiles:
             DuplicateFilesView()
         case .startupItems:

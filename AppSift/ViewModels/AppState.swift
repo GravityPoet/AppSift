@@ -12,6 +12,7 @@ enum AppSection: Hashable {
     case appUpdates
     case installationFiles
     case duplicateFiles
+    case spaceLens
     case startupItems
     case extensions
     case appPermissions
@@ -1404,6 +1405,11 @@ final class DuplicateScanProgressState: ObservableObject {
 }
 
 @MainActor
+final class SpaceLensScanProgressState: ObservableObject {
+    @Published var value = SpaceLensScanProgress.idle
+}
+
+@MainActor
 final class AppState: ObservableObject {
     typealias AppFileScanCancellation = @Sendable () -> Void
     typealias AppFileScanner = @MainActor @Sendable (
@@ -1501,6 +1507,23 @@ final class AppState: ObservableObject {
     @Published var lastTimeMachineFreedSpace: Int64 = 0
     @Published var lastTimeMachineDeletedCount: Int = 0
     @Published var lastTimeMachineSnapshotScanDate: Date?
+
+    // MARK: - Space Lens State
+
+    @Published private(set) var spaceLensScanRoot: URL?
+    @Published private(set) var spaceLensResult: SpaceLensScanResult?
+    @Published private(set) var spaceLensNavigationPath: [String] = []
+    @Published var selectedSpaceLensNodeIDs: Set<String> = []
+    @Published var spaceLensSizeMode: SpaceLensSizeMode = .allocated
+    @Published private(set) var isScanningSpaceLens = false
+    @Published private(set) var isRemovingSpaceLensItems = false
+    @Published private(set) var hasScannedSpaceLens = false
+    @Published private(set) var lastSpaceLensScanDate: Date?
+    @Published private(set) var spaceLensRemovalHistory:
+        [SpaceLensRemovalRecord] = []
+    @Published var spaceLensActionError: String?
+    @Published var spaceLensActionMessage: String?
+    let spaceLensScanProgress = SpaceLensScanProgressState()
 
     // MARK: - Duplicate File State
 
@@ -1643,6 +1666,8 @@ final class AppState: ObservableObject {
     private var activeAppUpdatesScanID = UUID()
     private var installationFilesScanTask: Task<InstallationFileScanResult, Never>?
     private var activeInstallationFilesScanID = UUID()
+    private var spaceLensScanTask: Task<Void, Never>?
+    private var activeSpaceLensScanID = UUID()
     private var duplicateFilesScanTask: Task<Void, Never>?
     private var activeDuplicateFilesScanID = UUID()
     private var discoveredFilesAppID: InstalledApp.ID?
@@ -1679,6 +1704,8 @@ final class AppState: ObservableObject {
     private let appUpdatesScanner: AppUpdatesScanner
     private let installationFilesScanner: InstallationFilesScanner
     private let installationFileController: InstallationFileController
+    private let spaceLensScanner: SpaceLensScanner
+    private let spaceLensRemovalController: SpaceLensRemovalController
     private let duplicateFileScanner: DuplicateFileScanner
     private let duplicateFileRemovalController: DuplicateFileRemovalController
     private let duplicateFileQuickLookController: DuplicateFileQuickLookController
@@ -1691,6 +1718,10 @@ final class AppState: ObservableObject {
         "AppSift.DuplicateIgnoredPaths"
     private static let duplicateMinimumSizeDefaultsKey =
         "AppSift.DuplicateMinimumFileSize"
+    private static let spaceLensRootDefaultsKey =
+        "AppSift.SpaceLensScanRoot"
+    private static let spaceLensSizeModeDefaultsKey =
+        "AppSift.SpaceLensSizeMode"
 
     // MARK: - Computed
 
@@ -1827,6 +1858,45 @@ final class AppState: ObservableObject {
         }
     }
 
+    var spaceLensNavigationNodes: [SpaceLensNode] {
+        guard let root = spaceLensResult?.root else { return [] }
+        var nodes = [root]
+        var current = root
+        for nodeID in spaceLensNavigationPath.dropFirst() {
+            guard let child = current.children.first(where: {
+                $0.id == nodeID && $0.isContainer
+            }) else {
+                break
+            }
+            nodes.append(child)
+            current = child
+        }
+        return nodes
+    }
+
+    var currentSpaceLensNode: SpaceLensNode? {
+        spaceLensNavigationNodes.last
+    }
+
+    var selectedSpaceLensNodes: [SpaceLensNode] {
+        guard let currentSpaceLensNode else { return [] }
+        return currentSpaceLensNode.children.filter {
+            selectedSpaceLensNodeIDs.contains($0.id)
+        }
+    }
+
+    var selectedSpaceLensAllocatedSize: Int64 {
+        selectedSpaceLensNodes.reduce(0) {
+            $0 + $1.allocatedSize
+        }
+    }
+
+    var latestUndoableSpaceLensRecord: SpaceLensRemovalRecord? {
+        spaceLensRemovalHistory.first {
+            spaceLensRemovalController.canUndo($0)
+        }
+    }
+
     var duplicateFileCount: Int {
         duplicateFileGroups.reduce(0) { $0 + $1.duplicateCount }
     }
@@ -1903,6 +1973,9 @@ final class AppState: ObservableObject {
             )
         },
         installationFileController: InstallationFileController = InstallationFileController(),
+        spaceLensScanner: SpaceLensScanner = SpaceLensScanner(),
+        spaceLensRemovalController: SpaceLensRemovalController =
+            SpaceLensRemovalController(),
         duplicateFileScanner: DuplicateFileScanner = DuplicateFileScanner(),
         duplicateFileRemovalController: DuplicateFileRemovalController = DuplicateFileRemovalController(),
         duplicateFileQuickLookController: DuplicateFileQuickLookController? = nil
@@ -1928,6 +2001,8 @@ final class AppState: ObservableObject {
         self.appUpdatesScanner = appUpdatesScanner
         self.installationFilesScanner = installationFilesScanner
         self.installationFileController = installationFileController
+        self.spaceLensScanner = spaceLensScanner
+        self.spaceLensRemovalController = spaceLensRemovalController
         self.duplicateFileScanner = duplicateFileScanner
         self.duplicateFileRemovalController = duplicateFileRemovalController
         self.duplicateFileQuickLookController =
@@ -1937,6 +2012,8 @@ final class AppState: ObservableObject {
         self.defaultApplicationControlHistory = defaultApplicationController
             .historySnapshot()
         self.installationFileRemovalHistory = installationFileController
+            .historySnapshot()
+        self.spaceLensRemovalHistory = spaceLensRemovalController
             .historySnapshot()
         self.duplicateFileRemovalHistory = duplicateFileRemovalController
             .historySnapshot()
@@ -1955,6 +2032,24 @@ final class AppState: ObservableObject {
                 1,
                 storedMinimumSize.int64Value
             )
+        }
+        let storedSpaceLensPath = UserDefaults.standard.string(
+            forKey: Self.spaceLensRootDefaultsKey
+        )
+        self.spaceLensScanRoot = storedSpaceLensPath
+            .flatMap {
+                SpaceLensScanner.canonicalExistingURL(
+                    URL(fileURLWithPath: $0, isDirectory: true)
+                )
+            }
+            ?? SpaceLensScanner.canonicalExistingURL(
+                FileManager.default.homeDirectoryForCurrentUser
+            )
+        if let rawMode = UserDefaults.standard.string(
+            forKey: Self.spaceLensSizeModeDefaultsKey
+        ),
+        let mode = SpaceLensSizeMode(rawValue: rawMode) {
+            self.spaceLensSizeMode = mode
         }
 
         // Listen for right-click uninstall/reset hand-offs from Finder.
@@ -3270,6 +3365,373 @@ final class AppState: ObservableObject {
         }
         installationFileActionError = nil
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    // MARK: - Space Lens
+
+    func setSpaceLensScanRoot(_ url: URL) {
+        guard !isScanningSpaceLens, !isRemovingSpaceLensItems else {
+            return
+        }
+        guard let canonical = SpaceLensScanner.canonicalExistingURL(url) else {
+            spaceLensActionError = String(
+                localized: "Choose an available folder or disk to scan."
+            )
+            return
+        }
+        spaceLensScanRoot = canonical
+        UserDefaults.standard.set(
+            canonical.path,
+            forKey: Self.spaceLensRootDefaultsKey
+        )
+        resetSpaceLensResults()
+    }
+
+    func setSpaceLensSizeMode(_ mode: SpaceLensSizeMode) {
+        guard !isRemovingSpaceLensItems else { return }
+        spaceLensSizeMode = mode
+        UserDefaults.standard.set(
+            mode.rawValue,
+            forKey: Self.spaceLensSizeModeDefaultsKey
+        )
+    }
+
+    func scanSpaceLens(
+        force: Bool = false,
+        preservingActionMessage: Bool = false
+    ) {
+        if isScanningSpaceLens {
+            guard force else { return }
+            spaceLensScanTask?.cancel()
+        }
+        guard let root = spaceLensScanRoot else {
+            spaceLensActionError = String(
+                localized: "Choose an available folder or disk to scan."
+            )
+            return
+        }
+        guard force || !hasScannedSpaceLens else { return }
+
+        spaceLensScanTask?.cancel()
+        let scanID = UUID()
+        activeSpaceLensScanID = scanID
+        isScanningSpaceLens = true
+        hasScannedSpaceLens = false
+        selectedSpaceLensNodeIDs.removeAll()
+        spaceLensNavigationPath.removeAll()
+        spaceLensScanProgress.value = .idle
+        if !preservingActionMessage {
+            spaceLensActionError = nil
+            spaceLensActionMessage = nil
+        }
+
+        let scanner = spaceLensScanner
+        let progressHandler: SpaceLensScanner.ProgressHandler = {
+            [weak self] progress in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.activeSpaceLensScanID == scanID else {
+                    return
+                }
+                self.spaceLensScanProgress.value = progress
+            }
+        }
+
+        let task = Task { @MainActor [weak self] in
+            do {
+                let result = try await scanner.scan(
+                    root: root,
+                    progress: progressHandler
+                )
+                guard let self,
+                      !Task.isCancelled,
+                      self.activeSpaceLensScanID == scanID else {
+                    return
+                }
+                self.spaceLensScanRoot = result.root.url
+                self.spaceLensResult = result
+                self.spaceLensNavigationPath = [result.root.id]
+                self.selectedSpaceLensNodeIDs.removeAll()
+                self.lastSpaceLensScanDate = result.scannedAt
+                self.hasScannedSpaceLens = true
+                self.isScanningSpaceLens = false
+                self.spaceLensScanTask = nil
+            } catch is CancellationError {
+                guard let self,
+                      self.activeSpaceLensScanID == scanID else {
+                    return
+                }
+                self.isScanningSpaceLens = false
+                self.spaceLensScanTask = nil
+                self.spaceLensActionMessage = String(
+                    localized: "Space Lens scan cancelled."
+                )
+            } catch {
+                guard let self,
+                      self.activeSpaceLensScanID == scanID else {
+                    return
+                }
+                self.isScanningSpaceLens = false
+                self.spaceLensScanTask = nil
+                self.spaceLensActionError = error.localizedDescription
+            }
+        }
+        spaceLensScanTask = task
+    }
+
+    func cancelSpaceLensScan() {
+        guard isScanningSpaceLens else { return }
+        spaceLensScanTask?.cancel()
+    }
+
+    func navigateSpaceLensInto(_ node: SpaceLensNode) {
+        guard !isScanningSpaceLens,
+              !isRemovingSpaceLensItems,
+              node.isContainer,
+              currentSpaceLensNode?.children.contains(where: {
+                  $0.id == node.id
+              }) == true else {
+            return
+        }
+        spaceLensNavigationPath.append(node.id)
+        selectedSpaceLensNodeIDs.removeAll()
+    }
+
+    func navigateSpaceLens(to nodeID: String) {
+        guard !isScanningSpaceLens, !isRemovingSpaceLensItems else {
+            return
+        }
+        let nodes = spaceLensNavigationNodes
+        guard let index = nodes.firstIndex(where: { $0.id == nodeID }) else {
+            return
+        }
+        spaceLensNavigationPath = Array(
+            spaceLensNavigationPath.prefix(index + 1)
+        )
+        selectedSpaceLensNodeIDs.removeAll()
+    }
+
+    func navigateSpaceLensUp() {
+        guard spaceLensNavigationPath.count > 1,
+              !isScanningSpaceLens,
+              !isRemovingSpaceLensItems else {
+            return
+        }
+        spaceLensNavigationPath.removeLast()
+        selectedSpaceLensNodeIDs.removeAll()
+    }
+
+    func toggleSpaceLensSelection(_ node: SpaceLensNode) {
+        guard !isScanningSpaceLens,
+              !isRemovingSpaceLensItems,
+              currentSpaceLensNode?.children.contains(where: {
+                  $0.id == node.id
+              }) == true else {
+            return
+        }
+        if selectedSpaceLensNodeIDs.contains(node.id) {
+            selectedSpaceLensNodeIDs.remove(node.id)
+            return
+        }
+        guard node.isRemovalEligible else {
+            spaceLensActionError = node.protectedDescendantCount > 0
+                ? String(
+                    localized: "This folder contains protected items. Open it and review eligible children instead."
+                )
+                : String(
+                    localized: "This item is protected and cannot be selected."
+                )
+            return
+        }
+        selectedSpaceLensNodeIDs.insert(node.id)
+    }
+
+    func selectAllEligibleSpaceLensItems() {
+        guard !isScanningSpaceLens,
+              !isRemovingSpaceLensItems,
+              let currentSpaceLensNode else {
+            return
+        }
+        selectedSpaceLensNodeIDs = Set(
+            currentSpaceLensNode.children
+                .filter(\.isRemovalEligible)
+                .map(\.id)
+        )
+    }
+
+    func clearSpaceLensSelection() {
+        selectedSpaceLensNodeIDs.removeAll()
+    }
+
+    func previewSpaceLensNode(_ node: SpaceLensNode) {
+        guard currentSpaceLensNode?.children.contains(where: {
+            $0.id == node.id
+        }) == true,
+        FileManager.default.fileExists(atPath: node.url.path) else {
+            spaceLensActionError = String(
+                localized: "This item is no longer available. Refresh and try again."
+            )
+            return
+        }
+        spaceLensActionError = nil
+        let neighbors = currentSpaceLensNode?.children.map(\.url)
+            ?? [node.url]
+        duplicateFileQuickLookController.present(
+            node.url,
+            alongside: neighbors
+        )
+    }
+
+    func revealSpaceLensNode(_ node: SpaceLensNode) {
+        guard currentSpaceLensNode?.children.contains(where: {
+            $0.id == node.id
+        }) == true,
+        FileManager.default.fileExists(atPath: node.url.path) else {
+            spaceLensActionError = String(
+                localized: "This item is no longer available. Refresh and try again."
+            )
+            return
+        }
+        spaceLensActionError = nil
+        NSWorkspace.shared.activateFileViewerSelecting([node.url])
+    }
+
+    func removeSelectedSpaceLensItems() {
+        guard !isScanningSpaceLens,
+              !isRemovingSpaceLensItems,
+              let root = spaceLensScanRoot,
+              !selectedSpaceLensNodes.isEmpty else {
+            return
+        }
+        let nodes = selectedSpaceLensNodes
+        guard nodes.allSatisfy(\.isRemovalEligible) else {
+            selectedSpaceLensNodeIDs = Set(
+                nodes.filter(\.isRemovalEligible).map(\.id)
+            )
+            spaceLensActionError = String(
+                localized: "The selection changed. Review the current folder and try again."
+            )
+            return
+        }
+
+        isRemovingSpaceLensItems = true
+        spaceLensActionError = nil
+        spaceLensActionMessage = nil
+        let controller = spaceLensRemovalController
+        Task { @MainActor [weak self] in
+            let outcome = await controller.remove(
+                nodes: nodes,
+                scanRoot: root
+            )
+            guard let self else { return }
+            self.spaceLensRemovalHistory = controller.historySnapshot()
+            self.selectedSpaceLensNodeIDs.removeAll()
+            self.isRemovingSpaceLensItems = false
+
+            if outcome.movedCount > 0 {
+                self.spaceLensActionMessage = String(
+                    format: String(
+                        localized: "Moved %lld Space Lens items to Trash."
+                    ),
+                    Int64(outcome.movedCount)
+                )
+            }
+            if !outcome.historyPersisted {
+                self.spaceLensActionError = outcome.failedCount > 0
+                    ? String(
+                        localized: "Undo history could not be saved and at least one item could not be restored automatically. Review Trash and the original folder."
+                    )
+                    : String(
+                        localized: "Undo history could not be saved, so AppSift restored every moved item."
+                    )
+            } else if outcome.failedCount > 0 {
+                self.spaceLensActionError = String(
+                    format: String(
+                        localized: "%lld items could not be moved because they changed, became unavailable, or are protected."
+                    ),
+                    Int64(outcome.failedCount)
+                )
+            }
+
+            let resultsChanged = outcome.items.contains {
+                switch $0.status {
+                case .movedToTrash, .alreadyMissing,
+                     .rollbackFailedAfterHistoryFailure:
+                    return true
+                case .rejected, .trashFailed,
+                     .rolledBackAfterHistoryFailure:
+                    return false
+                }
+            }
+            if resultsChanged {
+                self.scanSpaceLens(
+                    force: true,
+                    preservingActionMessage: true
+                )
+            }
+        }
+    }
+
+    func undoLatestSpaceLensRemoval() {
+        guard !isScanningSpaceLens,
+              !isRemovingSpaceLensItems,
+              let record = latestUndoableSpaceLensRecord else {
+            return
+        }
+        isRemovingSpaceLensItems = true
+        spaceLensActionError = nil
+        spaceLensActionMessage = nil
+        let controller = spaceLensRemovalController
+        Task { @MainActor [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                controller.undo(record)
+            }.value
+            guard let self else { return }
+            self.spaceLensRemovalHistory = controller.historySnapshot()
+            self.isRemovingSpaceLensItems = false
+            if outcome.historyPersisted, outcome.restoredCount > 0 {
+                self.spaceLensActionMessage = String(
+                    format: String(
+                        localized: "Restored %lld Space Lens items from Trash."
+                    ),
+                    Int64(outcome.restoredCount)
+                )
+                self.scanSpaceLens(
+                    force: true,
+                    preservingActionMessage: true
+                )
+            }
+            if !outcome.historyPersisted {
+                self.spaceLensActionError = outcome.rollbackFailed
+                    ? String(
+                        localized: "The items were restored, but history could not be updated and the rollback to Trash was incomplete. Review both locations in Finder."
+                    )
+                    : String(
+                        localized: "History could not be updated, so AppSift returned the restored items to Trash."
+                    )
+            } else if outcome.failedCount > 0 {
+                self.spaceLensActionError = String(
+                    format: String(
+                        localized: "%lld items could not be restored because the source or destination changed."
+                    ),
+                    Int64(outcome.failedCount)
+                )
+            }
+        }
+    }
+
+    private func resetSpaceLensResults() {
+        spaceLensScanTask?.cancel()
+        activeSpaceLensScanID = UUID()
+        spaceLensResult = nil
+        spaceLensNavigationPath.removeAll()
+        selectedSpaceLensNodeIDs.removeAll()
+        hasScannedSpaceLens = false
+        isScanningSpaceLens = false
+        lastSpaceLensScanDate = nil
+        spaceLensActionError = nil
+        spaceLensActionMessage = nil
+        spaceLensScanProgress.value = .idle
     }
 
     // MARK: - Duplicate Files
