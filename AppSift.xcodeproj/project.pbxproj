@@ -98,6 +98,13 @@
 		D0F100000000000000000009 /* DuplicateFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000A /* DuplicateFilesView.swift */; };
 		D0F10000000000000000000B /* DuplicateFileScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000C /* DuplicateFileScannerTests.swift */; };
 		D0F10000000000000000000D /* DuplicateFileRemovalControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */; };
+		D0F200000000000000000001 /* SpaceLens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F200000000000000000002 /* SpaceLens.swift */; };
+		D0F200000000000000000003 /* SpaceLensScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F200000000000000000004 /* SpaceLensScanner.swift */; };
+		D0F200000000000000000005 /* SpaceLensTreemapLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F200000000000000000006 /* SpaceLensTreemapLayout.swift */; };
+		D0F200000000000000000007 /* SpaceLensRemovalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F200000000000000000008 /* SpaceLensRemovalController.swift */; };
+		D0F200000000000000000009 /* SpaceLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F20000000000000000000A /* SpaceLensView.swift */; };
+		D0F20000000000000000000B /* SpaceLensScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F20000000000000000000C /* SpaceLensScannerTests.swift */; };
+		D0F20000000000000000000D /* SpaceLensRemovalControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F20000000000000000000E /* SpaceLensRemovalControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -211,6 +218,13 @@
 		D0F10000000000000000000A /* DuplicateFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFilesView.swift; sourceTree = "<group>"; };
 		D0F10000000000000000000C /* DuplicateFileScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileScannerTests.swift; sourceTree = "<group>"; };
 		D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileRemovalControllerTests.swift; sourceTree = "<group>"; };
+		D0F200000000000000000002 /* SpaceLens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLens.swift; sourceTree = "<group>"; };
+		D0F200000000000000000004 /* SpaceLensScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensScanner.swift; sourceTree = "<group>"; };
+		D0F200000000000000000006 /* SpaceLensTreemapLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensTreemapLayout.swift; sourceTree = "<group>"; };
+		D0F200000000000000000008 /* SpaceLensRemovalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensRemovalController.swift; sourceTree = "<group>"; };
+		D0F20000000000000000000A /* SpaceLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensView.swift; sourceTree = "<group>"; };
+		D0F20000000000000000000C /* SpaceLensScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensScannerTests.swift; sourceTree = "<group>"; };
+		D0F20000000000000000000E /* SpaceLensRemovalControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensRemovalControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,6 +261,8 @@
 				DFA100000000000000000008 /* DefaultApplicationScannerTests.swift */,
 				D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */,
 				D0F10000000000000000000C /* DuplicateFileScannerTests.swift */,
+				D0F20000000000000000000E /* SpaceLensRemovalControllerTests.swift */,
+				D0F20000000000000000000C /* SpaceLensScannerTests.swift */,
 				IFC10000000000000000000A /* InstallationFileControllerTests.swift */,
 				IFC100000000000000000008 /* InstallationFileScannerTests.swift */,
 				155CE1B8CDCCCA6F9FD028C1 /* LocalizationFilesTests.swift */,
@@ -266,6 +282,7 @@
 				D0F100000000000000000002 /* DuplicateFile.swift */,
 				3667D46D8E2004EB4D73835A /* Models.swift */,
 				EEF15CB1B8EFCA78EF491824 /* ScanError.swift */,
+				D0F200000000000000000002 /* SpaceLens.swift */,
 				BBD4EF70C9E849E78328D07A /* TimeMachineSnapshot.swift */,
 			);
 			path = Models;
@@ -288,6 +305,7 @@
 				D0F10000000000000000000A /* DuplicateFilesView.swift */,
 				9F510F232341EE18F11DC934 /* MainWindow.swift */,
 				3D4FD34378988D430A582ED0 /* OnboardingView.swift */,
+				D0F20000000000000000000A /* SpaceLensView.swift */,
 				7E411EBA73B642F1974B8703 /* TimeMachineSnapshotsView.swift */,
 				DAD2EC78EB98016ADA27D114 /* Apps */,
 				8AE26715B5748307483A1A5E /* Components */,
@@ -314,6 +332,7 @@
 				F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */,
 				A711CDF5285F68775D9B5513 /* ScanEngine.swift */,
 				28181F034530331A550C6A3D /* SchedulerService.swift */,
+				D0F200000000000000000008 /* SpaceLensRemovalController.swift */,
 				DB798781B99987F55D77E2E3 /* SystemMonitor.swift */,
 				1BFD6E182962404E99E1EA0A /* TimeMachineSnapshotService.swift */,
 				022D0EAEE2B6E54069FC2CBE /* UpdateService.swift */,
@@ -398,6 +417,7 @@
 				01B2C5F66B6D812572BD4F05 /* CLI.swift */,
 				5785762276FB5E3209C6DE4D /* Logger.swift */,
 				4AE790496C936424EF98320A /* OrphanSafetyPolicy.swift */,
+				D0F200000000000000000006 /* SpaceLensTreemapLayout.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -437,6 +457,7 @@
 				77D3D9A9BC52839E6D0A22BC /* Locations.swift */,
 				E7E100000000000000000002 /* ManagedExtensionScanner.swift */,
 				B4C8D01234E54BA7A4C0D112 /* PkgReceiptInspector.swift */,
+				D0F200000000000000000004 /* SpaceLensScanner.swift */,
 				C0D3C0DE0000000000000002 /* StartupItemController.swift */,
 				A3F5B94734E54BA7A4C0D102 /* StartupItemScanner.swift */,
 				1D3AC5F17D7CA94FAB1E8D7A /* StringNormalization.swift */,
@@ -588,6 +609,11 @@
 				D0F100000000000000000007 /* DuplicateFileRemovalController.swift in Sources */,
 				D0F100000000000000000003 /* DuplicateFileScanner.swift in Sources */,
 				D0F100000000000000000009 /* DuplicateFilesView.swift in Sources */,
+				D0F200000000000000000001 /* SpaceLens.swift in Sources */,
+				D0F200000000000000000007 /* SpaceLensRemovalController.swift in Sources */,
+				D0F200000000000000000003 /* SpaceLensScanner.swift in Sources */,
+				D0F200000000000000000005 /* SpaceLensTreemapLayout.swift in Sources */,
+				D0F200000000000000000009 /* SpaceLensView.swift in Sources */,
 				IFC100000000000000000001 /* InstallationFileScanner.swift in Sources */,
 				IFC100000000000000000003 /* InstallationFileController.swift in Sources */,
 				IFC100000000000000000005 /* InstallationFilesView.swift in Sources */,
@@ -644,6 +670,8 @@
 				DFA100000000000000000007 /* DefaultApplicationScannerTests.swift in Sources */,
 				D0F10000000000000000000D /* DuplicateFileRemovalControllerTests.swift in Sources */,
 				D0F10000000000000000000B /* DuplicateFileScannerTests.swift in Sources */,
+				D0F20000000000000000000D /* SpaceLensRemovalControllerTests.swift in Sources */,
+				D0F20000000000000000000B /* SpaceLensScannerTests.swift in Sources */,
 				IFC100000000000000000009 /* InstallationFileControllerTests.swift in Sources */,
 				IFC100000000000000000007 /* InstallationFileScannerTests.swift in Sources */,
 				CFA64F54CDBF8A4765E0068D /* LocalizationFilesTests.swift in Sources */,
