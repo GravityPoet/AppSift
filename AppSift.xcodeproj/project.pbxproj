@@ -91,6 +91,13 @@
 		F0A100000000000000000001 /* PrivilegedAppRemovalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */; };
 		F0A100000000000000000003 /* PrivilegedAppRemovalServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000004 /* PrivilegedAppRemovalServiceTests.swift */; };
 		FDA30FE6349CA01C8D859F04 /* OrphanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71E8F62DB76D85F41F9A2E9 /* OrphanListView.swift */; };
+		D0F100000000000000000001 /* DuplicateFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F100000000000000000002 /* DuplicateFile.swift */; };
+		D0F100000000000000000003 /* DuplicateFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F100000000000000000004 /* DuplicateFileScanner.swift */; };
+		D0F100000000000000000005 /* DuplicateFileQuickLookController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F100000000000000000006 /* DuplicateFileQuickLookController.swift */; };
+		D0F100000000000000000007 /* DuplicateFileRemovalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F100000000000000000008 /* DuplicateFileRemovalController.swift */; };
+		D0F100000000000000000009 /* DuplicateFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000A /* DuplicateFilesView.swift */; };
+		D0F10000000000000000000B /* DuplicateFileScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000C /* DuplicateFileScannerTests.swift */; };
+		D0F10000000000000000000D /* DuplicateFileRemovalControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -197,6 +204,13 @@
 		F9DCBD97CC88D77AE8DB01A4 /* PermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCoordinator.swift; sourceTree = "<group>"; };
 		F0A100000000000000000002 /* PrivilegedAppRemovalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedAppRemovalService.swift; sourceTree = "<group>"; };
 		F0A100000000000000000004 /* PrivilegedAppRemovalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedAppRemovalServiceTests.swift; sourceTree = "<group>"; };
+		D0F100000000000000000002 /* DuplicateFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFile.swift; sourceTree = "<group>"; };
+		D0F100000000000000000004 /* DuplicateFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileScanner.swift; sourceTree = "<group>"; };
+		D0F100000000000000000006 /* DuplicateFileQuickLookController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileQuickLookController.swift; sourceTree = "<group>"; };
+		D0F100000000000000000008 /* DuplicateFileRemovalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileRemovalController.swift; sourceTree = "<group>"; };
+		D0F10000000000000000000A /* DuplicateFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFilesView.swift; sourceTree = "<group>"; };
+		D0F10000000000000000000C /* DuplicateFileScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileScannerTests.swift; sourceTree = "<group>"; };
+		D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFileRemovalControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -231,6 +245,8 @@
 				752603285F7DBBA12BB3AA91 /* AppStateTests.swift */,
 				DFA10000000000000000000A /* DefaultApplicationControllerTests.swift */,
 				DFA100000000000000000008 /* DefaultApplicationScannerTests.swift */,
+				D0F10000000000000000000E /* DuplicateFileRemovalControllerTests.swift */,
+				D0F10000000000000000000C /* DuplicateFileScannerTests.swift */,
 				IFC10000000000000000000A /* InstallationFileControllerTests.swift */,
 				IFC100000000000000000008 /* InstallationFileScannerTests.swift */,
 				155CE1B8CDCCCA6F9FD028C1 /* LocalizationFilesTests.swift */,
@@ -247,6 +263,7 @@
 			isa = PBXGroup;
 			children = (
 				82BB0904726B38DEB141BECA /* AppLanguage.swift */,
+				D0F100000000000000000002 /* DuplicateFile.swift */,
 				3667D46D8E2004EB4D73835A /* Models.swift */,
 				EEF15CB1B8EFCA78EF491824 /* ScanError.swift */,
 				BBD4EF70C9E849E78328D07A /* TimeMachineSnapshot.swift */,
@@ -268,6 +285,7 @@
 			children = (
 				10B0AF194677EAC1D5568785 /* CategoryDetailView.swift */,
 				F661A0F64CF93E482CB1728F /* DashboardView.swift */,
+				D0F10000000000000000000A /* DuplicateFilesView.swift */,
 				9F510F232341EE18F11DC934 /* MainWindow.swift */,
 				3D4FD34378988D430A582ED0 /* OnboardingView.swift */,
 				7E411EBA73B642F1974B8703 /* TimeMachineSnapshotsView.swift */,
@@ -285,6 +303,8 @@
 				APC100000000000000000004 /* AppPermissionController.swift */,
 				2A8DE5D45BA19E2670B57DC5 /* CleaningEngine.swift */,
 				DFA100000000000000000004 /* DefaultApplicationController.swift */,
+				D0F100000000000000000006 /* DuplicateFileQuickLookController.swift */,
+				D0F100000000000000000008 /* DuplicateFileRemovalController.swift */,
 				IFC100000000000000000004 /* InstallationFileController.swift */,
 				E866A1541D289C69144A5E62 /* FullDiskAccessManager.swift */,
 				40A3F22FCEF534DE4A2CAD0E /* Haptics.swift */,
@@ -412,6 +432,7 @@
 				A3F5B94734E54BA7A4C0D106 /* AppUpdateScanner.swift */,
 				CB94E06E145558123BB5BFB3 /* Conditions.swift */,
 				DFA100000000000000000002 /* DefaultApplicationScanner.swift */,
+				D0F100000000000000000004 /* DuplicateFileScanner.swift */,
 				IFC100000000000000000002 /* InstallationFileScanner.swift */,
 				77D3D9A9BC52839E6D0A22BC /* Locations.swift */,
 				E7E100000000000000000002 /* ManagedExtensionScanner.swift */,
@@ -562,6 +583,11 @@
 				DFA100000000000000000001 /* DefaultApplicationScanner.swift in Sources */,
 				DFA100000000000000000003 /* DefaultApplicationController.swift in Sources */,
 				DFA100000000000000000005 /* DefaultApplicationsView.swift in Sources */,
+				D0F100000000000000000001 /* DuplicateFile.swift in Sources */,
+				D0F100000000000000000005 /* DuplicateFileQuickLookController.swift in Sources */,
+				D0F100000000000000000007 /* DuplicateFileRemovalController.swift in Sources */,
+				D0F100000000000000000003 /* DuplicateFileScanner.swift in Sources */,
+				D0F100000000000000000009 /* DuplicateFilesView.swift in Sources */,
 				IFC100000000000000000001 /* InstallationFileScanner.swift in Sources */,
 				IFC100000000000000000003 /* InstallationFileController.swift in Sources */,
 				IFC100000000000000000005 /* InstallationFilesView.swift in Sources */,
@@ -616,6 +642,8 @@
 				E2403D82F00D749C9AD4A6D4 /* AppStateTests.swift in Sources */,
 				DFA100000000000000000009 /* DefaultApplicationControllerTests.swift in Sources */,
 				DFA100000000000000000007 /* DefaultApplicationScannerTests.swift in Sources */,
+				D0F10000000000000000000D /* DuplicateFileRemovalControllerTests.swift in Sources */,
+				D0F10000000000000000000B /* DuplicateFileScannerTests.swift in Sources */,
 				IFC100000000000000000009 /* InstallationFileControllerTests.swift in Sources */,
 				IFC100000000000000000007 /* InstallationFileScannerTests.swift in Sources */,
 				CFA64F54CDBF8A4765E0068D /* LocalizationFilesTests.swift in Sources */,

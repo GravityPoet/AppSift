@@ -121,6 +121,11 @@ struct MainWindow: View {
                     }
 
                     sidebarSection("Storage") {
+                        navRow(section: .duplicateFiles, label: "Duplicate Files",
+                               icon: "doc.on.doc.fill", tint: Tint.cyan,
+                               badge: appState.duplicateFileCount == 0
+                                   ? nil
+                                   : "\(appState.duplicateFileCount)")
                         navRow(section: .timeMachine, label: "Time Machine Snapshots",
                                icon: "clock.arrow.circlepath", tint: Tint.orange,
                                badge: appState.localTimeMachineSnapshots.isEmpty
@@ -333,6 +338,8 @@ struct MainWindow: View {
             AppUpdatesView()
         case .installationFiles:
             InstallationFilesView()
+        case .duplicateFiles:
+            DuplicateFilesView()
         case .startupItems:
             StartupItemsView()
         case .extensions:
