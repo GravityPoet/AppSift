@@ -20,6 +20,11 @@ final class SystemMonitor: ObservableObject {
     @Published private(set) var memoryTotal: Int64 = 0
     @Published private(set) var diskUsed: Int64 = 0
     @Published private(set) var diskTotal: Int64 = 0
+    @Published private(set) var networkDownloadBytesPerSecond: Int64 = 0
+    @Published private(set) var networkUploadBytesPerSecond: Int64 = 0
+    @Published private(set) var battery: SystemBatterySnapshot?
+    @Published private(set) var volumes: [SystemVolumeSnapshot] = []
+    @Published private(set) var deviceBatteries: [SystemDeviceBatterySnapshot] = []
 
     var memoryFraction: Double {
         guard memoryTotal > 0 else { return 0 }
@@ -36,6 +41,9 @@ final class SystemMonitor: ObservableObject {
     /// increasing totals into a per-interval delta.
     private var previousBusy: UInt64 = 0
     private var previousTotal: UInt64 = 0
+    private var previousNetworkTotals: (received: UInt64, sent: UInt64)?
+    private var previousNetworkSampleUptime: TimeInterval?
+    private var sampleCounter = 0
     /// Number of live observers; the timer runs only while > 0 so two views
     /// (menu-bar label + dropdown) share one timer and the app idles cleanly.
     private var observerCount = 0
@@ -67,7 +75,11 @@ final class SystemMonitor: ObservableObject {
     private func sample() {
         sampleCPU()
         sampleMemory()
-        sampleDisk()
+        sampleNetwork()
+        if sampleCounter == 0 || sampleCounter.isMultiple(of: 5) {
+            sampleSlowTelemetry()
+        }
+        sampleCounter = sampleCounter == Int.max ? 1 : sampleCounter + 1
     }
 
     // MARK: - CPU
@@ -129,18 +141,36 @@ final class SystemMonitor: ObservableObject {
 
     // MARK: - Disk
 
-    private func sampleDisk() {
-        let url = URL(fileURLWithPath: NSHomeDirectory())
-        guard let values = try? url.resourceValues(forKeys: [
-            .volumeTotalCapacityKey,
-            .volumeAvailableCapacityForImportantUsageKey,
-        ]) else { return }
+    private func sampleSlowTelemetry() {
+        let snapshots = SystemTelemetryReader.mountedVolumes()
+        volumes = snapshots
+        if let startupVolume = snapshots.first(where: { $0.path == "/" })
+            ?? snapshots.first(where: \.isInternal) {
+            diskTotal = startupVolume.totalBytes
+            diskUsed = startupVolume.usedBytes
+        }
+        battery = SystemTelemetryReader.internalBattery()
+        deviceBatteries = SystemTelemetryReader.connectedDeviceBatteries()
+    }
 
-        if let total = values.volumeTotalCapacity {
-            diskTotal = Int64(total)
+    private func sampleNetwork() {
+        guard let totals = SystemTelemetryReader.networkByteTotals() else { return }
+        let uptime = ProcessInfo.processInfo.systemUptime
+        defer {
+            previousNetworkTotals = totals
+            previousNetworkSampleUptime = uptime
         }
-        if let available = values.volumeAvailableCapacityForImportantUsage {
-            diskUsed = max(0, diskTotal - available)
-        }
+        guard let previous = previousNetworkTotals,
+              let previousUptime = previousNetworkSampleUptime,
+              uptime > previousUptime,
+              totals.received >= previous.received,
+              totals.sent >= previous.sent else { return }
+        let interval = uptime - previousUptime
+        networkDownloadBytesPerSecond = Int64(
+            Double(totals.received - previous.received) / interval
+        )
+        networkUploadBytesPerSecond = Int64(
+            Double(totals.sent - previous.sent) / interval
+        )
     }
 }

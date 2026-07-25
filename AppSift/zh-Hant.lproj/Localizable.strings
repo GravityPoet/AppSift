@@ -1223,3 +1223,37 @@
 "Unreadable" = "無法讀取";
 "Use the owning app to manage this library or application." = "請使用所屬 App 管理此資料庫或應用程式。";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "零實體佔用的別名和無法使用的暫存項目仍會顯示在排名列表中。";
+
+/* 儲存、隱私、維護與健康 */
+"Maintenance" = "維護";
+"System Health" = "系統健康";
+"Browser Privacy" = "瀏覽器隱私";
+"Similar Images" = "相似圖片";
+"iPhone & iPad Backups" = "iPhone 與 iPad 備份";
+"Downloads by Source" = "依來源檢視下載項目";
+"System Maintenance" = "系統維護";
+"System Residue" = "系統殘留";
+"System Residue Diagnostics" = "系統殘留診斷";
+"Battery" = "電池";
+"External Disks" = "外接磁碟";
+"Connected Devices" = "已連接裝置";
+"System Alerts" = "系統警示";
+"Background Alerts" = "背景警示";
+"Device Backups" = "裝置備份";
+"macOS Software Update" = "macOS 軟體更新";
+"DNS Cache" = "DNS 快取";
+"Spotlight Index" = "Spotlight 索引";
+"Mail Search Index" = "Mail 搜尋索引";
+"Old User Account Residue" = "舊使用者帳號殘留";
+"Damaged Preference Files" = "損壞的偏好設定檔";
+"Document History Versions" = "文件歷史版本";
+"Rule-Based Recommendations" = "規則式建議";
+"Current Alerts" = "目前警示";
+"Alert History" = "警示記錄";
+"Live System Status" = "即時系統狀態";
+"Refresh Health Checks" = "重新整理健康檢查";
+"Enable Alerts" = "啟用警示";
+"No Current Issues Detected" = "目前未偵測到問題";
+"Review Current Alerts" = "檢視目前警示";
+"A Few Actions Are Suggested" = "有幾項建議操作";
+"Urgent Attention Needed" = "需要立即處理";

@@ -98,6 +98,12 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 - **⚙️ Developer-First Cache Purger**
   Modern development stacks are storage vampires. AppSift scans and safely flushes giant cache folders from Xcode (`DerivedData`, simulators), Node (`npm`, `yarn`, `pnpm`), Docker (dangling images/containers), and local AI tools like Ollama and LM Studio.
 
+- **🧭 Storage Intelligence**
+  Explore disks with Space Lens, find exact duplicates by content, cluster visually similar photos, review iPhone and iPad backups, and classify ordinary downloads by their local quarantine source. Scans are bounded, cancellable, skip cloud placeholders, and keep removal recoverable through the system Trash.
+
+- **🩺 Privacy, Maintenance & Explainable Health**
+  Review browser history, download records, cookies, and caches without touching passwords or autofill; check macOS updates; repair DNS, Spotlight, or Mail indexing on demand; and monitor disk, memory, network, battery, external disks, and supported device batteries. Recommendations cite explicit evidence—AppSift does not invent a numeric “health score.”
+
 - **🛡️ Bounded, Offline-First & Finder-Safe**
   Zero analytics, zero network tracking. Destructive actions use macOS Finder-semantic recycle (`NSWorkspace.recycle`) to move files to Trash instead of permanent deletion, preventing accidental data loss. Safe paths are hardcoded to protect your system.
 
@@ -135,7 +141,7 @@ A Mac cleaner asks for the deepest permission macOS grants—**Full Disk Access*
 
 *   **Recoverable by default, explicit when it is not.** App uninstall, App Reset, and Installation Files use Finder-semantic `NSWorkspace.recycle`, record every original-to-Trash mapping, and restore eligible items whenever destination permissions allow. Restore never overwrites an existing file; administrator-owned destinations are surfaced for Finder recovery instead of invoking a high-privilege shell. App actions never fall back to permanent deletion. Orphan cleanup also moves files to Trash. Reviewed system-cleaner items such as regenerable caches and logs are permanently deleted only through the separately confirmed cleaner flow.
 *   **No telemetry, ever.** No analytics, no crash reporting, no "anonymous usage stats," no network calls to us. The app doesn't know you exist.
-*   **Network use is explicit.** AppSift never contacts an AppSift account, analytics, or knowledge-base service. App Updates makes bounded requests only after you click Check for Updates: Apple Lookup for verified App Store receipts, local Homebrew commands for verified Casks, public HTTPS Sparkle appcasts, and electron-updater endpoints read from signed app bundles. GitHub checks use only the exact public owner/repository declared by that bundle; AppSift never guesses a repository or downloads its release assets.
+*   **Network use is explicit.** AppSift never contacts an AppSift account, analytics, or knowledge-base service. App Updates makes bounded requests only after you click Check for Updates: Apple Lookup for verified App Store receipts, local Homebrew commands for verified Casks, public HTTPS Sparkle appcasts, and electron-updater endpoints read from signed app bundles. GitHub checks use only the exact public owner/repository declared by that bundle; AppSift never guesses a repository or downloads its release assets. The separate macOS update check runs Apple's `/usr/sbin/softwareupdate --list` only when requested and never downloads or installs an update itself.
 *   **No fake urgency.** No dramatized "47 GB of junk detected!" badge, no red alarm counters, no "your Mac is at risk." We show you neutral facts and let you decide.
 *   **No overpromising.** We don't claim to "reclaim purgeable space," "boost RAM," or "speed up your Mac" - things no app can reliably do. See the purgeable-space note below.
 *   **You review before anything is removed.** Nothing is auto-deleted. Every item shows its real path with Reveal-in-Finder, and high-risk system paths are hard-excluded in code.
@@ -217,6 +223,12 @@ Electron apps are supported when a developer-signed bundle contains an exact `Co
 
 Before any action, AppSift rechecks the app path, developer signature, Team ID, embedded updater configuration, and remote release identity. App Store opens the product page, Homebrew runs its official targeted upgrade only after confirmation, Sparkle uses the target app's own key/signature validation and standard update UI, a generic Electron source opens the app, and GitHub opens only the verified release page. AppSift never downloads or installs an arbitrary release asset itself. The same evidence-backed inventory is available through `AppSift app-updates` and `AppSift app-updates --json`.
 
+### Storage Intelligence & Device Backups
+Space Lens builds a cancellable directory tree for a selected folder or mounted disk and lets you drill into a treemap without following symlinks or reading cloud placeholders. Exact Duplicates uses size buckets, sampled hashes, and complete SHA-256 confirmation; Similar Images combines perceptual hashes, Vision feature prints, and explainable quality signals while always preserving a suggested best copy. iPhone and iPad Backups reads bounded local MobileSync metadata, groups backups by device, and moves only the reviewed backup directory to Trash with undo. Downloads by Source classifies ordinary files from local quarantine metadata while showing only the source app and domain, never the full download URL.
+
+### Browser Privacy, Maintenance & System Health
+Browser Privacy covers only history, download records, cookies, and caches for supported Safari, Chrome, and Firefox profiles. Password stores, autofill, bookmarks, open tabs, extensions, and saved Wi-Fi networks are outside the feature boundary. Maintenance exposes narrowly scoped DNS refresh, Spotlight index rebuild, and Mail Envelope Index repair; each action is explicit, and Mail index files use Trash-backed recovery. The menu bar monitor and alert center track current local system signals, including internal and external free space, memory pressure, battery state, old Trash contents, network throughput, and supported connected-device batteries. Health recommendations are deterministic rules with visible evidence and actions, not a fabricated score.
+
 ### Installation Files
 Finds indexed DMG, PKG, MPKG, XIP, and verified single-App ZIP files without mounting disk images, executing installers, or extracting archives and without relying on a private vendor database. Each result shows its real path plus available Spotlight, Uniform Type, signature, notarization, quarantine-source, package-payload, and archive-content evidence. A PKG or MPKG is associated with an installed app only when both its payload App name and installer Team ID match.
 
@@ -289,7 +301,7 @@ The first-launch onboarding walks you through granting it with an animated previ
 
 What AppSift does *not* do:
 - It does not collect telemetry, crash reports, or usage analytics.
-- Core cleaning, uninstall, reset, startup-item inspection, and local history work without a network connection. App Updates contacts only a verified Apple or vendor source after you request a check.
+- Core cleaning, uninstall, reset, storage analysis, browser cleanup, startup-item inspection, local monitoring, and local history work without a network connection. App Updates contacts only a verified Apple or vendor source after you request a check; the separate macOS update check invokes Apple's system updater only on request.
 - It does not upload data or move it outside your Mac. Recoverable removals go only to the macOS Trash.
 
 ---

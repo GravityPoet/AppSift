@@ -1223,3 +1223,37 @@
 "Unreadable" = "Ilegible";
 "Use the owning app to manage this library or application." = "Usa la app propietaria para gestionar esta biblioteca o aplicación.";
 "Zero-allocation aliases and unavailable placeholders remain visible in the ranked list." = "Los alias con asignación cero y los marcadores no disponibles siguen visibles en la lista ordenada.";
+
+/* Almacenamiento, privacidad, mantenimiento y estado */
+"Maintenance" = "Mantenimiento";
+"System Health" = "Estado del sistema";
+"Browser Privacy" = "Privacidad del navegador";
+"Similar Images" = "Imágenes similares";
+"iPhone & iPad Backups" = "Copias de seguridad de iPhone y iPad";
+"Downloads by Source" = "Descargas por origen";
+"System Maintenance" = "Mantenimiento del sistema";
+"System Residue" = "Residuos del sistema";
+"System Residue Diagnostics" = "Diagnóstico de residuos del sistema";
+"Battery" = "Batería";
+"External Disks" = "Discos externos";
+"Connected Devices" = "Dispositivos conectados";
+"System Alerts" = "Alertas del sistema";
+"Background Alerts" = "Alertas en segundo plano";
+"Device Backups" = "Copias de seguridad de dispositivos";
+"macOS Software Update" = "Actualización de software de macOS";
+"DNS Cache" = "Caché DNS";
+"Spotlight Index" = "Índice de Spotlight";
+"Mail Search Index" = "Índice de búsqueda de Mail";
+"Old User Account Residue" = "Restos de cuentas de usuario antiguas";
+"Damaged Preference Files" = "Archivos de preferencias dañados";
+"Document History Versions" = "Versiones del historial de documentos";
+"Rule-Based Recommendations" = "Recomendaciones basadas en reglas";
+"Current Alerts" = "Alertas actuales";
+"Alert History" = "Historial de alertas";
+"Live System Status" = "Estado del sistema en directo";
+"Refresh Health Checks" = "Actualizar comprobaciones de estado";
+"Enable Alerts" = "Activar alertas";
+"No Current Issues Detected" = "No se detectaron problemas actuales";
+"Review Current Alerts" = "Revisar alertas actuales";
+"A Few Actions Are Suggested" = "Hay algunas acciones recomendadas";
+"Urgent Attention Needed" = "Se necesita atención urgente";

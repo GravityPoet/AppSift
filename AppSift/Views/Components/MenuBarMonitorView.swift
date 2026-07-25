@@ -20,48 +20,92 @@ struct WindowOpenerCapture: View {
 struct MenuBarMonitorView: View {
     @ObservedObject private var monitor = SystemMonitor.shared
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("System Monitor")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary)
+    private var externalVolumes: [SystemVolumeSnapshot] {
+        Array(monitor.volumes.filter { !$0.isInternal }.prefix(3))
+    }
 
-            VStack(spacing: 10) {
-                MeterRow(title: "CPU", tint: Tint.blue,
-                         fraction: monitor.cpuUsage,
-                         detail: "\(Int((monitor.cpuUsage * 100).rounded()))%")
-                MeterRow(title: "Memory", tint: Tint.purple,
-                         fraction: monitor.memoryFraction,
-                         detail: byteDetail(monitor.memoryUsed, monitor.memoryTotal))
-                MeterRow(title: "Disk", tint: Tint.green,
-                         fraction: monitor.diskFraction,
-                         detail: byteDetail(monitor.diskUsed, monitor.diskTotal))
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("System Monitor")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+
+                    VStack(spacing: 10) {
+                        MeterRow(title: "CPU", tint: Tint.blue,
+                                 fraction: monitor.cpuUsage,
+                                 detail: "\(Int((monitor.cpuUsage * 100).rounded()))%")
+                        MeterRow(title: "Memory", tint: Tint.purple,
+                                 fraction: monitor.memoryFraction,
+                                 detail: byteDetail(monitor.memoryUsed, monitor.memoryTotal))
+                        MeterRow(title: "Mac Disk", tint: Tint.green,
+                                 fraction: monitor.diskFraction,
+                                 detail: freeDetail(total: monitor.diskTotal, used: monitor.diskUsed))
+                        InfoRow(
+                            title: "Network",
+                            systemImage: "arrow.up.arrow.down",
+                            detail: networkDetail
+                        )
+                        if let battery = monitor.battery {
+                            MeterRow(
+                                title: "Battery",
+                                tint: battery.percentage <= 15 ? Tint.orange : Tint.green,
+                                fraction: Double(battery.percentage) / 100,
+                                detail: batteryDetail(battery)
+                            )
+                        }
+                    }
+
+                    if !externalVolumes.isEmpty {
+                        Divider()
+                        Text("External Disks")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(externalVolumes) { volume in
+                            MeterRow(
+                                title: LocalizedStringKey(volume.name),
+                                tint: volume.usedFraction >= 0.95 ? Tint.orange : Tint.cyan,
+                                fraction: volume.usedFraction,
+                                detail: ByteCountFormatter.string(
+                                    fromByteCount: volume.availableBytes,
+                                    countStyle: .file
+                                ) + String(localized: " free")
+                            )
+                        }
+                    }
+
+                    if !monitor.deviceBatteries.isEmpty {
+                        Divider()
+                        Text("Connected Devices")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(monitor.deviceBatteries.prefix(3)) { device in
+                            MeterRow(
+                                title: LocalizedStringKey(device.name),
+                                tint: device.percentage <= 15 ? Tint.orange : Tint.blue,
+                                fraction: Double(device.percentage) / 100,
+                                detail: "\(device.percentage)%"
+                            )
+                        }
+                    }
+                }
+                .padding(14)
             }
 
             Divider()
-
             HStack {
-                Button {
-                    openMainWindow()
-                } label: {
-                    Text("Open AppSift")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
+                Button("Open AppSift", action: openMainWindow)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 Spacer()
-
-                Button {
-                    NSApp.terminate(nil)
-                } label: {
-                    Text("Quit AppSift")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                Button("Quit AppSift") { NSApp.terminate(nil) }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
             }
+            .padding(12)
         }
-        .padding(14)
-        .frame(width: 248)
+        .frame(width: 300, height: 410)
         .onAppear { monitor.start() }
         .onDisappear { monitor.stop() }
     }
@@ -70,6 +114,32 @@ struct MenuBarMonitorView: View {
         let u = ByteCountFormatter.string(fromByteCount: used, countStyle: .memory)
         let t = ByteCountFormatter.string(fromByteCount: total, countStyle: .memory)
         return "\(u) / \(t)"
+    }
+
+    private func freeDetail(total: Int64, used: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: max(0, total - used), countStyle: .file)
+            + String(localized: " free")
+    }
+
+    private var networkDetail: String {
+        let down = ByteCountFormatter.string(
+            fromByteCount: monitor.networkDownloadBytesPerSecond,
+            countStyle: .file
+        )
+        let up = ByteCountFormatter.string(
+            fromByteCount: monitor.networkUploadBytesPerSecond,
+            countStyle: .file
+        )
+        return "↓ \(down)/s  ↑ \(up)/s"
+    }
+
+    private func batteryDetail(_ battery: SystemBatterySnapshot) -> String {
+        var parts = ["\(battery.percentage)%"]
+        if let health = battery.healthPercentage {
+            parts.append(String(format: String(localized: "%lld%% health"), Int64(health)))
+        }
+        if battery.isCharging { parts.append(String(localized: "Charging")) }
+        return parts.joined(separator: " · ")
     }
 
     /// Bring the app forward and surface the main window. The app stays alive
@@ -88,6 +158,24 @@ struct MenuBarMonitorView: View {
             // No content window left — reopen via the captured openWindow action
             // (the popover has no working openWindow environment of its own).
             WindowOpener.shared.open?("main")
+        }
+    }
+}
+
+private struct InfoRow: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(detail)
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
         }
     }
 }
