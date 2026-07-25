@@ -14,7 +14,7 @@ struct SimilarImagesView: View {
                 EmptyStateView(
                     "Similar Images",
                     systemImage: "photo.stack.fill",
-                    description: "Choose a local folder, mounted disk, or external drive. AppSift compares visual content and ranks image quality without uploading photos.",
+                    description: "Choose a local folder, mounted disk, or external drive. AppSift compares visual content and ranks image quality without uploading photos. Managed Photos libraries are excluded.",
                     action: { center.chooseFolder() },
                     actionLabel: "Choose Image Folder",
                     tint: Tint.purple
@@ -90,6 +90,9 @@ struct SimilarImagesView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text("Quality combines relative resolution, sharpness, exposure balance, and detected-face confidence. It is a recommendation, not a subjective photo score.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Text("Photos Library packages are never traversed or modified; export originals to a regular folder before scanning.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
