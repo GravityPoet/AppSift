@@ -11,6 +11,7 @@ enum AppSection: Hashable {
     case apps
     case appUpdates
     case installationFiles
+    case duplicateFiles
     case startupItems
     case extensions
     case appPermissions
@@ -1398,6 +1399,11 @@ final class ScanProgressTicker: ObservableObject {
 }
 
 @MainActor
+final class DuplicateScanProgressState: ObservableObject {
+    @Published var value = DuplicateScanProgress.idle
+}
+
+@MainActor
 final class AppState: ObservableObject {
     typealias AppFileScanCancellation = @Sendable () -> Void
     typealias AppFileScanner = @MainActor @Sendable (
@@ -1495,6 +1501,23 @@ final class AppState: ObservableObject {
     @Published var lastTimeMachineFreedSpace: Int64 = 0
     @Published var lastTimeMachineDeletedCount: Int = 0
     @Published var lastTimeMachineSnapshotScanDate: Date?
+
+    // MARK: - Duplicate File State
+
+    @Published private(set) var duplicateScanRoots: [URL] = []
+    @Published private(set) var duplicateFileGroups: [DuplicateFileGroup] = []
+    @Published var selectedDuplicateFileIDs: Set<String> = []
+    @Published private(set) var ignoredDuplicatePaths: Set<String> = []
+    @Published var duplicateMinimumFileSize: Int64 = 1_000_000
+    @Published private(set) var duplicateScanStatistics = DuplicateScanStatistics()
+    @Published private(set) var isScanningDuplicateFiles = false
+    @Published private(set) var isRemovingDuplicateFiles = false
+    @Published private(set) var hasScannedDuplicateFiles = false
+    @Published private(set) var lastDuplicateFileScanDate: Date?
+    @Published private(set) var duplicateFileRemovalHistory: [DuplicateFileRemovalRecord] = []
+    @Published var duplicateFileActionError: String?
+    @Published var duplicateFileActionMessage: String?
+    let duplicateScanProgress = DuplicateScanProgressState()
 
     // MARK: - App Uninstaller State
 
@@ -1620,6 +1643,8 @@ final class AppState: ObservableObject {
     private var activeAppUpdatesScanID = UUID()
     private var installationFilesScanTask: Task<InstallationFileScanResult, Never>?
     private var activeInstallationFilesScanID = UUID()
+    private var duplicateFilesScanTask: Task<Void, Never>?
+    private var activeDuplicateFilesScanID = UUID()
     private var discoveredFilesAppID: InstalledApp.ID?
     private var selectedFilesOwnerAppID: InstalledApp.ID?
     private var pendingAppRemovalRetry: (
@@ -1654,10 +1679,18 @@ final class AppState: ObservableObject {
     private let appUpdatesScanner: AppUpdatesScanner
     private let installationFilesScanner: InstallationFilesScanner
     private let installationFileController: InstallationFileController
+    private let duplicateFileScanner: DuplicateFileScanner
+    private let duplicateFileRemovalController: DuplicateFileRemovalController
+    private let duplicateFileQuickLookController: DuplicateFileQuickLookController
     private let externalSparkleUpdateCoordinator = ExternalSparkleUpdateCoordinator()
     private let removalHistoryStore: AppRemovalHistoryStore
     private let appRemovalRestorer: AppRemovalRestorer
     private static let appTerminationTimeout: TimeInterval = 5
+    private static let duplicateRootsDefaultsKey = "AppSift.DuplicateScanRoots"
+    private static let duplicateIgnoredPathsDefaultsKey =
+        "AppSift.DuplicateIgnoredPaths"
+    private static let duplicateMinimumSizeDefaultsKey =
+        "AppSift.DuplicateMinimumFileSize"
 
     // MARK: - Computed
 
@@ -1794,6 +1827,27 @@ final class AppState: ObservableObject {
         }
     }
 
+    var duplicateFileCount: Int {
+        duplicateFileGroups.reduce(0) { $0 + $1.duplicateCount }
+    }
+
+    var duplicateLogicalReclaimableSize: Int64 {
+        duplicateFileGroups.reduce(0) { $0 + $1.logicalReclaimableSize }
+    }
+
+    var selectedDuplicateFileSize: Int64 {
+        duplicateFileGroups
+            .flatMap(\.files)
+            .filter { selectedDuplicateFileIDs.contains($0.id) }
+            .reduce(0) { $0 + $1.size }
+    }
+
+    var latestUndoableDuplicateFileRecord: DuplicateFileRemovalRecord? {
+        duplicateFileRemovalHistory.first {
+            duplicateFileRemovalController.canUndo($0)
+        }
+    }
+
     // MARK: - Init
 
     init(
@@ -1848,7 +1902,10 @@ final class AppState: ObservableObject {
                 additionalCandidateURLs: additionalURLs
             )
         },
-        installationFileController: InstallationFileController = InstallationFileController()
+        installationFileController: InstallationFileController = InstallationFileController(),
+        duplicateFileScanner: DuplicateFileScanner = DuplicateFileScanner(),
+        duplicateFileRemovalController: DuplicateFileRemovalController = DuplicateFileRemovalController(),
+        duplicateFileQuickLookController: DuplicateFileQuickLookController? = nil
     ) {
         self.locationsProvider = locationsProvider
         self.searchSensitivityProvider = searchSensitivityProvider
@@ -1871,12 +1928,34 @@ final class AppState: ObservableObject {
         self.appUpdatesScanner = appUpdatesScanner
         self.installationFilesScanner = installationFilesScanner
         self.installationFileController = installationFileController
+        self.duplicateFileScanner = duplicateFileScanner
+        self.duplicateFileRemovalController = duplicateFileRemovalController
+        self.duplicateFileQuickLookController =
+            duplicateFileQuickLookController ?? DuplicateFileQuickLookController()
         self.removalHistory = removalHistoryStore.snapshot()
         self.startupItemControlHistory = startupItemController.historySnapshot()
         self.defaultApplicationControlHistory = defaultApplicationController
             .historySnapshot()
         self.installationFileRemovalHistory = installationFileController
             .historySnapshot()
+        self.duplicateFileRemovalHistory = duplicateFileRemovalController
+            .historySnapshot()
+        self.duplicateScanRoots = Self.loadDuplicatePaths(
+            key: Self.duplicateRootsDefaultsKey
+        )
+        self.ignoredDuplicatePaths = Set(
+            Self.loadDuplicatePaths(
+                key: Self.duplicateIgnoredPathsDefaultsKey
+            ).map { $0.standardizedFileURL.path }
+        )
+        if let storedMinimumSize = UserDefaults.standard.object(
+            forKey: Self.duplicateMinimumSizeDefaultsKey
+        ) as? NSNumber {
+            self.duplicateMinimumFileSize = max(
+                1,
+                storedMinimumSize.int64Value
+            )
+        }
 
         // Listen for right-click uninstall/reset hand-offs from Finder.
         externalAppActionObserver = NotificationCenter.default
@@ -3191,6 +3270,464 @@ final class AppState: ObservableObject {
         }
         installationFileActionError = nil
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    // MARK: - Duplicate Files
+
+    func addDuplicateScanRoots(_ urls: [URL]) {
+        guard !isScanningDuplicateFiles, !isRemovingDuplicateFiles else {
+            return
+        }
+        let directories = urls
+            .map(\.standardizedFileURL)
+            .filter { url in
+                guard url.isFileURL, url.path.hasPrefix("/") else { return false }
+                var isDirectory: ObjCBool = false
+                return FileManager.default.fileExists(
+                    atPath: url.path,
+                    isDirectory: &isDirectory
+                ) && isDirectory.boolValue
+            }
+        duplicateScanRoots = Self.collapsedDuplicateRoots(
+            duplicateScanRoots + directories
+        )
+        Self.persistDuplicatePaths(
+            duplicateScanRoots,
+            key: Self.duplicateRootsDefaultsKey
+        )
+        resetDuplicateScanResults()
+    }
+
+    func removeDuplicateScanRoot(_ url: URL) {
+        guard !isScanningDuplicateFiles, !isRemovingDuplicateFiles else {
+            return
+        }
+        let path = url.standardizedFileURL.path
+        duplicateScanRoots.removeAll { $0.standardizedFileURL.path == path }
+        Self.persistDuplicatePaths(
+            duplicateScanRoots,
+            key: Self.duplicateRootsDefaultsKey
+        )
+        resetDuplicateScanResults()
+    }
+
+    func setDuplicateMinimumFileSize(_ bytes: Int64) {
+        guard !isScanningDuplicateFiles, !isRemovingDuplicateFiles else {
+            return
+        }
+        let normalized = max(1, bytes)
+        guard duplicateMinimumFileSize != normalized else { return }
+        duplicateMinimumFileSize = normalized
+        UserDefaults.standard.set(
+            normalized,
+            forKey: Self.duplicateMinimumSizeDefaultsKey
+        )
+        resetDuplicateScanResults()
+    }
+
+    func ignoreDuplicatePath(_ url: URL) {
+        guard !isRemovingDuplicateFiles else { return }
+        let path = url.standardizedFileURL.path
+        guard path.hasPrefix("/"), !path.isEmpty else { return }
+        ignoredDuplicatePaths.insert(path)
+        Self.persistDuplicatePaths(
+            ignoredDuplicatePaths.map {
+                URL(fileURLWithPath: $0)
+            },
+            key: Self.duplicateIgnoredPathsDefaultsKey
+        )
+        scanDuplicateFiles(force: true)
+    }
+
+    func removeIgnoredDuplicatePath(_ path: String) {
+        guard !isScanningDuplicateFiles, !isRemovingDuplicateFiles else {
+            return
+        }
+        ignoredDuplicatePaths.remove(path)
+        Self.persistDuplicatePaths(
+            ignoredDuplicatePaths.map {
+                URL(fileURLWithPath: $0)
+            },
+            key: Self.duplicateIgnoredPathsDefaultsKey
+        )
+        resetDuplicateScanResults()
+    }
+
+    func scanDuplicateFiles(force: Bool = false) {
+        if isScanningDuplicateFiles {
+            guard force else { return }
+            duplicateFilesScanTask?.cancel()
+        }
+        guard !duplicateScanRoots.isEmpty else {
+            duplicateFileActionError = String(
+                localized: "Choose at least one folder or disk to scan."
+            )
+            return
+        }
+        guard force || !hasScannedDuplicateFiles else { return }
+
+        duplicateFilesScanTask?.cancel()
+        let scanID = UUID()
+        activeDuplicateFilesScanID = scanID
+        isScanningDuplicateFiles = true
+        duplicateFileActionError = nil
+        duplicateFileActionMessage = nil
+        selectedDuplicateFileIDs.removeAll()
+        duplicateScanProgress.value = .idle
+
+        let scanner = duplicateFileScanner
+        let roots = duplicateScanRoots
+        let ignoredPaths = ignoredDuplicatePaths
+        let minimumFileSize = duplicateMinimumFileSize
+        let progressHandler: DuplicateFileScanner.ProgressHandler = {
+            [weak self] progress in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.activeDuplicateFilesScanID == scanID else {
+                    return
+                }
+                self.duplicateScanProgress.value = progress
+            }
+        }
+
+        let task = Task { @MainActor [weak self] in
+            do {
+                let result = try await scanner.scan(
+                    roots: roots,
+                    ignoredPaths: ignoredPaths,
+                    minimumFileSize: minimumFileSize,
+                    progress: progressHandler
+                )
+                guard let self,
+                      !Task.isCancelled,
+                      self.activeDuplicateFilesScanID == scanID else {
+                    return
+                }
+                self.duplicateFileGroups = result.groups
+                self.duplicateScanStatistics = result.statistics
+                self.lastDuplicateFileScanDate = result.scannedAt
+                self.hasScannedDuplicateFiles = true
+                self.isScanningDuplicateFiles = false
+                self.duplicateFilesScanTask = nil
+                self.applySuggestedDuplicateSelection()
+            } catch is CancellationError {
+                guard let self,
+                      self.activeDuplicateFilesScanID == scanID else {
+                    return
+                }
+                self.isScanningDuplicateFiles = false
+                self.duplicateFilesScanTask = nil
+                self.duplicateFileActionMessage = String(
+                    localized: "Duplicate scan cancelled."
+                )
+            } catch {
+                guard let self,
+                      self.activeDuplicateFilesScanID == scanID else {
+                    return
+                }
+                self.isScanningDuplicateFiles = false
+                self.duplicateFilesScanTask = nil
+                self.duplicateFileActionError = error.localizedDescription
+            }
+        }
+        duplicateFilesScanTask = task
+    }
+
+    func cancelDuplicateFileScan() {
+        guard isScanningDuplicateFiles else { return }
+        duplicateFilesScanTask?.cancel()
+    }
+
+    func applySuggestedDuplicateSelection() {
+        guard !isScanningDuplicateFiles, !isRemovingDuplicateFiles else {
+            return
+        }
+        selectedDuplicateFileIDs = Set(
+            duplicateFileGroups.flatMap { group in
+                group.files.compactMap { file in
+                    file.id != group.suggestedKeeperID
+                        && file.isRemovalEligible
+                        ? file.id
+                        : nil
+                }
+            }
+        )
+    }
+
+    func clearDuplicateFileSelection() {
+        selectedDuplicateFileIDs.removeAll()
+    }
+
+    func toggleDuplicateFileSelection(
+        _ item: DuplicateFileItem,
+        in group: DuplicateFileGroup
+    ) {
+        guard !isScanningDuplicateFiles,
+              !isRemovingDuplicateFiles,
+              duplicateFileGroups.contains(group),
+              group.files.contains(item) else {
+            return
+        }
+        if selectedDuplicateFileIDs.contains(item.id) {
+            selectedDuplicateFileIDs.remove(item.id)
+            return
+        }
+        guard item.isRemovalEligible else {
+            duplicateFileActionError = String(
+                localized: "This file is protected and cannot be selected."
+            )
+            return
+        }
+        let selectedInGroup = group.files.count {
+            selectedDuplicateFileIDs.contains($0.id)
+        }
+        guard selectedInGroup < group.files.count - 1 else {
+            duplicateFileActionError = String(
+                localized: "Keep at least one verified copy in every group."
+            )
+            return
+        }
+        selectedDuplicateFileIDs.insert(item.id)
+    }
+
+    func keepDuplicateFile(
+        _ item: DuplicateFileItem,
+        in group: DuplicateFileGroup
+    ) {
+        guard !isScanningDuplicateFiles,
+              !isRemovingDuplicateFiles,
+              duplicateFileGroups.contains(group),
+              group.files.contains(item) else {
+            return
+        }
+        for file in group.files {
+            if file.id == item.id || !file.isRemovalEligible {
+                selectedDuplicateFileIDs.remove(file.id)
+            } else {
+                selectedDuplicateFileIDs.insert(file.id)
+            }
+        }
+    }
+
+    func removeSelectedDuplicateFiles() {
+        guard !isScanningDuplicateFiles,
+              !isRemovingDuplicateFiles,
+              !selectedDuplicateFileIDs.isEmpty else {
+            return
+        }
+        let validIDs = Set(duplicateFileGroups.flatMap(\.files).map(\.id))
+        guard selectedDuplicateFileIDs.isSubset(of: validIDs) else {
+            selectedDuplicateFileIDs.removeAll()
+            duplicateFileActionError = String(
+                localized: "The duplicate selection changed. Review the current scan and try again."
+            )
+            return
+        }
+
+        isRemovingDuplicateFiles = true
+        duplicateFileActionError = nil
+        duplicateFileActionMessage = nil
+        let groups = duplicateFileGroups
+        let selectedIDs = selectedDuplicateFileIDs
+        let controller = duplicateFileRemovalController
+        Task { @MainActor [weak self] in
+            let outcome = await controller.remove(
+                groups: groups,
+                selectedItemIDs: selectedIDs
+            )
+            guard let self else { return }
+            let noLongerPresent = Set(outcome.items.compactMap {
+                item -> String? in
+                switch item.status {
+                case .movedToTrash, .alreadyMissing,
+                     .rollbackFailedAfterHistoryFailure:
+                    return item.originalPath
+                case .rejected, .trashFailed,
+                     .rolledBackAfterHistoryFailure:
+                    return nil
+                }
+            })
+            self.removeDuplicateFilesFromCurrentResults(noLongerPresent)
+            self.selectedDuplicateFileIDs.removeAll()
+            self.duplicateFileRemovalHistory = controller.historySnapshot()
+            self.isRemovingDuplicateFiles = false
+
+            if outcome.movedCount > 0 {
+                self.duplicateFileActionMessage = String(
+                    format: String(
+                        localized: "Moved %lld duplicate files to Trash."
+                    ),
+                    Int64(outcome.movedCount)
+                )
+            }
+            if !outcome.historyPersisted {
+                self.duplicateFileActionError = outcome.failedCount > 0
+                    ? String(
+                        localized: "Undo history could not be saved and at least one duplicate could not be restored automatically. Review Trash and the original folders."
+                    )
+                    : String(
+                        localized: "Undo history could not be saved, so AppSift restored every moved duplicate."
+                    )
+            } else if outcome.failedCount > 0 {
+                self.duplicateFileActionError = String(
+                    format: String(
+                        localized: "%lld duplicate files could not be moved because they changed or became unavailable."
+                    ),
+                    Int64(outcome.failedCount)
+                )
+            }
+        }
+    }
+
+    func undoLatestDuplicateFileRemoval() {
+        guard !isScanningDuplicateFiles,
+              !isRemovingDuplicateFiles,
+              let record = latestUndoableDuplicateFileRecord else {
+            return
+        }
+        isRemovingDuplicateFiles = true
+        duplicateFileActionError = nil
+        duplicateFileActionMessage = nil
+        let controller = duplicateFileRemovalController
+        Task { @MainActor [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                controller.undo(record)
+            }.value
+            guard let self else { return }
+            self.duplicateFileRemovalHistory = controller.historySnapshot()
+            self.isRemovingDuplicateFiles = false
+            if outcome.historyPersisted, outcome.restoredCount > 0 {
+                self.scanDuplicateFiles(force: true)
+                self.duplicateFileActionMessage = String(
+                    format: String(
+                        localized: "Restored %lld duplicate files from Trash."
+                    ),
+                    Int64(outcome.restoredCount)
+                )
+            }
+            if !outcome.historyPersisted {
+                self.duplicateFileActionError = outcome.rollbackFailed
+                    ? String(
+                        localized: "The files were restored, but history could not be updated and the rollback to Trash was incomplete. Review both locations in Finder."
+                    )
+                    : String(
+                        localized: "History could not be updated, so AppSift returned the restored files to Trash."
+                    )
+            } else if outcome.failedCount > 0 {
+                self.duplicateFileActionError = String(
+                    format: String(
+                        localized: "%lld duplicate files could not be restored because the source or destination changed."
+                    ),
+                    Int64(outcome.failedCount)
+                )
+            }
+        }
+    }
+
+    func previewDuplicateFile(
+        _ item: DuplicateFileItem,
+        in group: DuplicateFileGroup
+    ) {
+        guard duplicateFileGroups.contains(group),
+              group.files.contains(item),
+              FileManager.default.fileExists(atPath: item.url.path) else {
+            duplicateFileActionError = String(
+                localized: "This duplicate file is no longer available. Refresh and try again."
+            )
+            return
+        }
+        duplicateFileActionError = nil
+        duplicateFileQuickLookController.present(item, in: group)
+    }
+
+    func revealDuplicateFile(_ item: DuplicateFileItem) {
+        guard duplicateFileGroups.contains(where: { $0.files.contains(item) }),
+              FileManager.default.fileExists(atPath: item.url.path) else {
+            duplicateFileActionError = String(
+                localized: "This duplicate file is no longer available. Refresh and try again."
+            )
+            return
+        }
+        duplicateFileActionError = nil
+        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    private func removeDuplicateFilesFromCurrentResults(_ paths: Set<String>) {
+        duplicateFileGroups = duplicateFileGroups.compactMap { group in
+            let remaining = group.files.filter {
+                !paths.contains($0.url.standardizedFileURL.path)
+            }
+            guard remaining.count > 1 else { return nil }
+            let keeperID = remaining.contains {
+                $0.id == group.suggestedKeeperID
+            } ? group.suggestedKeeperID : remaining[0].id
+            return DuplicateFileGroup(
+                contentHash: group.contentHash,
+                fileSize: group.fileSize,
+                files: remaining,
+                suggestedKeeperID: keeperID,
+                keepReason: keeperID == group.suggestedKeeperID
+                    ? group.keepReason
+                    : .shortestPath
+            )
+        }
+    }
+
+    private func resetDuplicateScanResults() {
+        duplicateFileGroups.removeAll()
+        selectedDuplicateFileIDs.removeAll()
+        duplicateScanStatistics = DuplicateScanStatistics()
+        hasScannedDuplicateFiles = false
+        lastDuplicateFileScanDate = nil
+        duplicateFileActionError = nil
+        duplicateFileActionMessage = nil
+        duplicateScanProgress.value = .idle
+    }
+
+    private static func collapsedDuplicateRoots(_ roots: [URL]) -> [URL] {
+        let unique = Dictionary(
+            roots.map {
+                ($0.standardizedFileURL.path, $0.standardizedFileURL)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var collapsed: [URL] = []
+        for candidate in unique.values.sorted(by: {
+            if $0.path.count == $1.path.count {
+                return $0.path.localizedStandardCompare($1.path)
+                    == .orderedAscending
+            }
+            return $0.path.count < $1.path.count
+        }) {
+            guard !collapsed.contains(where: {
+                candidate.path == $0.path
+                    || $0.path == "/"
+                    || candidate.path.hasPrefix($0.path + "/")
+            }) else {
+                continue
+            }
+            collapsed.append(candidate)
+        }
+        return collapsed
+    }
+
+    private static func persistDuplicatePaths(
+        _ urls: [URL],
+        key: String
+    ) {
+        UserDefaults.standard.set(
+            urls.map { $0.standardizedFileURL.path }.sorted(),
+            forKey: key
+        )
+    }
+
+    private static func loadDuplicatePaths(key: String) -> [URL] {
+        let paths = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let urls = paths.prefix(1_000).compactMap { path -> URL? in
+            guard path.hasPrefix("/"), path.count <= 4_096 else { return nil }
+            return URL(fileURLWithPath: path).standardizedFileURL
+        }
+        return collapsedDuplicateRoots(urls)
     }
 
     // MARK: - App Updates

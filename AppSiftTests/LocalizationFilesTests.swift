@@ -15,6 +15,7 @@ final class LocalizationFilesTests: XCTestCase {
         ].map { $0.lowercased() }
         let allowedFiles: Set<String> = [
             "LICENSE",
+            "NOTICE",
             "README.md",
             "AppSift/Info.plist",
             "docs/index.html",
