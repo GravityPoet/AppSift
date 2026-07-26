@@ -19,6 +19,7 @@ struct DashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let dashboardSpace = "dashboard"
+    private let compactDashboardWidth: CGFloat = 800
     private var highContrastTextColor: Color {
         colorScheme == .dark ? .white : .black
     }
@@ -179,7 +180,8 @@ struct DashboardView: View {
         let stress = percentUsed > 0.85
         // Below this width the side-by-side ring + storage column overflows the
         // card, so the hero stacks vertically and the ring shrinks.
-        let compact = dashboardSize.width > 0 && dashboardSize.width < 660
+        let compact = dashboardSize.width > 0
+            && dashboardSize.width < compactDashboardWidth
         let ringSize: CGFloat = compact ? 132 : 180
 
         return CardSurface(padding: 24, accent: stress ? Tint.orange : Tint.blue, elevation: .raised) {
@@ -201,6 +203,9 @@ struct DashboardView: View {
                                     .foregroundStyle(highContrastTextColor)
                                     .textCase(.uppercase)
                                     .tracking(0.6)
+                                    .accessibilityIdentifier(
+                                        "dashboard.hero.storage-label"
+                                    )
                                 if stress {
                                     StatusChip(label: String(localized: "Low space"),
                                                systemImage: "exclamationmark.triangle.fill",
@@ -212,6 +217,9 @@ struct DashboardView: View {
                             CountUpBytes(bytes: free)
                                 .font(.system(size: 34, weight: .semibold))
                                 .foregroundStyle(highContrastTextColor)
+                                .accessibilityIdentifier(
+                                    "dashboard.hero.free-value"
+                                )
                             Text(freeOfText(total: total))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(highContrastTextColor)
@@ -306,7 +314,8 @@ struct DashboardView: View {
 
         // Four across when there's room, two when the dashboard is narrow so the
         // cards don't crush their values.
-        let columnCount = dashboardSize.width > 0 && dashboardSize.width < 660 ? 2 : 4
+        let columnCount = dashboardSize.width > 0
+            && dashboardSize.width < compactDashboardWidth ? 2 : 4
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columnCount), spacing: 12) {
             StatCard(
                 icon: "internaldrive.fill",
@@ -372,7 +381,8 @@ struct DashboardView: View {
     // MARK: - Product tools
 
     private var toolOverview: some View {
-        let columnCount = dashboardSize.width > 0 && dashboardSize.width < 660 ? 2 : 4
+        let columnCount = dashboardSize.width > 0
+            && dashboardSize.width < compactDashboardWidth ? 2 : 4
         return LazyVGrid(
             columns: Array(
                 repeating: GridItem(.flexible(), spacing: 12),

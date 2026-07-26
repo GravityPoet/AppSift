@@ -322,7 +322,7 @@ struct MainWindow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.bar)
+        .background(colorScheme == .dark ? Color.black : Color.white)
     }
 
     // MARK: - Detail
