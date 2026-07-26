@@ -189,6 +189,8 @@ struct MainWindow: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 14)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Feature navigation")
             }
             .accessibilityIdentifier("main.sidebar")
 
@@ -213,7 +215,11 @@ struct MainWindow: View {
         Text(text)
             .font(.system(size: 10.5, weight: .semibold))
             .tracking(0.5)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(
+                colorScheme == .dark
+                    ? Color.white.opacity(0.78)
+                    : Color.black.opacity(0.72)
+            )
             .textCase(.uppercase)
     }
 
@@ -298,10 +304,14 @@ struct MainWindow: View {
                         ? Color.white.opacity(0.92)
                         : Color.black.opacity(0.85))
                 Text(LocalizedStringKey(ok ? "Full Disk Access granted" : "Grant FDA in Settings"))
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.white.opacity(0.95)
+                            : Color.black.opacity(0.95)
+                    )
             }
             .layoutPriority(1)
             Spacer(minLength: 4)
@@ -359,6 +369,9 @@ struct MainWindow: View {
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
                    value: appState.pendingTrashAppReviews.count)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Main content")
+        .accessibilityIdentifier("main.detail")
         .background(
             // Quiet ambient gradient under every section. Static layers,
             // opacities kept low enough to stay clean in light mode.
@@ -452,8 +465,8 @@ struct MainWindow: View {
                 Text("Full Disk Access required")
                     .font(.system(size: 13, weight: .semibold))
                 Text("1-tap setup. We'll auto-retry what failed.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.primary)
             }
 
             Spacer()
@@ -482,7 +495,11 @@ struct MainWindow: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Tint.orange.opacity(0.08))
+                .fill(
+                    colorScheme == .dark
+                        ? Color(red: 0.18, green: 0.13, blue: 0.08)
+                        : Color(red: 1.00, green: 0.97, blue: 0.93)
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)

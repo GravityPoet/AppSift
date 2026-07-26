@@ -1,5 +1,8 @@
 /* Sidebar (MainWindow) */
 "Overview" = "Resumen";
+"Feature navigation" = "Navegación de funciones";
+"Main content" = "Contenido principal";
+"Storage summary" = "Resumen del almacenamiento";
 "Applications" = "Aplicaciones";
 "Cleanup" = "Limpieza";
 "Dashboard" = "Panel";

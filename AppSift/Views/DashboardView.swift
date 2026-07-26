@@ -194,7 +194,7 @@ struct DashboardView: View {
                             HStack(spacing: 8) {
                                 Text("Storage")
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.primary.opacity(0.82))
                                     .textCase(.uppercase)
                                     .tracking(0.6)
                                 if stress {
@@ -207,8 +207,9 @@ struct DashboardView: View {
                                 .font(.system(size: 34, weight: .semibold))
                                 .foregroundStyle(stress ? Tint.orange : Color.primary)
                             Text(freeOfText(total: total))
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.primary)
+                                .accessibilityIdentifier("dashboard.hero.free-total")
                         }
                         Spacer()
                         Button {
@@ -271,11 +272,13 @@ struct DashboardView: View {
                 }
                 Spacer()
                 Text(percentUsedText(usedPct))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .monospacedDigit()
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dashboard.storage-breakdown")
     }
 
     private func percentUsedText(_ usedPct: Double) -> String {
@@ -306,13 +309,14 @@ struct DashboardView: View {
                 icon: "trash.circle.fill",
                 tint: Tint.orange,
                 label: "Junk Found",
-                value: appState.totalJunkSize > 0
-                    ? ByteCountFormatter.string(fromByteCount: appState.totalJunkSize, countStyle: .file)
-                    : "—",
+                value: ByteCountFormatter.string(
+                    fromByteCount: appState.totalJunkSize,
+                    countStyle: .file
+                ),
                 delta: appState.allResults.isEmpty
                     ? String(localized: "Run a scan")
                     : junkFoundDelta(count: appState.allResults.count),
-                byteValue: appState.totalJunkSize > 0 ? appState.totalJunkSize : nil
+                byteValue: appState.totalJunkSize
             )
             .staggered(1)
             StatCard(
@@ -327,14 +331,18 @@ struct DashboardView: View {
                 icon: "memorychip.fill",
                 tint: Tint.green,
                 label: "Purgeable",
-                value: appState.diskInfo.purgeableSpace > 0
-                    ? ByteCountFormatter.string(fromByteCount: appState.diskInfo.purgeableSpace, countStyle: .file)
-                    : "—",
+                value: ByteCountFormatter.string(
+                    fromByteCount: appState.diskInfo.purgeableSpace,
+                    countStyle: .file
+                ),
                 delta: String(localized: "Managed by macOS"),
-                byteValue: appState.diskInfo.purgeableSpace > 0 ? appState.diskInfo.purgeableSpace : nil
+                byteValue: appState.diskInfo.purgeableSpace
             )
             .staggered(3)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Storage summary")
+        .accessibilityIdentifier("dashboard.storage-summary")
     }
 
     private func freeSpaceDelta(total: Int64, percentUsed: Double) -> String {
@@ -367,6 +375,9 @@ struct DashboardView: View {
                 .staggered(index)
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("AppSift tools")
+        .accessibilityIdentifier("dashboard.tools")
     }
 
     private var toolSummaries: [DashboardToolSummary] {
@@ -969,7 +980,7 @@ private struct StatCard: View {
                     IconTile(systemName: icon, tint: tint, size: 28, glow: true)
                     Text(label)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
                         .textCase(.uppercase)
                         .tracking(0.4)
                 }
@@ -983,16 +994,19 @@ private struct StatCard: View {
                     }
                 }
                 .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 if let delta {
                     Text(delta)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.primary)
                 }
             }
         }
         .hoverLift(hoverScale: 1.02, lift: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dashboard.stat.\(icon)")
     }
 }
 
@@ -1067,13 +1081,14 @@ private struct LegendDot: View {
             Circle().fill(color).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.primary)
                 Text(value)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .monospacedDigit()
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }
 

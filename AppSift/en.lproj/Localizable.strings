@@ -1,5 +1,8 @@
 /* Sidebar (MainWindow) */
 "Overview" = "Overview";
+"Feature navigation" = "Feature navigation";
+"Main content" = "Main content";
+"Storage summary" = "Storage summary";
 "Applications" = "Applications";
 "Cleanup" = "Cleanup";
 "Dashboard" = "Dashboard";

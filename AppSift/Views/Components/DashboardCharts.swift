@@ -75,9 +75,9 @@ struct HealthRing: View {
                     .contentTransition(.numericText())
                     .foregroundStyle(stress ? warnTint : Color.primary)
                 Text(subtitle)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .tracking(0.8)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
             }
         }
         .onAppear { animate(to: clamped) }

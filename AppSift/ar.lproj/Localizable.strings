@@ -1,5 +1,8 @@
 /* Sidebar (MainWindow) */
 "Overview" = "نظرة عامة";
+"Feature navigation" = "التنقل بين الميزات";
+"Main content" = "المحتوى الرئيسي";
+"Storage summary" = "ملخص مساحة التخزين";
 "Applications" = "التطبيقات";
 "Cleanup" = "التنظيف";
 "Dashboard" = "لوحة التحكم";
