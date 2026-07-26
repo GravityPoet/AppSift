@@ -1,5 +1,8 @@
 /* Sidebar (MainWindow) */
 "Overview" = "概要";
+"Feature navigation" = "機能ナビゲーション";
+"Main content" = "メインコンテンツ";
+"Storage summary" = "ストレージの概要";
 "Applications" = "アプリケーション";
 "Cleanup" = "クリーンアップ";
 "Dashboard" = "ダッシュボード";

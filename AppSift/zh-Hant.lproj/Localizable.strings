@@ -1,5 +1,8 @@
 /* Sidebar (MainWindow) */
 "Overview" = "概覽";
+"Feature navigation" = "功能導覽";
+"Main content" = "主要內容";
+"Storage summary" = "儲存空間摘要";
 "Applications" = "應用程式";
 "Cleanup" = "清理";
 "Dashboard" = "儀表板";
