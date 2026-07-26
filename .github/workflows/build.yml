@@ -1,4 +1,4 @@
-name: Build
+name: Build and QA
 
 on:
   push:
@@ -7,10 +7,29 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    runs-on: macos-15
+  unit-qa:
+    name: Unit QA · ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS 14 · Apple Silicon
+            runner: macos-14
+            xcode: /Applications/Xcode_16.2.app
+          - label: macOS 15 · Apple Silicon
+            runner: macos-15
+            xcode: /Applications/Xcode_16.4.app
+          - label: macOS 15 · Intel
+            runner: macos-15-intel
+            xcode: /Applications/Xcode_16.4.app
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "${{ matrix.xcode }}"
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -18,15 +37,72 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build (Universal Binary)
+      - name: Run unit, fixture, cancellation, and scale QA
         run: |
-          xcodebuild -project AppSift.xcodeproj \
+          set -euo pipefail
+          NATIVE_ARCH="$(uname -m)"
+          xcodebuild \
+            -project AppSift.xcodeproj \
+            -scheme AppSift \
+            -configuration Debug \
+            -destination "platform=macOS,arch=${NATIVE_ARCH}" \
+            -derivedDataPath build/DerivedData-${NATIVE_ARCH} \
+            ARCHS="${NATIVE_ARCH}" \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Build universal Release binary
+        if: matrix.runner == 'macos-15'
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project AppSift.xcodeproj \
             -scheme AppSift \
             -configuration Release \
-            -derivedDataPath build \
-            build \
+            -derivedDataPath build/UniversalDerivedData \
             ARCHS="arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          lipo -archs build/UniversalDerivedData/Build/Products/Release/AppSift.app/Contents/MacOS/AppSift \
+            | grep -q arm64
+          lipo -archs build/UniversalDerivedData/Build/Products/Release/AppSift.app/Contents/MacOS/AppSift \
+            | grep -q x86_64
+
+  accessibility-qa:
+    name: VoiceOver hierarchy and contrast QA · macOS 15
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run macOS accessibility UI audits
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project AppSift.xcodeproj \
+            -scheme AppSiftAccessibility \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath build/AccessibilityDerivedData \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            test

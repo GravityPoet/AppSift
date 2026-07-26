@@ -45,6 +45,15 @@ enum SystemAlertNotificationContract {
     static let notificationPrefix = "AppSift.SystemAlert."
 }
 
+struct SystemAlertTelemetrySnapshot: Sendable {
+    let volumes: [SystemVolumeSnapshot]
+    let battery: SystemBatterySnapshot?
+    let deviceBatteries: [SystemDeviceBatterySnapshot]
+    let memory: SystemMemorySnapshot?
+    let trash: SystemTrashSnapshot?
+    let capturedAt: Date
+}
+
 final class SystemAlertHistoryStore: @unchecked Sendable {
     static let shared = SystemAlertHistoryStore()
     private static let maximumRecords = 200
@@ -180,6 +189,9 @@ final class SystemAlertHistoryStore: @unchecked Sendable {
 
 @MainActor
 final class SystemAlertCenter: ObservableObject {
+    typealias TelemetryProvider = () -> SystemAlertTelemetrySnapshot
+    typealias NotificationPoster = (SystemAlertCondition) throws -> Void
+
     static let shared = SystemAlertCenter()
     static let settingsKey = "settings.general.systemAlerts"
 
@@ -191,12 +203,29 @@ final class SystemAlertCenter: ObservableObject {
     private static let refreshInterval: TimeInterval = 15 * 60
     private static let notificationCooldown: TimeInterval = 12 * 60 * 60
     private let historyStore: SystemAlertHistoryStore
+    private let telemetryProvider: TelemetryProvider
+    private let notificationPoster: NotificationPoster
     private var timer: Timer?
     private var workspaceObservers: [NSObjectProtocol] = []
 
-    init(historyStore: SystemAlertHistoryStore = .shared) {
+    init(
+        historyStore: SystemAlertHistoryStore = .shared,
+        telemetryProvider: TelemetryProvider? = nil,
+        notificationPoster: NotificationPoster? = nil
+    ) {
         self.historyStore = historyStore
         self.history = historyStore.snapshot()
+        self.telemetryProvider = telemetryProvider ?? {
+            SystemAlertTelemetrySnapshot(
+                volumes: SystemTelemetryReader.mountedVolumes(),
+                battery: SystemTelemetryReader.internalBattery(),
+                deviceBatteries: SystemTelemetryReader.connectedDeviceBatteries(),
+                memory: SystemTelemetryReader.memorySnapshot(),
+                trash: SystemTelemetryReader.trashSnapshot(),
+                capturedAt: Date()
+            )
+        }
+        self.notificationPoster = notificationPoster ?? Self.deliverNotification
     }
 
     func start() {
@@ -228,18 +257,14 @@ final class SystemAlertCenter: ObservableObject {
     }
 
     func refresh() {
-        let now = Date()
-        let volumes = SystemTelemetryReader.mountedVolumes()
-        let battery = SystemTelemetryReader.internalBattery()
-        let devices = SystemTelemetryReader.connectedDeviceBatteries()
-        let memory = SystemTelemetryReader.memorySnapshot()
-        let trash = SystemTelemetryReader.trashSnapshot()
+        let snapshot = telemetryProvider()
+        let now = snapshot.capturedAt
         let conditions = Self.evaluate(
-            volumes: volumes,
-            battery: battery,
-            deviceBatteries: devices,
-            memory: memory,
-            trash: trash,
+            volumes: snapshot.volumes,
+            battery: snapshot.battery,
+            deviceBatteries: snapshot.deviceBatteries,
+            memory: snapshot.memory,
+            trash: snapshot.trash,
             now: now
         )
         activeConditions = conditions
@@ -441,13 +466,24 @@ final class SystemAlertCenter: ObservableObject {
     }
 
     private func postNotification(_ condition: SystemAlertCondition) {
+        do {
+            try notificationPoster(condition)
+        } catch {
+            Logger.shared.log(
+                "Could not post system alert: \(error.localizedDescription)",
+                level: .warning
+            )
+        }
+    }
+
+    private static func deliverNotification(_ condition: SystemAlertCondition) {
         let content = UNMutableNotificationContent()
         content.title = condition.title
         content.body = condition.detail
         content.sound = .default
         content.userInfo = [SystemAlertNotificationContract.markerKey: true]
         let identifier = SystemAlertNotificationContract.notificationPrefix
-            + Self.stableIdentifier(condition.id)
+            + stableIdentifier(condition.id)
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: identifier, content: content, trigger: nil)

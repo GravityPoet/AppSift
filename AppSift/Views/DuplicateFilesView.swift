@@ -302,6 +302,7 @@ struct DuplicateFilesView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.tertiary)
             .help("Remove Location")
+            .accessibilityLabel("Remove Location")
             .disabled(
                 appState.isScanningDuplicateFiles
                     || appState.isRemovingDuplicateFiles
@@ -507,6 +508,7 @@ struct DuplicateFilesView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+                .accessibilityLabel("Dismiss")
             }
         }
     }
@@ -754,6 +756,7 @@ private struct DuplicateFileRow: View {
             }
             .buttonStyle(.plain)
             .help("Quick Look")
+            .accessibilityLabel("Quick Look")
 
             Button {
                 appState.revealDuplicateFile(item)
@@ -762,6 +765,7 @@ private struct DuplicateFileRow: View {
             }
             .buttonStyle(.plain)
             .help("Show in Finder")
+            .accessibilityLabel("Show in Finder")
 
             Menu {
                 Button("Ignore File") {
@@ -777,6 +781,7 @@ private struct DuplicateFileRow: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
+            .accessibilityLabel("More Actions")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -861,6 +866,7 @@ private struct DuplicateIgnoreListSheet: View {
                         }
                         .buttonStyle(.plain)
                         .help("Remove from Ignore List")
+                        .accessibilityLabel("Remove from Ignore List")
                     }
                 }
                 .listStyle(.inset)

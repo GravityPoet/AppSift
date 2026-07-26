@@ -190,6 +190,7 @@ struct MainWindow: View {
                 .padding(.top, 10)
                 .padding(.bottom, 14)
             }
+            .accessibilityIdentifier("main.sidebar")
 
             healthFooter
         }
@@ -218,19 +219,15 @@ struct MainWindow: View {
 
     private func navRow(section: AppSection, label: LocalizedStringKey, icon: String,
                         tint: Color, badge: String?) -> some View {
-        SidebarNavRow(
-            label: label, icon: icon, tint: tint, badge: badge,
-            isSelected: selectedSection == section
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
+        Button {
             navigate(to: section)
+        } label: {
+            SidebarNavRow(
+                label: label, icon: icon, tint: tint, badge: badge,
+                isSelected: selectedSection == section
+            )
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction {
-            navigate(to: section)
-        }
+        .buttonStyle(.plain)
     }
 
     private func navigate(to section: AppSection) {

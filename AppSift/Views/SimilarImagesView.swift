@@ -10,13 +10,22 @@ struct SimilarImagesView: View {
             header
             Divider()
 
-            if center.rootURL == nil {
+            if center.source == .folder && center.rootURL == nil {
                 EmptyStateView(
                     "Similar Images",
                     systemImage: "photo.stack.fill",
                     description: "Choose a local folder, mounted disk, or external drive. AppSift compares visual content and ranks image quality without uploading photos. Managed Photos libraries are excluded.",
                     action: { center.chooseFolder() },
                     actionLabel: "Choose Image Folder",
+                    tint: Tint.purple
+                )
+            } else if center.source == .photoLibrary && !center.hasScanned && !center.isScanning {
+                EmptyStateView(
+                    "Photos Library",
+                    systemImage: "photo.on.rectangle.angled",
+                    description: "AppSift requests Photos read and write access only when you start this scan. Analysis stays on this Mac, iCloud-only originals are not downloaded, and cleanup uses Photos Recently Deleted.",
+                    action: { center.scan(force: true) },
+                    actionLabel: "Scan Photos Library",
                     tint: Tint.purple
                 )
             } else if center.isScanning && !center.hasScanned {
@@ -37,38 +46,65 @@ struct SimilarImagesView: View {
         .navigationTitle("Similar Images")
         .toolbar {
             ToolbarItemGroup {
-                Button { center.chooseFolder() } label: {
-                    Label("Choose Folder", systemImage: "folder.badge.gearshape")
+                if center.source == .folder {
+                    Button { center.chooseFolder() } label: {
+                        Label("Choose Folder", systemImage: "folder.badge.gearshape")
+                    }
                 }
                 Button {
                     center.isScanning ? center.cancelScan() : center.scan(force: true)
                 } label: {
                     Label(
-                        center.isScanning ? "Cancel Scan" : "Refresh",
+                        center.isScanning
+                            ? String(localized: "Cancel Scan")
+                            : center.source == .photoLibrary && !center.hasScanned
+                                ? String(localized: "Scan Photos Library")
+                                : String(localized: "Refresh"),
                         systemImage: center.isScanning ? "xmark.circle" : "arrow.clockwise"
                     )
                 }
                 Button(role: .destructive) { confirmsRemoval = true } label: {
-                    Label("Move Selected to Trash", systemImage: "trash")
+                    Label(
+                        center.source == .photoLibrary
+                            ? String(localized: "Move Selected to Recently Deleted")
+                            : String(localized: "Move Selected to Trash"),
+                        systemImage: "trash"
+                    )
                 }
                 .disabled(center.selectedIDs.isEmpty || center.isScanning || center.isRemoving)
             }
         }
         .confirmationDialog(
-            "Move Similar Images to Trash?",
+            center.source == .photoLibrary
+                ? String(localized: "Move Photos to Recently Deleted?")
+                : String(localized: "Move Similar Images to Trash?"),
             isPresented: $confirmsRemoval,
             titleVisibility: .visible
         ) {
-            Button("Move to Trash", role: .destructive) { center.removeSelected() }
+            Button(
+                center.source == .photoLibrary
+                    ? String(localized: "Move to Recently Deleted")
+                    : String(localized: "Move to Trash"),
+                role: .destructive
+            ) { center.removeSelected() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(
-                String(
-                    format: String(localized: "Move %lld selected images (%@) to the Trash? AppSift will always preserve at least one image per group and keep recovery history."),
-                    Int64(center.selectedIDs.count),
-                    ByteCountFormatter.string(fromByteCount: center.selectedSize, countStyle: .file)
+            if center.source == .photoLibrary {
+                Text(
+                    String(
+                        format: String(localized: "Move %lld selected Photos assets to Recently Deleted? Live Photo and RAW components stay together, and AppSift preserves at least one asset per group."),
+                        Int64(center.selectedIDs.count)
+                    )
                 )
-            )
+            } else {
+                Text(
+                    String(
+                        format: String(localized: "Move %lld selected images (%@) to the Trash? AppSift will always preserve at least one image per group and keep recovery history."),
+                        Int64(center.selectedIDs.count),
+                        ByteCountFormatter.string(fromByteCount: center.selectedSize, countStyle: .file)
+                    )
+                )
+            }
         }
         .alert("Similar Images", isPresented: Binding(
             get: { center.errorMessage != nil },
@@ -86,24 +122,47 @@ struct SimilarImagesView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Similar Images")
                     .font(.title2.weight(.semibold))
-                Text("Clusters local photos with perceptual hashing and Vision feature distance, then recommends the strongest image in each group.")
+                Text("Clusters photos with perceptual hashing and Vision feature distance, then recommends the strongest image in each group.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text("Quality combines relative resolution, sharpness, exposure balance, and detected-face confidence. It is a recommendation, not a subjective photo score.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                Text("Photos Library packages are never traversed or modified; export originals to a regular folder before scanning.")
+                Text(
+                    center.source == .photoLibrary
+                        ? String(localized: "Photos Library assets are accessed only through PhotoKit. Live Photo, RAW, and burst metadata stay attached to each asset.")
+                        : String(localized: "Photos Library packages are never traversed as files; choose the Photos Library source to scan them safely through PhotoKit.")
+                )
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
             Spacer()
-            if let root = center.rootURL {
+            VStack(alignment: .trailing, spacing: 7) {
+                Picker(
+                    "Image Source",
+                    selection: Binding(
+                        get: { center.source },
+                        set: { center.selectSource($0) }
+                    )
+                ) {
+                    Text("Folder or Disk").tag(SimilarImageScanSource.folder)
+                    Text("Photos Library").tag(SimilarImageScanSource.photoLibrary)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 240)
+                .accessibilityLabel("Image Source")
+                if center.source == .photoLibrary {
+                    Text("PhotoKit · local-only scan")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                } else if let root = center.rootURL {
                 Text(root.path)
                     .font(.caption2.monospaced())
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
                     .truncationMode(.middle)
                     .frame(maxWidth: 240, alignment: .trailing)
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -132,7 +191,11 @@ struct SimilarImagesView: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
             } else {
-                Text("Discovering supported local image files…")
+                Text(
+                    center.source == .photoLibrary
+                        ? String(localized: "Discovering accessible Photos Library assets…")
+                        : String(localized: "Discovering supported local image files…")
+                )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -202,15 +265,26 @@ struct SimilarImagesView: View {
                 .disabled(center.selectedIDs.isEmpty)
             Spacer()
             if !center.selectedIDs.isEmpty {
-                Text(
-                    String(
-                        format: String(localized: "%lld selected · %@"),
-                        Int64(center.selectedIDs.count),
-                        ByteCountFormatter.string(fromByteCount: center.selectedSize, countStyle: .file)
+                if center.source == .photoLibrary {
+                    Text(
+                        String(
+                            format: String(localized: "%lld selected Photos assets"),
+                            Int64(center.selectedIDs.count)
+                        )
                     )
-                )
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                } else {
+                    Text(
+                        String(
+                            format: String(localized: "%lld selected · %@"),
+                            Int64(center.selectedIDs.count),
+                            ByteCountFormatter.string(fromByteCount: center.selectedSize, countStyle: .file)
+                        )
+                    )
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -248,14 +322,7 @@ struct SimilarImagesView: View {
         return CardSurface(padding: 10, elevation: .flat) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
-                    Image(nsImage: NSImage(byReferencing: item.url))
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 140)
-                        .clipped()
-                        .background(Color.primary.opacity(0.04))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    SimilarImageThumbnail(item: item, center: center)
                     if isRecommended {
                         StatusChip(
                             label: "Suggested Keep",
@@ -282,9 +349,17 @@ struct SimilarImagesView: View {
                         .help("Relative quality recommendation")
                 }
 
-                Text("\(item.pixelWidth) × \(item.pixelHeight) · \(ByteCountFormatter.string(fromByteCount: item.fileSize, countStyle: .file))")
+                Text(itemDetails(item))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+
+                if let reference = item.source.photoLibraryReference {
+                    HStack(spacing: 6) {
+                        if reference.isLivePhoto { sourceChip("Live Photo") }
+                        if reference.isRAW { sourceChip("RAW") }
+                        if reference.burstIdentifier != nil { sourceChip("Burst") }
+                    }
+                }
 
                 HStack(spacing: 6) {
                     qualityChip("Sharp", item.quality.sharpness)
@@ -298,13 +373,36 @@ struct SimilarImagesView: View {
                     }
                     .buttonStyle(.borderless)
                     Button { center.reveal(item) } label: {
-                        Label("Reveal", systemImage: "folder")
+                        Label(
+                            item.source.photoLibraryReference == nil
+                                ? String(localized: "Reveal")
+                                : String(localized: "Open Photos"),
+                            systemImage: item.source.photoLibraryReference == nil ? "folder" : "photo"
+                        )
                     }
                     .buttonStyle(.borderless)
                 }
                 .font(.caption)
             }
         }
+    }
+
+    private func itemDetails(_ item: SimilarImageItem) -> String {
+        let dimensions = "\(item.pixelWidth) × \(item.pixelHeight)"
+        guard item.source.photoLibraryReference == nil else {
+            return dimensions + " · " + String(localized: "Photos asset")
+        }
+        return dimensions + " · "
+            + ByteCountFormatter.string(fromByteCount: item.fileSize, countStyle: .file)
+    }
+
+    private func sourceChip(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(Tint.purple)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Tint.purple.opacity(0.09), in: Capsule())
     }
 
     private func qualityChip(_ title: LocalizedStringKey, _ value: Double) -> some View {
@@ -326,6 +424,7 @@ struct SimilarImagesView: View {
             Spacer()
             Button { center.actionMessage = nil } label: { Image(systemName: "xmark") }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss")
         }
         .padding(12)
         .background(Tint.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
@@ -363,5 +462,35 @@ struct SimilarImagesView: View {
         }
         .padding(12)
         .background(Tint.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct SimilarImageThumbnail: View {
+    let item: SimilarImageItem
+    @ObservedObject var center: SimilarImageCenter
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    Color.primary.opacity(0.04)
+                    ProgressView().controlSize(.small)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 140)
+        .clipped()
+        .background(Color.primary.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .task(id: item.id) {
+            image = await center.thumbnail(for: item)
+        }
+        .accessibilityLabel(item.name)
     }
 }

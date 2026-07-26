@@ -316,6 +316,7 @@ struct SpaceLensView: View {
             .controlSize(.small)
             .disabled(appState.spaceLensNavigationPath.count <= 1)
             .help("Go Up")
+            .accessibilityLabel("Go Up")
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
@@ -563,6 +564,7 @@ struct SpaceLensView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -1214,6 +1216,7 @@ private struct SpaceLensRankingPanel: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.tertiary)
+                    .accessibilityLabel("Clear Search")
                 }
             }
             .padding(.horizontal, 10)

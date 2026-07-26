@@ -13,16 +13,30 @@ struct SimilarImageQuality: Hashable, Sendable {
     let face: Double
 }
 
+enum SimilarImageItemSource: Hashable, Sendable {
+    case file(url: URL, fingerprint: ReviewedTrashFingerprint)
+    case photoLibrary(PhotoLibraryAssetReference)
+
+    var fileURL: URL? {
+        guard case let .file(url, _) = self else { return nil }
+        return url
+    }
+
+    var photoLibraryReference: PhotoLibraryAssetReference? {
+        guard case let .photoLibrary(reference) = self else { return nil }
+        return reference
+    }
+}
+
 struct SimilarImageItem: Identifiable, Hashable, Sendable {
     let id: String
-    let url: URL
     let name: String
     let fileSize: Int64
     let pixelWidth: Int
     let pixelHeight: Int
     let modifiedAt: Date?
     let quality: SimilarImageQuality
-    let fingerprint: ReviewedTrashFingerprint
+    let source: SimilarImageItemSource
 }
 
 struct SimilarImageGroup: Identifiable, Hashable, Sendable {
@@ -60,8 +74,23 @@ enum SimilarImageScanError: LocalizedError, Equatable {
 actor SimilarImageScanner {
     typealias ProgressHandler = @Sendable (Int, Int) -> Void
 
+    struct Limits: Equatable, Sendable {
+        static let production = Limits(
+            maximumImages: 20_000,
+            maximumCandidatePairs: 2_000_000
+        )
+
+        let maximumImages: Int
+        let maximumCandidatePairs: Int
+
+        init(maximumImages: Int, maximumCandidatePairs: Int) {
+            self.maximumImages = max(1, maximumImages)
+            self.maximumCandidatePairs = max(1, maximumCandidatePairs)
+        }
+    }
+
     private struct AnalyzedImage {
-        let url: URL
+        let id: String
         let name: String
         let fileSize: Int64
         let width: Int
@@ -72,17 +101,20 @@ actor SimilarImageScanner {
         let exposure: Double
         let face: Double
         let featurePrint: VNFeaturePrintObservation?
-        let fingerprint: ReviewedTrashFingerprint
+        let source: SimilarImageItemSource
     }
 
-    private static let maximumImages = 20_000
-    private static let maximumCandidatePairs = 2_000_000
     private static let supportedExtensions: Set<String> = [
         "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "gif", "bmp", "webp"
     ]
     private static let managedPhotoLibraryExtensions: Set<String> = [
         "aplibrary", "migratedphotolibrary", "photolibrary", "photoslibrary"
     ]
+    private let limits: Limits
+
+    init(limits: Limits = .production) {
+        self.limits = limits
+    }
 
     func scan(
         rootURL: URL,
@@ -122,6 +154,80 @@ actor SimilarImageScanner {
             skippedCloudPlaceholderCount: discovery.cloudPlaceholders,
             unreadableCount: unreadable,
             wasTruncated: discovery.truncated || clusterResult.wasTruncated,
+            scannedAt: Date()
+        )
+    }
+
+    func scanPhotoLibrary(
+        using gateway: any PhotoLibraryGateway,
+        progress: ProgressHandler? = nil
+    ) async throws -> SimilarImageScanResult {
+        try Task.checkCancellation()
+        var authorization = await gateway.authorizationStatus()
+        if authorization == .notDetermined {
+            try Task.checkCancellation()
+            authorization = await gateway.requestReadWriteAuthorization()
+        }
+        switch authorization {
+        case .authorized, .limited:
+            break
+        case .restricted:
+            throw PhotoLibraryScanError.accessRestricted
+        case .notDetermined, .denied:
+            throw PhotoLibraryScanError.accessDenied
+        }
+
+        try Task.checkCancellation()
+        let discovery: PhotoLibraryAssetFetch
+        do {
+            discovery = try await gateway.fetchImageAssets(
+                maximumCount: limits.maximumImages
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw PhotoLibraryScanError.libraryUnavailable
+        }
+
+        var analyzed: [AnalyzedImage] = []
+        analyzed.reserveCapacity(discovery.assets.count)
+        var cloudPlaceholders = 0
+        var unreadable = 0
+        for (index, asset) in discovery.assets.enumerated() {
+            try Task.checkCancellation()
+            do {
+                let thumbnail = try await gateway.requestLocalThumbnail(
+                    for: asset.localIdentifier,
+                    maximumPixelSize: 512,
+                    networkAccessAllowed: false
+                )
+                switch thumbnail {
+                case let .data(data):
+                    if let image = analyze(data, asset: asset) {
+                        analyzed.append(image)
+                    } else {
+                        unreadable += 1
+                    }
+                case .cloudOnly:
+                    cloudPlaceholders += 1
+                case .unavailable:
+                    unreadable += 1
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                unreadable += 1
+            }
+            progress?(index + 1, discovery.assets.count)
+        }
+
+        let clusterResult = try cluster(analyzed)
+        return SimilarImageScanResult(
+            groups: clusterResult.groups,
+            scannedImageCount: analyzed.count,
+            skippedCloudPlaceholderCount: cloudPlaceholders,
+            unreadableCount: unreadable,
+            wasTruncated: discovery.wasTruncated || clusterResult.wasTruncated,
             scannedAt: Date()
         )
     }
@@ -184,7 +290,7 @@ actor SimilarImageScanner {
                 cloudPlaceholders += 1
                 continue
             }
-            if urls.count >= Self.maximumImages {
+            if urls.count >= limits.maximumImages {
                 truncated = true
                 break
             }
@@ -220,7 +326,7 @@ actor SimilarImageScanner {
 
         let metrics = Self.imageMetrics(grayscale)
         return AnalyzedImage(
-            url: url,
+            id: url.path,
             name: url.lastPathComponent,
             fileSize: max(0, Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)),
             width: width,
@@ -231,7 +337,47 @@ actor SimilarImageScanner {
             exposure: metrics.exposure,
             face: Self.faceScore(thumbnail),
             featurePrint: Self.featurePrint(thumbnail),
-            fingerprint: fingerprint
+            source: .file(url: url, fingerprint: fingerprint)
+        )
+    }
+
+    private func analyze(
+        _ data: Data,
+        asset: PhotoLibraryAssetReference
+    ) -> AnalyzedImage? {
+        guard asset.pixelWidth > 0,
+              asset.pixelHeight > 0,
+              asset.pixelWidth <= 200_000,
+              asset.pixelHeight <= 200_000,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let thumbnail = CGImageSourceCreateThumbnailAtIndex(
+                source,
+                0,
+                [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 512,
+                    kCGImageSourceShouldCacheImmediately: true,
+                ] as CFDictionary
+              ),
+              let hash = Self.differenceHash(thumbnail),
+              let grayscale = Self.grayscalePixels(thumbnail, width: 64, height: 64) else {
+            return nil
+        }
+        let metrics = Self.imageMetrics(grayscale)
+        return AnalyzedImage(
+            id: "photos|\(asset.localIdentifier)",
+            name: asset.filename,
+            fileSize: 0,
+            width: asset.pixelWidth,
+            height: asset.pixelHeight,
+            modifiedAt: asset.modificationDate ?? asset.creationDate,
+            dHash: hash,
+            sharpness: metrics.sharpness,
+            exposure: metrics.exposure,
+            face: Self.faceScore(thumbnail),
+            featurePrint: Self.featurePrint(thumbnail),
+            source: .photoLibrary(asset)
         )
     }
 
@@ -295,7 +441,7 @@ actor SimilarImageScanner {
             let high = max(lhs, rhs)
             let encoded = (UInt64(low) << 32) | UInt64(high)
             guard !pairs.contains(encoded) else { return true }
-            guard pairs.count < Self.maximumCandidatePairs else {
+            guard pairs.count < limits.maximumCandidatePairs else {
                 wasTruncated = true
                 return false
             }
@@ -360,8 +506,7 @@ actor SimilarImageScanner {
                     + image.face * faceWeight
             ))
             return SimilarImageItem(
-                id: image.url.path,
-                url: image.url,
+                id: image.id,
                 name: image.name,
                 fileSize: image.fileSize,
                 pixelWidth: image.width,
@@ -374,7 +519,7 @@ actor SimilarImageScanner {
                     exposure: image.exposure,
                     face: image.face
                 ),
-                fingerprint: image.fingerprint
+                source: image.source
             )
         }
         .sorted {
