@@ -16,6 +16,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             app.windows.firstMatch.waitForExistence(timeout: 10),
             "AppSift did not expose its main window."
         )
+        XCTAssertTrue(
+            app.staticTexts["Low space"].waitForExistence(timeout: 5),
+            "The deterministic low-space accessibility fixture did not load."
+        )
     }
 
     override func tearDownWithError() throws {
@@ -124,6 +128,11 @@ final class AppSiftAccessibilityUITests: XCTestCase {
                 print("AX_AUDIT_HANDLED macOS 27 dashboard screenshot mismatch")
                 return true
             }
+            if issue.auditType == .parentChild,
+               self.isSystemFullScreenButtonWrapper(issue.element) {
+                print("AX_AUDIT_HANDLED system full-screen button wrapper")
+                return true
+            }
             return false
         }
     }
@@ -158,7 +167,12 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             .matching(identifier: "main.detail")
             .firstMatch
             .exists
-        let isDetailColumnWrapper = matchesWindowFrame
+        let alignsWindowRight = abs(frame.maxX - windowFrame.maxX) <= tolerance
+        let isRightDetailColumn = spansWindowContentHeight
+            && frame.minX > windowFrame.minX
+            && frame.width < windowFrame.width
+            && alignsWindowRight
+        let isDetailColumnWrapper = (matchesWindowFrame || isRightDetailColumn)
             && !containsSplitView
             && !containsMainSidebar
             && containsMainDetail
@@ -178,7 +192,32 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             return false
         }
         let windowFrame = app.windows.firstMatch.frame
-        return element.frame.maxY <= windowFrame.minY + 2
+        let frame = element.frame
+        return frame.minY < windowFrame.minY
+            && frame.height <= 32
+            && frame.maxY <= windowFrame.minY + 8
+    }
+
+    private func isSystemFullScreenButtonWrapper(
+        _ element: XCUIElement?
+    ) -> Bool {
+        guard let element,
+              element.elementType == .group,
+              element.label.isEmpty,
+              element.identifier.isEmpty,
+              !element.isEnabled,
+              !element.isHittable else {
+            return false
+        }
+        let button = app.buttons["_XCUI:FullScreenWindow"].firstMatch
+        guard button.exists else { return false }
+        let frame = element.frame
+        let buttonFrame = button.frame
+        let tolerance: CGFloat = 2
+        return frame.minX >= buttonFrame.minX - tolerance
+            && frame.minY >= buttonFrame.minY - tolerance
+            && frame.maxX <= buttonFrame.maxX + tolerance
+            && frame.maxY <= buttonFrame.maxY + tolerance
     }
 
     private func isSystemWindowTitle(_ element: XCUIElement?) -> Bool {
@@ -210,7 +249,8 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         }
         let identifier = element.identifier
         return identifier == "dashboard.hero.free-total"
-            || identifier == "dashboard.storage-breakdown"
+            || identifier == "dashboard.storage.percent"
+            || identifier.hasPrefix("dashboard.storage.legend.")
             || identifier.hasPrefix("dashboard.stat.")
     }
 
@@ -218,6 +258,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         let application = XCUIApplication()
         application.launchArguments = [
             "-AppSift.OnboardingComplete", "YES",
+            "-AppSift.UITest.ForceLowDiskSpace", "YES",
             "-AppSift.Appearance", appearance,
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US",

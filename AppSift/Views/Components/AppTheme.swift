@@ -185,6 +185,7 @@ struct StatusChip: View {
     let label: String
     var systemImage: String? = nil
     var tint: Color = Tint.blue
+    var foreground: Color? = nil
 
     var body: some View {
         HStack(spacing: 4) {
@@ -199,7 +200,7 @@ struct StatusChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(Capsule().fill(tint.opacity(0.14)))
-        .foregroundStyle(tint)
+        .foregroundStyle(foreground ?? tint)
     }
 }
 

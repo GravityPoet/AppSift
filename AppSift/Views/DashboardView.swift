@@ -16,8 +16,14 @@ struct DashboardView: View {
     @State private var burstOrigin: UnitPoint = UnitPoint(x: 0.25, y: 0.28)
     @State private var dashboardSize: CGSize = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     private let dashboardSpace = "dashboard"
+    private var warningTextColor: Color {
+        colorScheme == .dark
+            ? Color(red: 1.00, green: 0.72, blue: 0.40)
+            : Color(red: 0.48, green: 0.20, blue: 0.00)
+    }
 
     init(onNavigate: @escaping (AppSection) -> Void = { _ in }) {
         self.onNavigate = onNavigate
@@ -184,7 +190,7 @@ struct DashboardView: View {
                     // Slow atmospheric drift behind the ring — barely-there
                     // ambient depth, frozen under Reduce Motion.
                     HeroDrift(tint: stress ? Tint.orange : Tint.blue)
-                    HealthRing(percent: percentUsed)
+                    HealthRing(percent: percentUsed, warnTint: warningTextColor)
                         .frame(width: ringSize, height: ringSize)
                 }
 
@@ -200,12 +206,13 @@ struct DashboardView: View {
                                 if stress {
                                     StatusChip(label: String(localized: "Low space"),
                                                systemImage: "exclamationmark.triangle.fill",
-                                               tint: Tint.orange)
+                                               tint: Tint.orange,
+                                               foreground: warningTextColor)
                                 }
                             }
                             CountUpBytes(bytes: free)
                                 .font(.system(size: 34, weight: .semibold))
-                                .foregroundStyle(stress ? Tint.orange : Color.primary)
+                                .foregroundStyle(stress ? warningTextColor : Color.primary)
                             Text(freeOfText(total: total))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.primary)
@@ -261,24 +268,30 @@ struct DashboardView: View {
             .frame(height: 10)
 
             HStack(spacing: 16) {
-                LegendDot(color: Tint.blue, label: "Used", value: ByteCountFormatter.string(fromByteCount: used, countStyle: .file))
+                LegendDot(
+                    color: Tint.blue,
+                    label: "Used",
+                    value: ByteCountFormatter.string(fromByteCount: used, countStyle: .file),
+                    identifier: "used"
+                )
                 if appState.totalJunkSize > 0 {
                     LegendDot(color: Tint.orange, label: "Junk",
-                              value: ByteCountFormatter.string(fromByteCount: appState.totalJunkSize, countStyle: .file))
+                              value: ByteCountFormatter.string(fromByteCount: appState.totalJunkSize, countStyle: .file),
+                              identifier: "junk")
                 }
                 if appState.diskInfo.purgeableSpace > 0 {
                     LegendDot(color: Tint.green, label: "Purgeable",
-                              value: ByteCountFormatter.string(fromByteCount: appState.diskInfo.purgeableSpace, countStyle: .file))
+                              value: ByteCountFormatter.string(fromByteCount: appState.diskInfo.purgeableSpace, countStyle: .file),
+                              identifier: "purgeable")
                 }
                 Spacer()
                 Text(percentUsedText(usedPct))
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
                     .monospacedDigit()
+                    .accessibilityIdentifier("dashboard.storage.percent")
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("dashboard.storage-breakdown")
     }
 
     private func percentUsedText(_ usedPct: Double) -> String {
@@ -983,6 +996,7 @@ private struct StatCard: View {
                         .foregroundStyle(.primary)
                         .textCase(.uppercase)
                         .tracking(0.4)
+                        .accessibilityIdentifier("dashboard.stat.\(icon).label")
                 }
                 Group {
                     if let byteValue {
@@ -997,16 +1011,16 @@ private struct StatCard: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .accessibilityIdentifier("dashboard.stat.\(icon).value")
                 if let delta {
                     Text(delta)
                         .font(.system(size: 11.5, weight: .medium))
                         .foregroundStyle(.primary)
+                        .accessibilityIdentifier("dashboard.stat.\(icon).delta")
                 }
             }
         }
         .hoverLift(hoverScale: 1.02, lift: true)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("dashboard.stat.\(icon)")
     }
 }
 
@@ -1075,20 +1089,22 @@ private struct LegendDot: View {
     let color: Color
     let label: LocalizedStringKey
     let value: String
+    let identifier: String
 
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
+                    .accessibilityIdentifier("dashboard.storage.legend.\(identifier).label")
                 Text(value)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .bold))
                     .monospacedDigit()
+                    .accessibilityIdentifier("dashboard.storage.legend.\(identifier).value")
             }
         }
-        .accessibilityElement(children: .combine)
     }
 }
 

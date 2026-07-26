@@ -5871,6 +5871,20 @@ final class AppState: ObservableObject {
     // MARK: - Disk Info
 
     func loadDiskInfo() {
+#if DEBUG
+        if UserDefaults.standard.bool(
+            forKey: "AppSift.UITest.ForceLowDiskSpace"
+        ) {
+            let gibibyte: Int64 = 1_073_741_824
+            diskInfo = DiskInfo(
+                totalSpace: 512 * gibibyte,
+                freeSpace: 48 * gibibyte,
+                usedSpace: 464 * gibibyte,
+                purgeableSpace: 0
+            )
+            return
+        }
+#endif
         Task {
             let info = await scanEngine.getDiskInfo()
             self.diskInfo = info

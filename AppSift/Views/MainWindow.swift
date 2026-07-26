@@ -295,14 +295,10 @@ struct MainWindow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(LocalizedStringKey(ok ? "Ready to clean" : "Limited access"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    // Explicit solid color — same vibrancy-collapse guard as the
-                    // sidebar rows (#117); this title also inherited the default.
-                    .foregroundStyle(colorScheme == .dark
-                        ? Color.white.opacity(0.92)
-                        : Color.black.opacity(0.85))
+                    .foregroundStyle(.primary)
                 Text(LocalizedStringKey(ok ? "Full Disk Access granted" : "Grant FDA in Settings"))
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
