@@ -24,6 +24,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             app.staticTexts["Ready to clean"].waitForExistence(timeout: 5),
             "The deterministic granted Full Disk Access fixture did not load."
         )
+        assertDefaultWindowUsesReadableDashboardLayout()
     }
 
     override func tearDownWithError() throws {
@@ -281,5 +282,58 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "-NSQuitAlwaysKeepsWindows", "NO"
         ]
         return application
+    }
+
+    private func assertDefaultWindowUsesReadableDashboardLayout(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let singleLineLimits: [(String, CGFloat)] = [
+            ("dashboard.hero.storage-label", 22),
+            ("dashboard.hero.free-value", 50),
+            ("dashboard.hero.free-total", 22),
+            ("dashboard.storage.legend.used.label", 22),
+            ("dashboard.storage.legend.used.value", 24),
+            ("dashboard.storage.percent", 22),
+            ("dashboard.stat.internaldrive.fill.label", 22),
+            ("dashboard.stat.internaldrive.fill.delta", 22),
+            ("dashboard.stat.trash.circle.fill.label", 22),
+            ("dashboard.stat.trash.circle.fill.delta", 22),
+            ("dashboard.stat.square.grid.2x2.fill.label", 22),
+            ("dashboard.stat.square.grid.2x2.fill.delta", 22),
+            ("dashboard.stat.memorychip.fill.label", 22),
+            ("dashboard.stat.memorychip.fill.delta", 22),
+        ]
+
+        for (identifier, maximumHeight) in singleLineLimits {
+            let element = app.staticTexts[identifier]
+            XCTAssertTrue(
+                element.waitForExistence(timeout: 5),
+                "\(identifier) must exist in the default dashboard layout.",
+                file: file,
+                line: line
+            )
+            XCTAssertLessThanOrEqual(
+                element.frame.height,
+                maximumHeight,
+                "\(identifier) wrapped or overlapped in the default 1000-point window.",
+                file: file,
+                line: line
+            )
+        }
+
+        let firstRow = app.staticTexts[
+            "dashboard.stat.internaldrive.fill.label"
+        ]
+        let secondRow = app.staticTexts[
+            "dashboard.stat.square.grid.2x2.fill.label"
+        ]
+        XCTAssertGreaterThanOrEqual(
+            secondRow.frame.minY,
+            firstRow.frame.maxY,
+            "The default-width dashboard must use two stat columns.",
+            file: file,
+            line: line
+        )
     }
 }
