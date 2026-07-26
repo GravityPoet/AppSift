@@ -156,6 +156,7 @@ struct BrowserPrivacyView: View {
                     Spacer()
                     Button { center.actionMessage = nil } label: { Image(systemName: "xmark") }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)

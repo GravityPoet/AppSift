@@ -67,6 +67,8 @@ struct SystemResidueScanResult: Sendable {
 }
 
 actor SystemResidueScanner {
+    typealias LocalAccountsProvider = @Sendable () -> [String: UInt32]
+
     private static let maximumPreferenceFiles = 50_000
     private static let maximumPreferenceBytes = 16_000_000
     private static let maximumDocumentFiles = 50_000
@@ -75,10 +77,25 @@ actor SystemResidueScanner {
 
     private let fileManager: FileManager
     private let currentUserID: uid_t
+    private let usersRootURL: URL
+    private let homeURL: URL
+    private let documentRoots: [URL]?
+    private let localAccountsProvider: LocalAccountsProvider
 
-    init(fileManager: FileManager = .default, currentUserID: uid_t = getuid()) {
+    init(
+        fileManager: FileManager = .default,
+        currentUserID: uid_t = getuid(),
+        usersRootURL: URL = URL(fileURLWithPath: "/Users", isDirectory: true),
+        homeURL: URL = FileManager.default.homeDirectoryForCurrentUser,
+        documentRoots: [URL]? = nil,
+        localAccountsProvider: LocalAccountsProvider? = nil
+    ) {
         self.fileManager = fileManager
         self.currentUserID = currentUserID
+        self.usersRootURL = usersRootURL.standardizedFileURL
+        self.homeURL = homeURL.standardizedFileURL
+        self.documentRoots = documentRoots?.map(\.standardizedFileURL)
+        self.localAccountsProvider = localAccountsProvider ?? { Self.localAccounts() }
     }
 
     func scan() throws -> SystemResidueScanResult {
@@ -129,9 +146,9 @@ actor SystemResidueScanner {
         inaccessibleCount: inout Int,
         wasTruncated: inout Bool
     ) throws -> [LegacyUserResidue] {
-        let usersRoot = URL(fileURLWithPath: "/Users", isDirectory: true).standardizedFileURL
+        let usersRoot = usersRootURL
         guard Self.isDirectory(usersRoot) else { return [] }
-        let accounts = Self.localAccounts()
+        let accounts = localAccountsProvider()
         let children: [URL]
         do {
             children = try fileManager.contentsOfDirectory(
@@ -220,7 +237,7 @@ actor SystemResidueScanner {
     private func scanPreferences() throws -> (
         items: [CorruptPreferenceItem], checked: Int, inaccessible: Int, truncated: Bool
     ) {
-        let root = fileManager.homeDirectoryForCurrentUser
+        let root = homeURL
             .appendingPathComponent("Library/Preferences", isDirectory: true)
             .standardizedFileURL
         guard Self.isOwnedDirectory(root, owner: currentUserID) else {
@@ -294,11 +311,11 @@ actor SystemResidueScanner {
         items: [DocumentVersionItem], checked: Int, inaccessible: Int,
         cloudPlaceholders: Int, truncated: Bool
     ) {
-        let roots = [
+        let roots = (documentRoots ?? [
             fileManager.urls(for: .documentDirectory, in: .userDomainMask).first,
             fileManager.urls(for: .desktopDirectory, in: .userDomainMask).first,
         ]
-        .compactMap { $0?.standardizedFileURL }
+        .compactMap { $0?.standardizedFileURL })
         .filter { Self.isOwnedDirectory($0, owner: currentUserID) }
 
         let keys: Set<URLResourceKey> = [

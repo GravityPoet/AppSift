@@ -53,7 +53,7 @@
   "mainEntity": [
     {"@type":"Question","name":"Is AppSift free?","acceptedAnswer":{"@type":"Answer","text":"Yes. AppSift is completely free and open source under the MIT license on GitHub, and installable with Homebrew. There is no subscription, no trial, and no paywalled features."}},
     {"@type":"Question","name":"Is AppSift a good CleanMyMac alternative?","acceptedAnswer":{"@type":"Answer","text":"Yes. AppSift does the things people actually use CleanMyMac for — a real app uninstaller that removes every leftover file, junk and cache cleanup, and orphaned-file detection — as a free, open-source, native app with no subscription, no telemetry, and no fear-based scans."}},
-    {"@type":"Question","name":"Does AppSift delete files safely?","acceptedAnswer":{"@type":"Answer","text":"Everything AppSift removes goes to the Trash via the system API, so anything removed by mistake can be dragged back. Nothing is shredded or force-unlinked, you review every item with its real path before removal, and high-risk system paths are hard-excluded in code."}},
+    {"@type":"Question","name":"Does AppSift delete files safely?","acceptedAnswer":{"@type":"Answer","text":"Reviewed files use the system Trash, while confirmed Photos Library assets use Photos Recently Deleted through PhotoKit. Permanent junk cleanup is a separate explicit flow. AppSift never traverses Photos Library packages as files, and high-risk system paths are hard-excluded in code."}},
     {"@type":"Question","name":"Does AppSift collect any data?","acceptedAnswer":{"@type":"Answer","text":"No. AppSift has no telemetry, analytics, crash reporting, accounts, or servers. Core maintenance works offline. App and macOS update checks contact only Apple or a verified vendor source after you request a check."}},
     {"@type":"Question","name":"How do I install AppSift?","acceptedAnswer":{"@type":"Answer","text":"Run: brew install --cask appsift — or download the latest DMG from the GitHub releases page and check its release notes for signing status. Requires macOS 13 (Ventura) or later. Universal binary for Apple Silicon and Intel."}}
   ]
@@ -122,7 +122,7 @@
     <div class="feat"><h3>Orphan finder</h3><p>Surfaces files left over by apps you deleted long ago, with an always-ignore list for the false positives you want to keep.</p></div>
     <div class="feat"><h3>Smart Scan</h3><p>System junk, user caches, Xcode DerivedData, Homebrew, npm/yarn/pnpm, Docker, and AI-app logs — scanned in parallel.</p></div>
     <div class="feat"><h3>Large &amp; old files</h3><p>Find the multi-gigabyte files aging in Downloads, Documents, and Desktop — with folders you can exclude from the scan.</p></div>
-    <div class="feat"><h3>Space &amp; duplicates</h3><p>Drill into a cancellable disk map, confirm exact duplicates by content, and cluster similar photos with explainable quality signals.</p></div>
+    <div class="feat"><h3>Space &amp; duplicates</h3><p>Drill into a cancellable disk map, confirm exact duplicates by content, and cluster folder or Photos Library images locally. PhotoKit keeps Live Photo and RAW assets intact and sends confirmed library cleanup to Recently Deleted.</p></div>
     <div class="feat"><h3>Privacy &amp; backups</h3><p>Review browser history, download records, cookies, caches, local device backups, and ordinary download sources without touching passwords or autofill.</p></div>
     <div class="feat"><h3>Maintenance &amp; health</h3><p>Check macOS updates, repair DNS or indexes on demand, and monitor explicit disk, memory, network, battery, and device conditions—without a fake score.</p></div>
     <div class="feat"><h3>Recoverable app actions</h3><p>Uninstall, reset, and orphan removal use the system Trash plus local restore receipts. The separately confirmed junk cleaner identifies permanent cleanup explicitly.</p></div>
@@ -155,7 +155,7 @@
       <li><b>No telemetry, ever.</b> No analytics, no crash reporting, no network calls to us.</li>
       <li><b>No fake urgency.</b> No dramatized "junk detected!" badges or red alarm counters — neutral facts, your decision.</li>
       <li><b>No overpromising.</b> We don't claim to "reclaim purgeable space," "boost RAM," or "speed up your Mac" — things no app can reliably do.</li>
-      <li><b>You review before anything is removed.</b> Every item shows its real path, and high-risk system paths are hard-excluded in code.</li>
+      <li><b>You review before anything is removed.</b> Files show their real path; Photos Library items retain their PhotoKit asset identity. High-risk system paths are hard-excluded in code.</li>
       <li><b>Auditable.</b> It's MIT. Read the exact code that decides what gets removed, fork it, ship your own.</li>
     </ul>
   </div>

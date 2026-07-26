@@ -238,6 +238,7 @@ struct SystemMaintenanceView: View {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
         }
         .padding(12)
         .background(Tint.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))

@@ -50,6 +50,7 @@ enum DownloadSourceScanError: LocalizedError, Equatable {
 actor DownloadSourceScanner {
     private static let maximumItems = 100_000
     private let rootURL: URL
+    private let homeURL: URL
     private let currentUserID: uid_t
 
     init(
@@ -58,9 +59,11 @@ actor DownloadSourceScanner {
             in: .userDomainMask
         ).first ?? FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Downloads", isDirectory: true),
+        homeURL: URL = FileManager.default.homeDirectoryForCurrentUser,
         currentUserID: uid_t = getuid()
     ) {
         self.rootURL = rootURL.standardizedFileURL
+        self.homeURL = homeURL.standardizedFileURL
         self.currentUserID = currentUserID
     }
 
@@ -70,10 +73,8 @@ actor DownloadSourceScanner {
             throw DownloadSourceScanError.rootUnavailable
         }
         guard Self.isOwnedSafeDirectory(rootURL, currentUserID: currentUserID),
-              rootURL.path != FileManager.default.homeDirectoryForCurrentUser.path,
-              rootURL.path.hasPrefix(
-                FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path + "/"
-              ) else {
+              rootURL.path != homeURL.path,
+              rootURL.path.hasPrefix(homeURL.path + "/") else {
             throw DownloadSourceScanError.unsafeRoot
         }
 

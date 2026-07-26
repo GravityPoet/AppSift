@@ -34,6 +34,8 @@
 	<string>AppSift needs access to your Downloads to find junk and orphaned files.</string>
 	<key>NSRemovableVolumesUsageDescription</key>
 	<string>AppSift needs access to removable volumes to scan for junk files.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AppSift analyzes similar photos on this Mac and moves only your confirmed selections to Recently Deleted.</string>
 	<key>NSSystemAdministrationUsageDescription</key>
 	<string>AppSift needs system administration access to clean caches and uninstall apps completely.</string>
 	<key>NSAppleEventsUsageDescription</key>

@@ -261,15 +261,27 @@ final class ReviewedTrashHistoryStore: @unchecked Sendable {
 }
 
 actor ReviewedTrashService {
+    typealias Recycler = @Sendable ([URL]) async -> [URL: URL]
+
     private let historyStore: ReviewedTrashHistoryStore
     private let currentUserID: uid_t
+    private let recycler: Recycler
+    private let additionalTrashRoots: [URL]
 
     init(
         historyStore: ReviewedTrashHistoryStore = .shared,
-        currentUserID: uid_t = getuid()
+        currentUserID: uid_t = getuid(),
+        additionalTrashRoots: [URL] = [],
+        recycler: Recycler? = nil
     ) {
         self.historyStore = historyStore
         self.currentUserID = currentUserID
+        self.additionalTrashRoots = additionalTrashRoots.map {
+            $0.standardizedFileURL.resolvingSymlinksInPath()
+        }
+        self.recycler = recycler ?? { urls in
+            await Self.defaultRecycle(urls)
+        }
     }
 
     func history(feature: String) -> [ReviewedTrashRecord] {
@@ -297,7 +309,7 @@ actor ReviewedTrashService {
         }
 
         if !accepted.isEmpty {
-            let recycleResult = await recycle(accepted.map(\.1))
+            let recycleResult = await recycler(accepted.map(\.1))
             for (candidate, url) in accepted {
                 if !FileManager.default.fileExists(atPath: url.path) {
                     let trashURL = recycleResult[url]
@@ -431,7 +443,7 @@ actor ReviewedTrashService {
         )
     }
 
-    private func recycle(_ urls: [URL]) async -> [URL: URL] {
+    private static func defaultRecycle(_ urls: [URL]) async -> [URL: URL] {
         await withCheckedContinuation { continuation in
             DispatchQueue.main.async {
                 NSWorkspace.shared.recycle(urls) { mapping, _ in
@@ -480,6 +492,11 @@ actor ReviewedTrashService {
             .standardizedFileURL
             .resolvingSymlinksInPath()
         if isDescendant(standardized, of: homeTrash) { return true }
+        if additionalTrashRoots.contains(where: {
+            isDescendant(standardized, of: $0)
+        }) {
+            return true
+        }
 
         let components = standardized.pathComponents
         let uid = String(currentUserID)

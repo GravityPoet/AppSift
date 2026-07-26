@@ -54,6 +54,9 @@ struct SystemMaintenanceSnapshot: Sendable {
 }
 
 actor SystemMaintenanceService {
+    typealias AuthorizedCommandRunner = @Sendable (String) async throws -> Void
+    typealias SpotlightVolumeProvider = @Sendable () -> [SpotlightVolume]
+
     enum ServiceError: LocalizedError {
         case authorizationCancelled
         case authorizationFailed(String)
@@ -81,14 +84,25 @@ actor SystemMaintenanceService {
 
     private static let maximumCommandOutputBytes = 1_000_000
     private let currentUserID: uid_t
+    private let homeURL: URL
+    private let spotlightVolumeProvider: SpotlightVolumeProvider?
+    private let authorizedCommandRunner: AuthorizedCommandRunner?
 
-    init(currentUserID: uid_t = getuid()) {
+    init(
+        currentUserID: uid_t = getuid(),
+        homeURL: URL = FileManager.default.homeDirectoryForCurrentUser,
+        spotlightVolumeProvider: SpotlightVolumeProvider? = nil,
+        authorizedCommandRunner: AuthorizedCommandRunner? = nil
+    ) {
         self.currentUserID = currentUserID
+        self.homeURL = homeURL.standardizedFileURL
+        self.spotlightVolumeProvider = spotlightVolumeProvider
+        self.authorizedCommandRunner = authorizedCommandRunner
     }
 
     func scan() -> SystemMaintenanceSnapshot {
         SystemMaintenanceSnapshot(
-            spotlightVolumes: Self.currentSpotlightVolumes(),
+            spotlightVolumes: spotlightVolumeProvider?() ?? Self.currentSpotlightVolumes(),
             mailIndex: scanMailIndex()
         )
     }
@@ -102,7 +116,7 @@ actor SystemMaintenanceService {
         guard !volumeID.contains("\0"), !volumeID.contains("\n"), !volumeID.contains("\r") else {
             throw ServiceError.volumeChanged
         }
-        let freshVolumes = Self.currentSpotlightVolumes()
+        let freshVolumes = spotlightVolumeProvider?() ?? Self.currentSpotlightVolumes()
         guard let selected = freshVolumes.first(where: { $0.id == volumeID }) else {
             throw ServiceError.volumeChanged
         }
@@ -113,8 +127,7 @@ actor SystemMaintenanceService {
     }
 
     private func scanMailIndex() -> MailIndexStatus {
-        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
-        let mailRoot = home.appendingPathComponent("Library/Mail", isDirectory: true)
+        let mailRoot = homeURL.appendingPathComponent("Library/Mail", isDirectory: true)
         guard Self.isOwnedDirectory(mailRoot, owner: currentUserID) else {
             return MailIndexStatus(
                 mailDataURL: nil,
@@ -254,6 +267,10 @@ actor SystemMaintenanceService {
         guard command.utf8.count <= 4_096 else {
             throw ServiceError.commandFailed(String(localized: "The maintenance command exceeded the safety limit."))
         }
+        if let authorizedCommandRunner {
+            try await authorizedCommandRunner(command)
+            return
+        }
         let source = "do shell script \(Self.appleScriptLiteral(command)) with administrator privileges"
         let result: (errorNumber: Int?, detail: String?) = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -318,6 +335,10 @@ actor SystemMaintenanceService {
 
 @MainActor
 final class SystemMaintenanceCenter: ObservableObject {
+    typealias MailRunningProvider = () -> Bool
+    typealias MailTerminationHandler = () async -> Bool
+    typealias MailReopenHandler = () -> Void
+
     static let mailIndexFeature = "mail-index-repair"
 
     @Published private(set) var spotlightVolumes: [SpotlightVolume] = []
@@ -337,19 +358,32 @@ final class SystemMaintenanceCenter: ObservableObject {
 
     private let service: SystemMaintenanceService
     private let trashService: ReviewedTrashService
+    private let mailRunningProvider: MailRunningProvider
+    private let mailTerminationHandler: MailTerminationHandler?
+    private let mailReopenHandler: MailReopenHandler?
 
     init(
         service: SystemMaintenanceService = SystemMaintenanceService(),
         trashService: ReviewedTrashService = ReviewedTrashService(),
-        historyStore: ReviewedTrashHistoryStore = .shared
+        historyStore: ReviewedTrashHistoryStore = .shared,
+        mailRunningProvider: MailRunningProvider? = nil,
+        mailTerminationHandler: MailTerminationHandler? = nil,
+        mailReopenHandler: MailReopenHandler? = nil
     ) {
         self.service = service
         self.trashService = trashService
+        self.mailRunningProvider = mailRunningProvider ?? {
+            !NSRunningApplication.runningApplications(
+                withBundleIdentifier: "com.apple.mail"
+            ).isEmpty
+        }
+        self.mailTerminationHandler = mailTerminationHandler
+        self.mailReopenHandler = mailReopenHandler
         self.history = historyStore.snapshot(feature: Self.mailIndexFeature)
     }
 
     var isMailRunning: Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.mail").isEmpty
+        mailRunningProvider()
     }
 
     var latestUndoableMailRecord: ReviewedTrashRecord? {
@@ -501,6 +535,9 @@ final class SystemMaintenanceCenter: ObservableObject {
     }
 
     private func requestMailTermination() async -> Bool {
+        if let mailTerminationHandler {
+            return await mailTerminationHandler()
+        }
         let applications = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.mail")
         guard !applications.isEmpty else { return true }
         applications.forEach { $0.terminate() }
@@ -515,7 +552,12 @@ final class SystemMaintenanceCenter: ObservableObject {
     }
 
     private func reopenMailIfNeeded(_ shouldReopen: Bool) {
-        guard shouldReopen,
+        guard shouldReopen else { return }
+        if let mailReopenHandler {
+            mailReopenHandler()
+            return
+        }
+        guard
               let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.mail") else { return }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false

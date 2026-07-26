@@ -256,11 +256,13 @@ struct DownloadsBySourceView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Preview")
+                .accessibilityLabel("Quick Look")
                 Button { center.reveal(item) } label: {
                     Image(systemName: "folder")
                 }
                 .buttonStyle(.borderless)
                 .help("Reveal")
+                .accessibilityLabel("Reveal")
             }
         }
     }
@@ -273,6 +275,7 @@ struct DownloadsBySourceView: View {
             Button { center.actionMessage = nil } label: { Image(systemName: "xmark") }
                 .buttonStyle(.plain)
                 .help("Dismiss")
+                .accessibilityLabel("Dismiss")
         }
         .padding(12)
         .background(Tint.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))

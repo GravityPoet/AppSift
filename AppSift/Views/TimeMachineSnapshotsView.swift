@@ -158,6 +158,7 @@ struct TimeMachineSnapshotsView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .help("Refresh local snapshots")
+            .accessibilityLabel("Refresh local snapshots")
             .disabled(appState.isScanningTimeMachineSnapshots || appState.isDeletingTimeMachineSnapshots)
         }
         .foregroundStyle(.secondary)
@@ -235,6 +236,9 @@ struct TimeMachineSnapshotsView: View {
             Toggle("", isOn: selectionBinding(for: snapshot))
                 .labelsHidden()
                 .toggleStyle(.checkbox)
+                .accessibilityLabel("Local Snapshot")
+                .accessibilityValue(Text(snapshot.name))
+                .accessibilityHint("Select for Trash")
 
             IconTile(systemName: "clock.fill", tint: Tint.orange, size: 30, corner: 7)
 

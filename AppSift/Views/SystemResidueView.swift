@@ -238,6 +238,7 @@ struct SystemResidueView: View {
                             Image(systemName: "ellipsis.circle")
                         }
                         .menuStyle(.borderlessButton)
+                        .accessibilityLabel("More Actions")
                     }
                 }
             }

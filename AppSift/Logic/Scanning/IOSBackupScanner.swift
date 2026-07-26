@@ -63,17 +63,24 @@ actor IOSBackupScanner {
 
     private let fileManager: FileManager
     private let currentUserID: uid_t
+    private let defaultRootURL: URL
 
-    init(fileManager: FileManager = .default, currentUserID: uid_t = getuid()) {
+    init(
+        fileManager: FileManager = .default,
+        currentUserID: uid_t = getuid(),
+        rootURL: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/MobileSync/Backup", isDirectory: true)
+    ) {
         self.fileManager = fileManager
         self.currentUserID = currentUserID
+        self.defaultRootURL = rootURL.standardizedFileURL
     }
 
     func scan(
-        rootURL: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/MobileSync/Backup", isDirectory: true)
+        rootURL requestedRootURL: URL? = nil
     ) throws -> IOSBackupScanResult {
         try Task.checkCancellation()
+        let rootURL = requestedRootURL ?? defaultRootURL
         let standardizedRoot = rootURL.standardizedFileURL.resolvingSymlinksInPath()
         guard standardizedRoot.path.hasPrefix("/"),
               !standardizedRoot.path.contains("\0") else {

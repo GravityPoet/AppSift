@@ -56,6 +56,18 @@ targets:
       base:
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
+  AppSiftUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - AppSiftUITests
+    dependencies:
+      - target: AppSift
+    settings:
+      base:
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.gravitypoet.appsift.uitests
+        CODE_SIGN_ENTITLEMENTS: ""
 
 schemes:
   AppSift:
@@ -66,3 +78,11 @@ schemes:
     test:
       targets:
         - name: AppSiftTests
+  AppSiftAccessibility:
+    build:
+      targets:
+        AppSift: all
+        AppSiftUITests: [test]
+    test:
+      targets:
+        - name: AppSiftUITests
