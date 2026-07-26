@@ -100,9 +100,19 @@ jobs:
             -configuration Debug \
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath build/AccessibilityDerivedData \
+            -resultBundlePath build/AppSift-Accessibility.xcresult \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
             test
+
+      - name: Upload accessibility failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-xcresult-${{ github.run_id }}
+          path: build/AppSift-Accessibility.xcresult
+          if-no-files-found: error
+          retention-days: 7
