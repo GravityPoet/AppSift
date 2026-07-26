@@ -5777,6 +5777,20 @@ final class AppState: ObservableObject {
     // MARK: - Full Disk Access
 
     func checkFullDiskAccess() {
+#if DEBUG
+        switch UserDefaults.standard.string(
+            forKey: "AppSift.UITest.FullDiskAccess"
+        ) {
+        case "granted":
+            hasFullDiskAccess = true
+            return
+        case "denied":
+            hasFullDiskAccess = false
+            return
+        default:
+            break
+        }
+#endif
         Task.detached {
             let granted = FullDiskAccessManager.shared.hasFullDiskAccess
             await MainActor.run { [weak self] in

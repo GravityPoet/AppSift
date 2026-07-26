@@ -20,6 +20,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             app.staticTexts["Low space"].waitForExistence(timeout: 5),
             "The deterministic low-space accessibility fixture did not load."
         )
+        XCTAssertTrue(
+            app.staticTexts["Ready to clean"].waitForExistence(timeout: 5),
+            "The deterministic granted Full Disk Access fixture did not load."
+        )
     }
 
     override func tearDownWithError() throws {
@@ -74,10 +78,17 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             throw XCTSkip("Automated accessibility audits require macOS 14 or newer.")
         }
         app.terminate()
-        app = configuredApplication(appearance: "dark")
+        app = configuredApplication(
+            appearance: "dark",
+            fullDiskAccess: false
+        )
         app.launch()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.staticTexts["Limited access"].waitForExistence(timeout: 5),
+            "The deterministic denied Full Disk Access fixture did not load."
+        )
 
         try performAccessibilityAudit(.contrast)
     }
@@ -254,11 +265,16 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             || identifier.hasPrefix("dashboard.stat.")
     }
 
-    private func configuredApplication(appearance: String) -> XCUIApplication {
+    private func configuredApplication(
+        appearance: String,
+        fullDiskAccess: Bool = true
+    ) -> XCUIApplication {
         let application = XCUIApplication()
         application.launchArguments = [
             "-AppSift.OnboardingComplete", "YES",
             "-AppSift.UITest.ForceLowDiskSpace", "YES",
+            "-AppSift.UITest.FullDiskAccess",
+            fullDiskAccess ? "granted" : "denied",
             "-AppSift.Appearance", appearance,
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US",
