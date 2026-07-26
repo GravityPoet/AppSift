@@ -300,11 +300,13 @@ struct MainWindow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(highContrastTextColor)
+                    .accessibilityIdentifier("main.health.status")
                 Text(LocalizedStringKey(ok ? "Full Disk Access granted" : "Grant FDA in Settings"))
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(highContrastTextColor)
+                    .accessibilityIdentifier("main.health.detail")
             }
             .layoutPriority(1)
             Spacer(minLength: 4)
