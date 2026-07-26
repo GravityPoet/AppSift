@@ -289,6 +289,7 @@ struct MainWindow: View {
     private var healthFooter: some View {
         let ok = appState.hasFullDiskAccess
         let tint = ok ? Tint.green : Tint.orange
+        let highContrastTextColor: Color = colorScheme == .dark ? .white : .black
         return HStack(spacing: 10) {
             PulsingDot(tint: tint, isPulsing: !ok)
                 .fixedSize()
@@ -298,16 +299,12 @@ struct MainWindow: View {
                     .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(highContrastTextColor)
                 Text(LocalizedStringKey(ok ? "Full Disk Access granted" : "Grant FDA in Settings"))
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .foregroundStyle(
-                        colorScheme == .dark
-                            ? Color.white.opacity(0.95)
-                            : Color.black.opacity(0.95)
-                    )
+                    .foregroundStyle(highContrastTextColor)
             }
             .layoutPriority(1)
             Spacer(minLength: 4)

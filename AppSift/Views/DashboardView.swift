@@ -19,10 +19,8 @@ struct DashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let dashboardSpace = "dashboard"
-    private var warningTextColor: Color {
-        colorScheme == .dark
-            ? Color(red: 1.00, green: 0.72, blue: 0.40)
-            : Color(red: 0.48, green: 0.20, blue: 0.00)
+    private var highContrastTextColor: Color {
+        colorScheme == .dark ? .white : .black
     }
 
     init(onNavigate: @escaping (AppSection) -> Void = { _ in }) {
@@ -190,7 +188,7 @@ struct DashboardView: View {
                     // Slow atmospheric drift behind the ring — barely-there
                     // ambient depth, frozen under Reduce Motion.
                     HeroDrift(tint: stress ? Tint.orange : Tint.blue)
-                    HealthRing(percent: percentUsed, warnTint: warningTextColor)
+                    HealthRing(percent: percentUsed, warnTint: highContrastTextColor)
                         .frame(width: ringSize, height: ringSize)
                 }
 
@@ -200,22 +198,23 @@ struct DashboardView: View {
                             HStack(spacing: 8) {
                                 Text("Storage")
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Color.primary.opacity(0.82))
+                                    .foregroundStyle(highContrastTextColor)
                                     .textCase(.uppercase)
                                     .tracking(0.6)
                                 if stress {
                                     StatusChip(label: String(localized: "Low space"),
                                                systemImage: "exclamationmark.triangle.fill",
                                                tint: Tint.orange,
-                                               foreground: warningTextColor)
+                                               foreground: highContrastTextColor)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
                             CountUpBytes(bytes: free)
                                 .font(.system(size: 34, weight: .semibold))
-                                .foregroundStyle(stress ? warningTextColor : Color.primary)
+                                .foregroundStyle(highContrastTextColor)
                             Text(freeOfText(total: total))
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(highContrastTextColor)
                                 .accessibilityIdentifier("dashboard.hero.free-total")
                         }
                         Spacer()
@@ -287,7 +286,7 @@ struct DashboardView: View {
                 Spacer()
                 Text(percentUsedText(usedPct))
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(highContrastTextColor)
                     .monospacedDigit()
                     .accessibilityIdentifier("dashboard.storage.percent")
             }
@@ -985,15 +984,21 @@ private struct StatCard: View {
     /// When set, the headline renders as a rolling byte counter instead of
     /// the static `value` string.
     var byteValue: Int64? = nil
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var highContrastTextColor: Color {
+        colorScheme == .dark ? .white : .black
+    }
 
     var body: some View {
         CardSurface(padding: 14, accent: tint) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     IconTile(systemName: icon, tint: tint, size: 28, glow: true)
+                        .accessibilityHidden(true)
                     Text(label)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(highContrastTextColor)
                         .textCase(.uppercase)
                         .tracking(0.4)
                         .accessibilityIdentifier("dashboard.stat.\(icon).label")
@@ -1008,14 +1013,14 @@ private struct StatCard: View {
                     }
                 }
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(highContrastTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .accessibilityIdentifier("dashboard.stat.\(icon).value")
                 if let delta {
                     Text(delta)
                         .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(highContrastTextColor)
                         .accessibilityIdentifier("dashboard.stat.\(icon).delta")
                 }
             }
@@ -1090,17 +1095,26 @@ private struct LegendDot: View {
     let label: LocalizedStringKey
     let value: String
     let identifier: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var highContrastTextColor: Color {
+        colorScheme == .dark ? .white : .black
+    }
 
     var body: some View {
         HStack(spacing: 6) {
-            Circle().fill(color).frame(width: 8, height: 8)
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(highContrastTextColor)
                     .accessibilityIdentifier("dashboard.storage.legend.\(identifier).label")
                 Text(value)
                     .font(.system(size: 13.5, weight: .bold))
+                    .foregroundStyle(highContrastTextColor)
                     .monospacedDigit()
                     .accessibilityIdentifier("dashboard.storage.legend.\(identifier).value")
             }
