@@ -285,11 +285,14 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         // GitHub's macOS 15.7.7/Xcode 16.4 VM repeatedly reports the same
         // fully opaque black/white text as low contrast. The persisted
         // xcresult contains correctly associated full-window and element
-        // screenshots for every identifier below. Keep this exception
-        // CI-only and exact so other contrast issues remain release blockers.
+        // screenshots for every identifier below. Keep this exception enabled
+        // only by the dedicated accessibility scheme and exact so every other
+        // contrast issue remains a release blocker.
         let environment = ProcessInfo.processInfo.environment
         guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 15,
-              environment["CI"] == "true",
+              environment[
+                "APPSIFT_AX_VERIFIED_MACOS15_OPAQUE_TEXT_BUG"
+              ] == "YES",
               let element,
               element.elementType == .staticText,
               element.frame.height <= 22 else {

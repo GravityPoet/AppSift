@@ -86,3 +86,5 @@ schemes:
     test:
       targets:
         - name: AppSiftUITests
+      environmentVariables:
+        APPSIFT_AX_VERIFIED_MACOS15_OPAQUE_TEXT_BUG: "YES"
