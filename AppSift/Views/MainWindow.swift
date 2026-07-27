@@ -308,6 +308,8 @@ struct MainWindow: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(verbatim: badge ?? ""))
     }
 
     private func navigate(to section: AppSection) {
