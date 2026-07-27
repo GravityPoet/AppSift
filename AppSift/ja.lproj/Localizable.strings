@@ -1370,3 +1370,5 @@
 "The selected images came from mixed sources. Scan again before deleting." = "選択した画像のソースが混在しています。削除前にもう一度スキャンしてください。";
 "The similar-image cleanup was rolled back because recovery history could not be saved." = "復元履歴を保存できなかったため、類似画像のクリーンアップを元に戻しました。";
 "This photo is stored only in iCloud and was left untouched." = "この写真は iCloud のみに保存されているため、変更していません。";
+"Expanded" = "展開済み";
+"Collapsed" = "折りたたみ済み";

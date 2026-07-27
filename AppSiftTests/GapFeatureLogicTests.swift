@@ -3,6 +3,86 @@ import Foundation
 import XCTest
 @testable import AppSift
 
+final class SidebarNavigationGroupTests: XCTestCase {
+    func testPrimaryDestinationsRemainOutsideCollapsedGroups() {
+        let primaryDestinations: [AppSection] = [
+            .cleaning(.smartScan),
+            .apps,
+            .spaceLens,
+            .systemHealth,
+            .cleaning(.purgeableSpace),
+        ]
+
+        for destination in primaryDestinations {
+            XCTAssertNil(SidebarNavigationGroup.containing(destination))
+        }
+    }
+
+    func testSecondaryDestinationsBelongToExactlyOneSemanticGroup() {
+        let expectedMappings: [(AppSection, SidebarNavigationGroup)] = [
+            (.appUpdates, .applications),
+            (.installationFiles, .applications),
+            (.startupItems, .applications),
+            (.extensions, .applications),
+            (.appPermissions, .applications),
+            (.browserPrivacy, .applications),
+            (.defaultApplications, .applications),
+            (.removalHistory, .applications),
+            (.orphans, .applications),
+            (.duplicateFiles, .storage),
+            (.similarImages, .storage),
+            (.timeMachine, .storage),
+            (.iosBackups, .storage),
+            (.downloadsBySource, .storage),
+            (.systemMaintenance, .maintenance),
+            (.systemResidue, .maintenance),
+        ]
+
+        for (destination, expectedGroup) in expectedMappings {
+            XCTAssertEqual(
+                SidebarNavigationGroup.containing(destination),
+                expectedGroup
+            )
+            XCTAssertEqual(
+                SidebarNavigationGroup.allCases.count {
+                    $0.contains(destination)
+                },
+                1
+            )
+        }
+    }
+
+    func testEveryScannableCleaningCategoryBelongsToCleanupGroup() {
+        for category in CleaningCategory.scannable {
+            let destination = AppSection.cleaning(category)
+            XCTAssertEqual(
+                SidebarNavigationGroup.containing(destination),
+                .cleanup
+            )
+            XCTAssertEqual(
+                SidebarNavigationGroup.allCases.count {
+                    $0.contains(destination)
+                },
+                1
+            )
+        }
+    }
+
+    func testGroupsUseUniqueVersionedCollapsedDefaults() {
+        let keys = SidebarNavigationGroup.allCases.map(\.preferenceKey)
+
+        XCTAssertTrue(
+            SidebarNavigationGroup.allCases.allSatisfy(\.defaultCollapsed)
+        )
+        XCTAssertEqual(Set(keys).count, SidebarNavigationGroup.allCases.count)
+        XCTAssertTrue(
+            keys.allSatisfy {
+                $0.hasPrefix("AppSift.Sidebar.CompactV2.Collapsed.")
+            }
+        )
+    }
+}
+
 final class MacOSUpdateScannerTests: XCTestCase {
     func testParsesSoftwareUpdateCatalogEntries() throws {
         let output = """

@@ -1370,3 +1370,5 @@
 "The selected images came from mixed sources. Scan again before deleting." = "The selected images came from mixed sources. Scan again before deleting.";
 "The similar-image cleanup was rolled back because recovery history could not be saved." = "The similar-image cleanup was rolled back because recovery history could not be saved.";
 "This photo is stored only in iCloud and was left untouched." = "This photo is stored only in iCloud and was left untouched.";
+"Expanded" = "Expanded";
+"Collapsed" = "Collapsed";

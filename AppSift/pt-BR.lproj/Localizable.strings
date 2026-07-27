@@ -1370,3 +1370,5 @@
 "The selected images came from mixed sources. Scan again before deleting." = "As imagens selecionadas vieram de origens diferentes. Analise novamente antes de apagar.";
 "The similar-image cleanup was rolled back because recovery history could not be saved." = "A limpeza de imagens semelhantes foi revertida porque o histórico de recuperação não pôde ser salvo.";
 "This photo is stored only in iCloud and was left untouched." = "Esta foto está armazenada apenas no iCloud e não foi alterada.";
+"Expanded" = "Expandido";
+"Collapsed" = "Recolhido";

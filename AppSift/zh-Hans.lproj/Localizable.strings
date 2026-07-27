@@ -1370,3 +1370,5 @@
 "The selected images came from mixed sources. Scan again before deleting." = "所选图片来自不同来源。请重新扫描后再删除。";
 "The similar-image cleanup was rolled back because recovery history could not be saved." = "由于无法保存恢复记录，已回滚相似图片清理。";
 "This photo is stored only in iCloud and was left untouched." = "这张照片仅存于 iCloud，未作任何更改。";
+"Expanded" = "已展开";
+"Collapsed" = "已折叠";
