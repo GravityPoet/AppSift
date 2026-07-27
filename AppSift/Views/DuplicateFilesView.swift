@@ -54,6 +54,7 @@ struct DuplicateFilesView: View {
                 .padding(20)
             }
         }
+        .accessibilityIdentifier("duplicateFiles.content")
         .navigationTitle("Duplicate Files")
         .searchable(
             text: $searchText,

@@ -1372,3 +1372,10 @@
 "This photo is stored only in iCloud and was left untouched." = "この写真は iCloud のみに保存されているため、変更していません。";
 "Expanded" = "展開済み";
 "Collapsed" = "折りたたみ済み";
+"Tools" = "ツール";
+"Favorites" = "お気に入り";
+"Search tools" = "ツールを検索";
+"No tools found" = "ツールが見つかりません";
+"Try a different search." = "別の検索語をお試しください。";
+"Add to Favorites" = "お気に入りに追加";
+"Remove from Favorites" = "お気に入りから削除";

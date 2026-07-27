@@ -8,6 +8,7 @@ import ServiceManagement
 // InstalledApp is defined in AppInfoFetcher.swift
 
 enum AppSection: Hashable {
+    case tools
     case systemHealth
     case apps
     case appUpdates
