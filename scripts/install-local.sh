@@ -13,6 +13,16 @@ BUNDLE_ID="com.gravitypoet.appsift"
 EXECUTABLE_NAME="AppSift"
 INSTALL_APP="/Applications/$APP_NAME"
 ARCHS="${ARCHS:-arm64 x86_64}"
+LAUNCH_AFTER_INSTALL="${APPSIFT_LAUNCH_AFTER_INSTALL:-1}"
+
+case "$LAUNCH_AFTER_INSTALL" in
+  0|1) ;;
+  *)
+    echo "Error: APPSIFT_LAUNCH_AFTER_INSTALL must be 0 or 1." >&2
+    exit 2
+    ;;
+esac
+
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 PROCESS_PATTERN='^/Applications/AppSift\.app/Contents/MacOS/AppSift( |$)'
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/appsift-install.XXXXXX")"
@@ -109,7 +119,9 @@ restore_displaced_app() {
   [[ ! -e "$INSTALL_APP" ]] || return 1
   mv "$DISPLACED_APP" "$INSTALL_APP"
   "$LSREGISTER" -f "$INSTALL_APP" >/dev/null 2>&1 || true
-  open "$INSTALL_APP" >/dev/null 2>&1 || true
+  if [[ "$LAUNCH_AFTER_INSTALL" -eq 1 ]]; then
+    open "$INSTALL_APP" >/dev/null 2>&1 || true
+  fi
 }
 
 cleanup_or_rollback() {
@@ -202,7 +214,9 @@ mv "$INSTALL_STAGING" "$INSTALL_APP"
 xattr -cr "$INSTALL_APP"
 verify_app "$INSTALL_APP" "$SIGN_IDENTITY"
 "$LSREGISTER" -f "$INSTALL_APP" >/dev/null 2>&1 || true
-start_installed_app
+if [[ "$LAUNCH_AFTER_INSTALL" -eq 1 ]]; then
+  start_installed_app
+fi
 
 unregister_app_bundle "$BUILT_APP"
 case "$TEMP_ROOT" in
@@ -318,10 +332,12 @@ REPLACEMENT_STARTED=0
 if [[ "$FDA_REAUTH_REQUIRED" -eq 1 ]]; then
   /usr/bin/tccutil reset SystemPolicyAllFiles "$BUNDLE_ID"
   stop_installed_app
-  start_installed_app
-  sleep 1
-  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles' \
-    >/dev/null 2>&1 || true
+  if [[ "$LAUNCH_AFTER_INSTALL" -eq 1 ]]; then
+    start_installed_app
+    sleep 1
+    open 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles' \
+      >/dev/null 2>&1 || true
+  fi
 fi
 
 trap - EXIT INT TERM
@@ -330,6 +346,7 @@ printf 'INSTALLED_APP=%s\n' "$INSTALL_APP"
 printf 'SIGN_IDENTITY=%s\n' "$SIGN_IDENTITY"
 printf 'DESIGNATED_REQUIREMENT=%s\n' "$NEW_REQUIREMENT"
 printf 'FDA_REAUTH_REQUIRED=%s\n' "$FDA_REAUTH_REQUIRED"
+printf 'LAUNCHED_AFTER_INSTALL=%s\n' "$LAUNCH_AFTER_INSTALL"
 if [[ -n "$BACKUP_ZIP" ]]; then
   printf 'BACKUP_ZIP=%s\n' "$BACKUP_ZIP"
 fi
