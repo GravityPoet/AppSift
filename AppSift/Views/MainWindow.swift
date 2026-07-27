@@ -180,6 +180,7 @@ struct MainWindow: View {
             } icon: {
                 Image(systemName: destination.systemImage)
                     .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color(nsColor: .labelColor))
                     .frame(width: 18)
             }
             Spacer(minLength: 6)

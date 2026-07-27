@@ -243,7 +243,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         let containsSplitView = element.descendants(matching: .splitGroup).firstMatch.exists
         let spansWindowContentHeight = abs(frame.minY - windowFrame.minY) <= tolerance
             && abs(frame.maxY - windowFrame.maxY) <= tolerance
-        let containsMainSidebar = element.scrollViews["main.sidebar"].firstMatch.exists
+        let containsMainSidebar = element.descendants(matching: .any)
+            .matching(identifier: "main.sidebar")
+            .firstMatch
+            .exists
         let isSidebarColumnWrapper = spansWindowContentHeight
             && frame.width < windowFrame.width
             && containsMainSidebar
@@ -293,7 +296,15 @@ final class AppSiftAccessibilityUITests: XCTestCase {
               element.frame.height <= 24 else {
             return false
         }
-        return element.staticTexts["Overview"].firstMatch.exists
+        let header = app.staticTexts["Overview"].firstMatch
+        guard header.exists else { return false }
+        let frame = element.frame
+        let headerFrame = header.frame
+        let tolerance: CGFloat = 2
+        return headerFrame.minX >= frame.minX - tolerance
+            && headerFrame.minY >= frame.minY - tolerance
+            && headerFrame.maxX <= frame.maxX + tolerance
+            && headerFrame.maxY <= frame.maxY + tolerance
     }
 
     private func isSystemFullScreenButtonWrapper(
@@ -396,12 +407,14 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "-AppSift.UITest.ForceLowDiskSpace", "YES",
             "-AppSift.UITest.FullDiskAccess",
             fullDiskAccess ? "granted" : "denied",
-            "-AppSift.Toolbox.FavoritesV1", "UITest-None",
             "-AppSift.Appearance", appearance,
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US",
             "-NSQuitAlwaysKeepsWindows", "NO"
         ]
+        application.launchEnvironment[
+            "APPSIFT_UITEST_EPHEMERAL_TOOLBOX_FAVORITES"
+        ] = "YES"
         return application
     }
 

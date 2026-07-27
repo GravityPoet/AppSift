@@ -263,14 +263,33 @@ enum ToolboxFavorites {
 struct ToolboxView: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var alertCenter = SystemAlertCenter.shared
-    @AppStorage(ToolboxFavorites.storageKey) private var favoriteIDsRaw = ""
+    @AppStorage private var favoriteIDsRaw: String
     @State private var searchText = ""
 
     let navigate: (AppSection) -> Void
 
+    private static let favoriteStorageKey: String = {
+        guard ProcessInfo.processInfo.environment[
+            "APPSIFT_UITEST_EPHEMERAL_TOOLBOX_FAVORITES"
+        ] == "YES" else {
+            return ToolboxFavorites.storageKey
+        }
+        let key = "\(ToolboxFavorites.storageKey).UITest"
+        UserDefaults.standard.removeObject(forKey: key)
+        return key
+    }()
+
     private let grid = [
         GridItem(.adaptive(minimum: 250, maximum: 380), spacing: 12, alignment: .top)
     ]
+
+    init(navigate: @escaping (AppSection) -> Void) {
+        self.navigate = navigate
+        _favoriteIDsRaw = AppStorage(
+            wrappedValue: "",
+            ToolboxView.favoriteStorageKey
+        )
+    }
 
     var body: some View {
         ScrollView {

@@ -77,7 +77,8 @@ struct HealthRing: View {
                 Text(subtitle)
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.8)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(stress ? warnTint : Color.primary)
+                    .accessibilityIdentifier("dashboard.health-ring.subtitle")
             }
         }
         .onAppear { animate(to: clamped) }
