@@ -20,12 +20,15 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             app.staticTexts["Low space"].waitForExistence(timeout: 5),
             "The deterministic low-space accessibility fixture did not load."
         )
+        let healthStatus = app.descendants(matching: .any)
+            .matching(identifier: "main.health.status")
+            .firstMatch
         XCTAssertTrue(
-            app.staticTexts["main.health.status"].waitForExistence(timeout: 5),
+            healthStatus.waitForExistence(timeout: 5),
             "The deterministic granted Full Disk Access fixture did not load."
         )
         XCTAssertEqual(
-            app.staticTexts["main.health.status"].value as? String,
+            healthStatus.value as? String,
             "Ready to clean"
         )
         assertDefaultWindowUsesReadableDashboardLayout()

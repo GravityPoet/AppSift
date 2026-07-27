@@ -237,7 +237,6 @@ struct MainWindow: View {
                         .font(.system(size: 11.5, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .accessibilityIdentifier("main.health.status")
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.semibold))
@@ -251,6 +250,7 @@ struct MainWindow: View {
             .accessibilityValue(
                 Text(LocalizedStringKey(ok ? "Ready to clean" : "Limited access"))
             )
+            .accessibilityIdentifier("main.health.status")
 
             if !ok {
                 Button("Fix") {
