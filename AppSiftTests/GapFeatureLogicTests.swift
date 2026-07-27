@@ -3,82 +3,117 @@ import Foundation
 import XCTest
 @testable import AppSift
 
-final class SidebarNavigationGroupTests: XCTestCase {
-    func testPrimaryDestinationsRemainOutsideCollapsedGroups() {
-        let primaryDestinations: [AppSection] = [
-            .cleaning(.smartScan),
-            .apps,
-            .spaceLens,
-            .systemHealth,
-            .cleaning(.purgeableSpace),
-        ]
-
-        for destination in primaryDestinations {
-            XCTAssertNil(SidebarNavigationGroup.containing(destination))
-        }
-    }
-
-    func testSecondaryDestinationsBelongToExactlyOneSemanticGroup() {
-        let expectedMappings: [(AppSection, SidebarNavigationGroup)] = [
-            (.appUpdates, .applications),
-            (.installationFiles, .applications),
-            (.startupItems, .applications),
-            (.extensions, .applications),
-            (.appPermissions, .applications),
-            (.browserPrivacy, .applications),
-            (.defaultApplications, .applications),
-            (.removalHistory, .applications),
-            (.orphans, .applications),
-            (.duplicateFiles, .storage),
-            (.similarImages, .storage),
-            (.timeMachine, .storage),
-            (.iosBackups, .storage),
-            (.downloadsBySource, .storage),
-            (.systemMaintenance, .maintenance),
-            (.systemResidue, .maintenance),
-        ]
-
-        for (destination, expectedGroup) in expectedMappings {
-            XCTAssertEqual(
-                SidebarNavigationGroup.containing(destination),
-                expectedGroup
-            )
-            XCTAssertEqual(
-                SidebarNavigationGroup.allCases.count {
-                    $0.contains(destination)
-                },
-                1
-            )
-        }
-    }
-
-    func testEveryScannableCleaningCategoryBelongsToCleanupGroup() {
-        for category in CleaningCategory.scannable {
-            let destination = AppSection.cleaning(category)
-            XCTAssertEqual(
-                SidebarNavigationGroup.containing(destination),
-                .cleanup
-            )
-            XCTAssertEqual(
-                SidebarNavigationGroup.allCases.count {
-                    $0.contains(destination)
-                },
-                1
-            )
-        }
-    }
-
-    func testGroupsUseUniqueVersionedCollapsedDefaults() {
-        let keys = SidebarNavigationGroup.allCases.map(\.preferenceKey)
-
-        XCTAssertTrue(
-            SidebarNavigationGroup.allCases.allSatisfy(\.defaultCollapsed)
+final class SidebarPrimaryDestinationTests: XCTestCase {
+    func testSidebarContainsOnlyFourStablePrimaryDestinations() {
+        XCTAssertEqual(
+            SidebarPrimaryDestination.allCases.map(\.rawValue),
+            ["dashboard", "installedApps", "spaceLens", "tools"]
         )
-        XCTAssertEqual(Set(keys).count, SidebarNavigationGroup.allCases.count)
+    }
+
+    func testPrimarySectionsResolveToTheirOwnSidebarDestination() {
+        XCTAssertEqual(
+            SidebarPrimaryDestination.selection(for: .cleaning(.smartScan)),
+            .dashboard
+        )
+        XCTAssertEqual(
+            SidebarPrimaryDestination.selection(for: .apps),
+            .installedApps
+        )
+        XCTAssertEqual(
+            SidebarPrimaryDestination.selection(for: .spaceLens),
+            .spaceLens
+        )
+        XCTAssertEqual(
+            SidebarPrimaryDestination.selection(for: .tools),
+            .tools
+        )
+        XCTAssertNil(SidebarPrimaryDestination.selection(for: nil))
+    }
+
+    func testEverySecondaryToolKeepsToolsSelectedInSidebar() {
+        for section in AppToolCatalog.all.map(\.section)
+        where section != .apps && section != .spaceLens {
+            XCTAssertEqual(
+                SidebarPrimaryDestination.selection(for: section),
+                .tools,
+                "\(section) must keep the Tools root selected"
+            )
+        }
+    }
+}
+
+final class AppToolCatalogTests: XCTestCase {
+    func testCatalogCoversEveryOperationalToolExactlyOnce() {
+        var expectedSections: Set<AppSection> = [
+            .apps,
+            .appUpdates,
+            .installationFiles,
+            .startupItems,
+            .extensions,
+            .appPermissions,
+            .browserPrivacy,
+            .defaultApplications,
+            .removalHistory,
+            .orphans,
+            .spaceLens,
+            .duplicateFiles,
+            .similarImages,
+            .timeMachine,
+            .iosBackups,
+            .downloadsBySource,
+            .systemHealth,
+            .systemMaintenance,
+            .systemResidue,
+        ]
+        expectedSections.formUnion(
+            CleaningCategory.scannable.map(AppSection.cleaning)
+        )
+
+        XCTAssertEqual(
+            Set(AppToolCatalog.all.map(\.section)),
+            expectedSections
+        )
+        XCTAssertEqual(AppToolCatalog.all.count, expectedSections.count)
+        XCTAssertEqual(
+            Set(AppToolCatalog.all.map(\.id)).count,
+            AppToolCatalog.all.count,
+            "Favorites require stable, unique tool identifiers."
+        )
+    }
+
+    func testSearchMatchesLocalizedTitlesAndCategories() {
+        let localizedStorageResults = AppToolCatalog.search(
+            "almacenamiento"
+        ) { key in
+            key == "Storage" ? "Almacenamiento" : key
+        }
+        XCTAssertFalse(localizedStorageResults.isEmpty)
         XCTAssertTrue(
-            keys.allSatisfy {
-                $0.hasPrefix("AppSift.Sidebar.CompactV2.Collapsed.")
+            localizedStorageResults.allSatisfy {
+                $0.category == .storage
             }
+        )
+
+        let titleResults = AppToolCatalog.search("DUPLICATE") { $0 }
+        XCTAssertEqual(titleResults.map(\.id), ["duplicate-files"])
+        XCTAssertEqual(
+            AppToolCatalog.search("   ") { $0 }.count,
+            AppToolCatalog.all.count
+        )
+    }
+
+    func testFavoriteSerializationIsDeterministicAndDropsUnknownIDs() {
+        let validIDs = Set(AppToolCatalog.all.map(\.id))
+        let decoded = ToolboxFavorites.decode(
+            "duplicate-files,unknown,app-updates,duplicate-files",
+            validIDs: validIDs
+        )
+
+        XCTAssertEqual(decoded, ["app-updates", "duplicate-files"])
+        XCTAssertEqual(
+            ToolboxFavorites.encode(decoded),
+            "app-updates,duplicate-files"
         )
     }
 }

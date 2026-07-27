@@ -1372,3 +1372,10 @@
 "This photo is stored only in iCloud and was left untouched." = "這張照片僅儲存於 iCloud，未作任何變更。";
 "Expanded" = "已展開";
 "Collapsed" = "已摺疊";
+"Tools" = "工具";
+"Favorites" = "收藏項目";
+"Search tools" = "搜尋工具";
+"No tools found" = "找不到工具";
+"Try a different search." = "請嘗試其他搜尋詞。";
+"Add to Favorites" = "加入收藏";
+"Remove from Favorites" = "從收藏中移除";

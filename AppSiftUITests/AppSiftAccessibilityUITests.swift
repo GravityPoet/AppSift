@@ -51,111 +51,80 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         )
     }
 
-    func testFeatureNavigationUsesNativeAccessibleButtons() throws {
-        let primaryLabels = [
-            "Dashboard",
-            "Installed Apps",
-            "Space Lens",
-            "System Health",
+    func testFeatureNavigationUsesNativeSidebarAndSearchableTools() throws {
+        let primaryDestinations = [
+            ("dashboard", "Dashboard"),
+            ("installedApps", "Installed Apps"),
+            ("spaceLens", "Space Lens"),
+            ("tools", "Tools"),
         ]
-        let groupedFeatures: [(String, [String])] = [
-            (
-                "applications",
-                [
-                    "App Updates",
-                    "Installation Files",
-                    "Startup Items",
-                    "Extensions",
-                    "Privacy Permissions",
-                    "Browser Privacy",
-                    "Default Applications",
-                    "Removal History",
-                    "Orphaned Files",
-                ]
-            ),
-            (
-                "storage",
-                [
-                    "Duplicate Files",
-                    "Similar Images",
-                    "Time Machine Snapshots",
-                    "iPhone & iPad Backups",
-                    "Downloads by Source",
-                ]
-            ),
-            (
-                "cleanup",
-                [
-                    "System Junk",
-                    "User Cache",
-                    "AI Apps",
-                    "Mail Files",
-                    "Trash Bins",
-                    "Large & Old Files",
-                    "Xcode Junk",
-                    "Brew Cache",
-                    "Node Cache",
-                    "Docker Cache",
-                ]
-            ),
-            (
-                "maintenance",
-                [
-                    "System Maintenance",
-                    "System Residue",
-                ]
-            ),
-        ]
-        let sidebar = app.scrollViews["main.sidebar"]
-        XCTAssertTrue(sidebar.waitForExistence(timeout: 3))
 
-        for label in primaryLabels {
-            let button = app.buttons[label].firstMatch
+        for (identifier, label) in primaryDestinations {
+            let row = app.descendants(matching: .any)
+                .matching(identifier: "main.sidebar.item.\(identifier)")
+                .firstMatch
             XCTAssertTrue(
-                button.waitForExistence(timeout: 3),
-                "\(label) must be exposed as a native button for VoiceOver and Full Keyboard Access."
+                row.waitForExistence(timeout: 3),
+                "\(label) must remain a first-level native sidebar destination."
             )
-            XCTAssertFalse(button.label.isEmpty)
+            XCTAssertEqual(row.label, label)
         }
 
-        for (groupName, featureLabels) in groupedFeatures {
-            let group = app.buttons[
-                "main.sidebar.group.\(groupName)"
-            ].firstMatch
-            reveal(group, in: sidebar, direction: .up)
-            XCTAssertTrue(
-                group.waitForExistence(timeout: 3),
-                "\(groupName) must be exposed as a native disclosure button."
-            )
+        let toolsRow = app.descendants(matching: .any)
+            .matching(identifier: "main.sidebar.item.tools")
+            .firstMatch
+        XCTAssertTrue(toolsRow.isHittable)
+        toolsRow.click()
 
-            switch group.value as? String {
-            case "Expanded":
-                group.click()
-                XCTAssertTrue(waitForValue("Collapsed", of: group))
-            case "Collapsed":
-                break
-            default:
-                XCTFail("\(groupName) must expose its expanded or collapsed state.")
-            }
+        let toolbox = app.descendants(matching: .any)
+            .matching(identifier: "toolbox.content")
+            .firstMatch
+        XCTAssertTrue(
+            toolbox.waitForExistence(timeout: 3),
+            "Tools must open one dedicated tool catalog instead of sidebar disclosure groups."
+        )
 
-            group.click()
-            XCTAssertTrue(waitForValue("Expanded", of: group))
+        let search = app.searchFields["Search tools"].firstMatch
+        XCTAssertTrue(
+            search.waitForExistence(timeout: 3),
+            "The tool catalog must expose a native searchable field."
+        )
+        search.click()
+        search.typeText("Duplicate Files")
 
-            for label in featureLabels {
-                let button = app.buttons[label].firstMatch
-                reveal(button, in: sidebar, direction: .up)
-                XCTAssertTrue(
-                    button.waitForExistence(timeout: 3),
-                    "\(label) must be exposed as a native button for VoiceOver and Full Keyboard Access."
-                )
-                XCTAssertFalse(button.label.isEmpty)
-            }
+        let duplicateTool = app.buttons[
+            "toolbox.tool.duplicate-files"
+        ].firstMatch
+        XCTAssertTrue(
+            duplicateTool.waitForExistence(timeout: 3),
+            "Search must reveal a matching tool directly."
+        )
 
-            reveal(group, in: sidebar, direction: .down)
-            XCTAssertTrue(group.isHittable)
-            group.click()
-            XCTAssertTrue(waitForValue("Collapsed", of: group))
-        }
+        let favoriteButton = app.buttons[
+            "toolbox.favorite.duplicate-files"
+        ].firstMatch
+        XCTAssertTrue(favoriteButton.waitForExistence(timeout: 3))
+        favoriteButton.click()
+
+        search.typeKey("a", modifierFlags: .command)
+        search.typeKey(.delete, modifierFlags: [])
+        XCTAssertTrue(
+            app.staticTexts["Favorites"].firstMatch.waitForExistence(timeout: 3),
+            "Favorited tools must move into the first section."
+        )
+
+        let favoriteDuplicateTool = app.buttons[
+            "toolbox.tool.duplicate-files"
+        ].firstMatch
+        XCTAssertTrue(favoriteDuplicateTool.waitForExistence(timeout: 3))
+        favoriteDuplicateTool.click()
+        let duplicateContent = app.descendants(matching: .any)
+            .matching(identifier: "duplicateFiles.content")
+            .firstMatch
+        XCTAssertTrue(
+            duplicateContent.waitForExistence(timeout: 3),
+            "A tool tile must navigate to the existing feature view."
+        )
     }
 
     func testMainWindowDarkAppearanceContrast() throws {
@@ -403,47 +372,13 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "-AppSift.UITest.ForceLowDiskSpace", "YES",
             "-AppSift.UITest.FullDiskAccess",
             fullDiskAccess ? "granted" : "denied",
+            "-AppSift.Toolbox.FavoritesV1", "UITest-None",
             "-AppSift.Appearance", appearance,
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US",
             "-NSQuitAlwaysKeepsWindows", "NO"
         ]
         return application
-    }
-
-    private enum ScrollDirection {
-        case up
-        case down
-    }
-
-    private func reveal(
-        _ element: XCUIElement,
-        in sidebar: XCUIElement,
-        direction: ScrollDirection
-    ) {
-        for _ in 0..<12 where !element.isHittable {
-            switch direction {
-            case .up:
-                sidebar.swipeUp()
-            case .down:
-                sidebar.swipeDown()
-            }
-        }
-    }
-
-    private func waitForValue(
-        _ value: String,
-        of element: XCUIElement,
-        timeout: TimeInterval = 3
-    ) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@", value),
-            object: element
-        )
-        return XCTWaiter.wait(
-            for: [expectation],
-            timeout: timeout
-        ) == .completed
     }
 
     private func assertDefaultWindowUsesReadableDashboardLayout(

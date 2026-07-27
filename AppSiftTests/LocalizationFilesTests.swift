@@ -152,6 +152,7 @@ final class LocalizationFilesTests: XCTestCase {
             "AppSift/Views/SystemMaintenanceView.swift",
             "AppSift/Views/SystemResidueView.swift",
             "AppSift/Views/TimeMachineSnapshotsView.swift",
+            "AppSift/Views/ToolboxView.swift",
             "AppSift/Views/Apps/StartupItemsView.swift"
         ].map { sourceRoot.appendingPathComponent($0).path }
 

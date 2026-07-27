@@ -1372,3 +1372,10 @@
 "This photo is stored only in iCloud and was left untouched." = "Esta foto está armazenada apenas no iCloud e não foi alterada.";
 "Expanded" = "Expandido";
 "Collapsed" = "Recolhido";
+"Tools" = "Ferramentas";
+"Favorites" = "Favoritos";
+"Search tools" = "Buscar ferramentas";
+"No tools found" = "Nenhuma ferramenta encontrada";
+"Try a different search." = "Tente outra busca.";
+"Add to Favorites" = "Adicionar aos favoritos";
+"Remove from Favorites" = "Remover dos favoritos";

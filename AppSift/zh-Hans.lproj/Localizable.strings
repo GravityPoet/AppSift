@@ -1372,3 +1372,10 @@
 "This photo is stored only in iCloud and was left untouched." = "这张照片仅存于 iCloud，未作任何更改。";
 "Expanded" = "已展开";
 "Collapsed" = "已折叠";
+"Tools" = "工具";
+"Favorites" = "收藏";
+"Search tools" = "搜索工具";
+"No tools found" = "未找到工具";
+"Try a different search." = "请尝试其他搜索词。";
+"Add to Favorites" = "添加到收藏";
+"Remove from Favorites" = "从收藏中移除";
