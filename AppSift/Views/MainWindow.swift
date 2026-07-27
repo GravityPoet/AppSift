@@ -1,5 +1,66 @@
 import SwiftUI
 
+enum SidebarNavigationGroup: String, CaseIterable {
+    case applications
+    case storage
+    case cleanup
+    case maintenance
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .applications: return "Applications"
+        case .storage: return "Storage"
+        case .cleanup: return "Cleanup"
+        case .maintenance: return "Maintenance"
+        }
+    }
+
+    var preferenceKey: String {
+        "AppSift.Sidebar.CompactV2.Collapsed.\(rawValue)"
+    }
+
+    var defaultCollapsed: Bool { true }
+
+    func contains(_ section: AppSection?) -> Bool {
+        guard let section else { return false }
+        switch self {
+        case .applications:
+            switch section {
+            case .appUpdates, .installationFiles, .startupItems, .extensions,
+                 .appPermissions, .browserPrivacy, .defaultApplications,
+                 .removalHistory, .orphans:
+                return true
+            default:
+                return false
+            }
+        case .storage:
+            switch section {
+            case .duplicateFiles, .similarImages, .timeMachine, .iosBackups,
+                 .downloadsBySource:
+                return true
+            default:
+                return false
+            }
+        case .cleanup:
+            if case .cleaning(let category) = section {
+                return CleaningCategory.scannable.contains(category)
+            }
+            return false
+        case .maintenance:
+            switch section {
+            case .systemMaintenance, .systemResidue:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    static func containing(_ section: AppSection?) -> SidebarNavigationGroup? {
+        allCases.first { $0.contains(section) }
+    }
+}
+
 struct MainWindow: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject private var permission = PermissionCoordinator.shared
@@ -80,11 +141,22 @@ struct MainWindow: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     sidebarSection("Overview") {
                         navRow(section: .cleaning(.smartScan), label: "Dashboard",
                                icon: "sparkles", tint: Tint.blue,
                                badge: dashboardBadge)
+                        navRow(section: .apps, label: "Installed Apps",
+                               icon: "square.grid.2x2.fill", tint: Tint.purple,
+                               badge: appState.installedApps.isEmpty ? nil : "\(appState.installedApps.count)")
+                        navRow(section: .spaceLens, label: "Space Lens",
+                               icon: "square.3.layers.3d", tint: Tint.purple,
+                               badge: appState.spaceLensResult.map {
+                                   ByteCountFormatter.string(
+                                       fromByteCount: $0.root.allocatedSize,
+                                       countStyle: .file
+                                   )
+                               })
                         navRow(section: .systemHealth, label: "System Health",
                                icon: "waveform.path.ecg", tint: Tint.green,
                                badge: systemAlertCenter.activeConditions.isEmpty
@@ -92,10 +164,10 @@ struct MainWindow: View {
                                    : "\(systemAlertCenter.activeConditions.count)")
                     }
 
-                    sidebarSection("Applications") {
-                        navRow(section: .apps, label: "Installed Apps",
-                               icon: "square.grid.2x2.fill", tint: Tint.purple,
-                               badge: appState.installedApps.isEmpty ? nil : "\(appState.installedApps.count)")
+                    CollapsibleSidebarSection(
+                        group: .applications,
+                        selectedSection: selectedSection
+                    ) {
                         navRow(section: .appUpdates, label: "App Updates",
                                icon: "arrow.triangle.2.circlepath.circle.fill", tint: Tint.blue,
                                badge: appState.availableUpdateCount == 0
@@ -131,15 +203,10 @@ struct MainWindow: View {
                                badge: appState.orphanedFiles.isEmpty ? nil : "\(appState.orphanedFiles.count)")
                     }
 
-                    sidebarSection("Storage") {
-                        navRow(section: .spaceLens, label: "Space Lens",
-                               icon: "square.3.layers.3d", tint: Tint.purple,
-                               badge: appState.spaceLensResult.map {
-                                   ByteCountFormatter.string(
-                                       fromByteCount: $0.root.allocatedSize,
-                                       countStyle: .file
-                                   )
-                               })
+                    CollapsibleSidebarSection(
+                        group: .storage,
+                        selectedSection: selectedSection
+                    ) {
                         navRow(section: .duplicateFiles, label: "Duplicate Files",
                                icon: "doc.on.doc.fill", tint: Tint.cyan,
                                badge: appState.duplicateFileCount == 0
@@ -167,7 +234,11 @@ struct MainWindow: View {
                                    : "\(appState.downloadSourceCenter.items.count)")
                     }
 
-                    sidebarSection("Cleanup") {
+                    CollapsibleSidebarSection(
+                        group: .cleanup,
+                        selectedSection: selectedSection,
+                        collapsedBadge: dashboardBadge
+                    ) {
                         ForEach(CleaningCategory.scannable) { category in
                             navRow(section: .cleaning(category),
                                    label: LocalizedStringKey(category.rawValue),
@@ -177,7 +248,10 @@ struct MainWindow: View {
                         }
                     }
 
-                    sidebarSection("Maintenance") {
+                    CollapsibleSidebarSection(
+                        group: .maintenance,
+                        selectedSection: selectedSection
+                    ) {
                         navRow(section: .systemMaintenance, label: "System Maintenance",
                                icon: "wrench.and.screwdriver.fill", tint: Tint.blue,
                                badge: nil)
@@ -648,6 +722,111 @@ private struct SidebarNavRow: View {
         colorScheme == .dark
             ? Color.white.opacity(0.92)
             : Color.black.opacity(0.85)
+    }
+}
+
+/// A compact, persistent tool group. Entering a tool through another surface
+/// expands its group once so the active destination remains discoverable;
+/// users can still fold it again while staying on that destination.
+private struct CollapsibleSidebarSection<Content: View>: View {
+    let group: SidebarNavigationGroup
+    let selectedSection: AppSection?
+    let collapsedBadge: String?
+    private let content: Content
+
+    @AppStorage private var collapsed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(
+        group: SidebarNavigationGroup,
+        selectedSection: AppSection?,
+        collapsedBadge: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.group = group
+        self.selectedSection = selectedSection
+        self.collapsedBadge = collapsedBadge
+        self.content = content()
+        self._collapsed = AppStorage(
+            wrappedValue: group.defaultCollapsed,
+            group.preferenceKey
+        )
+    }
+
+    private var isExpanded: Bool { !collapsed }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                collapsed.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Text(group.title)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundStyle(headerColor)
+                        .textCase(.uppercase)
+
+                    if !isExpanded, let collapsedBadge {
+                        Text(collapsedBadge)
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(headerColor)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule().fill(Color.primary.opacity(0.07))
+                            )
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(headerColor)
+                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
+                }
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .accessibilityLabel(Text(group.title))
+            .accessibilityValue(isExpanded ? Text("Expanded") : Text("Collapsed"))
+            .accessibilityIdentifier("main.sidebar.group.\(group.rawValue)")
+
+            if isExpanded {
+                content
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .opacity.combined(with: .move(edge: .top))
+                    )
+            }
+        }
+        .animation(reduceMotion ? nil : MotionTokens.gentle, value: isExpanded)
+        .onAppear {
+            expandForSelectionIfNeeded()
+        }
+        .onChange(of: selectedSection) { selection in
+            if group.contains(selection) {
+                collapsed = false
+            }
+        }
+    }
+
+    private var headerColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.78)
+            : Color.black.opacity(0.72)
+    }
+
+    private func expandForSelectionIfNeeded() {
+        if group.contains(selectedSection) {
+            collapsed = false
+        }
     }
 }
 

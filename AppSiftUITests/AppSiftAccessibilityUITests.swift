@@ -52,29 +52,109 @@ final class AppSiftAccessibilityUITests: XCTestCase {
     }
 
     func testFeatureNavigationUsesNativeAccessibleButtons() throws {
-        let featureLabels = [
-            "Browser Privacy",
+        let primaryLabels = [
+            "Dashboard",
+            "Installed Apps",
             "Space Lens",
-            "Duplicate Files",
-            "Similar Images",
-            "iPhone & iPad Backups",
-            "Downloads by Source",
-            "System Maintenance",
-            "System Residue"
+            "System Health",
+        ]
+        let groupedFeatures: [(String, [String])] = [
+            (
+                "applications",
+                [
+                    "App Updates",
+                    "Installation Files",
+                    "Startup Items",
+                    "Extensions",
+                    "Privacy Permissions",
+                    "Browser Privacy",
+                    "Default Applications",
+                    "Removal History",
+                    "Orphaned Files",
+                ]
+            ),
+            (
+                "storage",
+                [
+                    "Duplicate Files",
+                    "Similar Images",
+                    "Time Machine Snapshots",
+                    "iPhone & iPad Backups",
+                    "Downloads by Source",
+                ]
+            ),
+            (
+                "cleanup",
+                [
+                    "System Junk",
+                    "User Cache",
+                    "AI Apps",
+                    "Mail Files",
+                    "Trash Bins",
+                    "Large & Old Files",
+                    "Xcode Junk",
+                    "Brew Cache",
+                    "Node Cache",
+                    "Docker Cache",
+                ]
+            ),
+            (
+                "maintenance",
+                [
+                    "System Maintenance",
+                    "System Residue",
+                ]
+            ),
         ]
         let sidebar = app.scrollViews["main.sidebar"]
         XCTAssertTrue(sidebar.waitForExistence(timeout: 3))
 
-        for label in featureLabels {
+        for label in primaryLabels {
             let button = app.buttons[label].firstMatch
-            for _ in 0..<5 where !button.exists {
-                sidebar.swipeUp()
-            }
             XCTAssertTrue(
                 button.waitForExistence(timeout: 3),
                 "\(label) must be exposed as a native button for VoiceOver and Full Keyboard Access."
             )
             XCTAssertFalse(button.label.isEmpty)
+        }
+
+        for (groupName, featureLabels) in groupedFeatures {
+            let group = app.buttons[
+                "main.sidebar.group.\(groupName)"
+            ].firstMatch
+            reveal(group, in: sidebar, direction: .up)
+            XCTAssertTrue(
+                group.waitForExistence(timeout: 3),
+                "\(groupName) must be exposed as a native disclosure button."
+            )
+
+            switch group.value as? String {
+            case "Expanded":
+                group.click()
+                XCTAssertTrue(waitForValue("Collapsed", of: group))
+            case "Collapsed":
+                break
+            default:
+                XCTFail("\(groupName) must expose its expanded or collapsed state.")
+            }
+
+            group.click()
+            XCTAssertTrue(waitForValue("Expanded", of: group))
+
+            for label in featureLabels {
+                let button = app.buttons[label].firstMatch
+                reveal(button, in: sidebar, direction: .up)
+                XCTAssertTrue(
+                    button.waitForExistence(timeout: 3),
+                    "\(label) must be exposed as a native button for VoiceOver and Full Keyboard Access."
+                )
+                XCTAssertFalse(button.label.isEmpty)
+            }
+
+            reveal(group, in: sidebar, direction: .down)
+            XCTAssertTrue(group.isHittable)
+            group.click()
+            XCTAssertTrue(waitForValue("Collapsed", of: group))
         }
     }
 
@@ -329,6 +409,41 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "-NSQuitAlwaysKeepsWindows", "NO"
         ]
         return application
+    }
+
+    private enum ScrollDirection {
+        case up
+        case down
+    }
+
+    private func reveal(
+        _ element: XCUIElement,
+        in sidebar: XCUIElement,
+        direction: ScrollDirection
+    ) {
+        for _ in 0..<12 where !element.isHittable {
+            switch direction {
+            case .up:
+                sidebar.swipeUp()
+            case .down:
+                sidebar.swipeDown()
+            }
+        }
+    }
+
+    private func waitForValue(
+        _ value: String,
+        of element: XCUIElement,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", value),
+            object: element
+        )
+        return XCTWaiter.wait(
+            for: [expectation],
+            timeout: timeout
+        ) == .completed
     }
 
     private func assertDefaultWindowUsesReadableDashboardLayout(
