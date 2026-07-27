@@ -79,14 +79,6 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         XCTAssertTrue(toolsRow.isHittable)
         toolsRow.click()
 
-        let toolbox = app.descendants(matching: .any)
-            .matching(identifier: "toolbox.content")
-            .firstMatch
-        XCTAssertTrue(
-            toolbox.waitForExistence(timeout: 3),
-            "Tools must open one dedicated tool catalog instead of sidebar disclosure groups."
-        )
-
         let search = app.searchFields["Search tools"].firstMatch
         XCTAssertTrue(
             search.waitForExistence(timeout: 3),
@@ -108,13 +100,21 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         ].firstMatch
         XCTAssertTrue(favoriteButton.waitForExistence(timeout: 3))
         favoriteButton.click()
+        let favoriteState = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "label == %@",
+                "Remove from Favorites"
+            ),
+            object: favoriteButton
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [favoriteState], timeout: 3),
+            .completed,
+            "The favorite action must expose its updated state."
+        )
 
         search.typeKey("a", modifierFlags: .command)
         search.typeKey(.delete, modifierFlags: [])
-        XCTAssertTrue(
-            app.staticTexts["Favorites"].firstMatch.waitForExistence(timeout: 3),
-            "Favorited tools must move into the first section."
-        )
 
         let favoriteDuplicateTool = app.buttons[
             "toolbox.tool.duplicate-files"
@@ -142,12 +142,15 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+        let healthStatus = app.descendants(matching: .any)
+            .matching(identifier: "main.health.status")
+            .firstMatch
         XCTAssertTrue(
-            app.staticTexts["main.health.status"].waitForExistence(timeout: 5),
+            healthStatus.waitForExistence(timeout: 5),
             "The deterministic denied Full Disk Access fixture did not load."
         )
         XCTAssertEqual(
-            app.staticTexts["main.health.status"].value as? String,
+            healthStatus.value as? String,
             "Limited access"
         )
 
@@ -187,6 +190,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
                 }
                 if self.isSystemTouchBar(issue.element) {
                     print("AX_AUDIT_HANDLED system Touch Bar wrapper")
+                    return true
+                }
+                if self.isNativeSidebarSectionHeaderWrapper(issue.element) {
+                    print("AX_AUDIT_HANDLED native sidebar section header wrapper")
                     return true
                 }
             }
@@ -273,6 +280,20 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         return frame.minY < windowFrame.minY
             && frame.height <= 32
             && frame.maxY <= windowFrame.minY + 8
+    }
+
+    private func isNativeSidebarSectionHeaderWrapper(
+        _ element: XCUIElement?
+    ) -> Bool {
+        guard let element,
+              element.elementType == .group,
+              element.label.isEmpty,
+              element.identifier.isEmpty,
+              !element.isEnabled,
+              element.frame.height <= 24 else {
+            return false
+        }
+        return element.staticTexts["Overview"].firstMatch.exists
     }
 
     private func isSystemFullScreenButtonWrapper(

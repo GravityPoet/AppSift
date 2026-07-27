@@ -58,9 +58,14 @@ struct MainWindow: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    private let highlightsSidebarSelection: Bool
 
-    init(initialSection: AppSection = .cleaning(.smartScan)) {
+    init(
+        initialSection: AppSection = .cleaning(.smartScan),
+        highlightsSidebarSelection: Bool = true
+    ) {
         _selectedSection = State(initialValue: initialSection)
+        self.highlightsSidebarSelection = highlightsSidebarSelection
     }
 
     var body: some View {
@@ -134,10 +139,13 @@ struct MainWindow: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             List(selection: sidebarSelection) {
-                Section("Overview") {
+                Section {
                     ForEach(SidebarPrimaryDestination.allCases) { destination in
                         sidebarRow(destination)
                     }
+                } header: {
+                    Text("Overview")
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
             .listStyle(.sidebar)
@@ -154,7 +162,8 @@ struct MainWindow: View {
     private var sidebarSelection: Binding<SidebarPrimaryDestination?> {
         Binding(
             get: {
-                SidebarPrimaryDestination.selection(for: selectedSection)
+                guard highlightsSidebarSelection else { return nil }
+                return SidebarPrimaryDestination.selection(for: selectedSection)
             },
             set: { destination in
                 guard let destination else { return }
@@ -164,35 +173,20 @@ struct MainWindow: View {
     }
 
     private func sidebarRow(_ destination: SidebarPrimaryDestination) -> some View {
-        let isSelected = SidebarPrimaryDestination.selection(
-            for: selectedSection
-        ) == destination
-        let selectedText = Color(
-            nsColor: .alternateSelectedControlTextColor
-        )
         return HStack(spacing: 8) {
-            Image(systemName: destination.systemImage)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    isSelected ? selectedText : Color.accentColor
-                )
-                .frame(width: 18)
-            Text(destination.label)
-                .foregroundStyle(
-                    isSelected
-                        ? selectedText
-                        : Color(nsColor: .labelColor)
-                )
-                .lineLimit(1)
+            Label {
+                Text(destination.label)
+                    .lineLimit(1)
+            } icon: {
+                Image(systemName: destination.systemImage)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 18)
+            }
             Spacer(minLength: 6)
             if let badge = sidebarBadge(for: destination) {
                 Text(badge)
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(
-                        isSelected
-                            ? selectedText.opacity(0.86)
-                            : Color(nsColor: .secondaryLabelColor)
-                    )
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }

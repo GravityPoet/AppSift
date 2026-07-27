@@ -19,15 +19,21 @@ final class SidebarVisualLayoutTests: XCTestCase {
         }
 
         let appState = AppState()
-        let lightImage = try render(
-            MainWindow(initialSection: .tools)
+        let lightRender = try render(
+            MainWindow(
+                initialSection: .tools,
+                highlightsSidebarSelection: false
+            )
                 .environmentObject(appState)
                 .environmentObject(ThemeManager.shared)
                 .preferredColorScheme(.light),
             size: CGSize(width: 1000, height: 680)
         )
-        let darkImage = try render(
-            MainWindow(initialSection: .tools)
+        let darkRender = try render(
+            MainWindow(
+                initialSection: .tools,
+                highlightsSidebarSelection: false
+            )
                 .environmentObject(appState)
                 .environmentObject(ThemeManager.shared)
                 .preferredColorScheme(.dark),
@@ -48,11 +54,13 @@ final class SidebarVisualLayoutTests: XCTestCase {
             withIntermediateDirectories: true
         )
         try validateAndWrite(
-            lightImage,
+            lightRender.image,
+            contentSize: lightRender.contentSize,
             to: directory.appendingPathComponent("sidebar-tools-light.png")
         )
         try validateAndWrite(
-            darkImage,
+            darkRender.image,
+            contentSize: darkRender.contentSize,
             to: directory.appendingPathComponent("sidebar-tools-dark.png")
         )
     }
@@ -60,7 +68,7 @@ final class SidebarVisualLayoutTests: XCTestCase {
     private func render<Content: View>(
         _ content: Content,
         size: CGSize
-    ) throws -> NSBitmapImageRep {
+    ) throws -> (image: NSBitmapImageRep, contentSize: CGSize) {
         let hostingView = NSHostingView(rootView: content)
         hostingView.frame = CGRect(origin: .zero, size: size)
 
@@ -92,15 +100,27 @@ final class SidebarVisualLayoutTests: XCTestCase {
             in: hostingView.bounds,
             to: image
         )
-        return image
+        return (image, hostingView.bounds.size)
     }
 
     private func validateAndWrite(
         _ image: NSBitmapImageRep,
+        contentSize: CGSize,
         to outputURL: URL
     ) throws {
-        XCTAssertGreaterThanOrEqual(image.pixelsWide, 1000)
-        XCTAssertGreaterThanOrEqual(image.pixelsHigh, 680)
+        // macOS 15 reserves 24 points of a titled window for its titlebar,
+        // while newer AppKit versions expose the requested content height.
+        // Validate the usable viewport and that the bitmap covers all of it.
+        XCTAssertGreaterThanOrEqual(contentSize.width, 980)
+        XCTAssertGreaterThanOrEqual(contentSize.height, 640)
+        XCTAssertGreaterThanOrEqual(
+            image.pixelsWide,
+            Int(contentSize.width.rounded(.down))
+        )
+        XCTAssertGreaterThanOrEqual(
+            image.pixelsHigh,
+            Int(contentSize.height.rounded(.down))
+        )
         let png = try XCTUnwrap(
             image.representation(using: .png, properties: [:])
         )
