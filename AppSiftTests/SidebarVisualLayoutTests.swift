@@ -70,10 +70,18 @@ final class SidebarVisualLayoutTests: XCTestCase {
             backing: .buffered,
             defer: false
         )
-        window.setContentSize(size)
         window.contentView = hostingView
+        window.setContentSize(size)
+        hostingView.frame = CGRect(origin: .zero, size: size)
         window.contentView?.layoutSubtreeIfNeeded()
         hostingView.layoutSubtreeIfNeeded()
+        RunLoop.main.run(
+            until: Date().addingTimeInterval(0.1)
+        )
+        window.contentView?.layoutSubtreeIfNeeded()
+        hostingView.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        hostingView.displayIfNeeded()
 
         let image = try XCTUnwrap(
             hostingView.bitmapImageRepForCachingDisplay(
