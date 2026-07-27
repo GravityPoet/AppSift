@@ -146,6 +146,7 @@ struct MainWindow: View {
                 } header: {
                     Text("Overview")
                         .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("main.sidebar.header.overview")
                 }
             }
             .listStyle(.sidebar)
@@ -179,7 +180,6 @@ struct MainWindow: View {
                     .lineLimit(1)
             } icon: {
                 Image(systemName: destination.systemImage)
-                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color(nsColor: .labelColor))
                     .frame(width: 18)
             }

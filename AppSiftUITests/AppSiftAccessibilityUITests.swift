@@ -296,15 +296,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
               element.frame.height <= 24 else {
             return false
         }
-        let header = app.staticTexts["Overview"].firstMatch
-        guard header.exists else { return false }
-        let frame = element.frame
-        let headerFrame = header.frame
-        let tolerance: CGFloat = 2
-        return headerFrame.minX >= frame.minX - tolerance
-            && headerFrame.minY >= frame.minY - tolerance
-            && headerFrame.maxX <= frame.maxX + tolerance
-            && headerFrame.maxY <= frame.maxY + tolerance
+        return element.descendants(matching: .any)
+            .matching(identifier: "main.sidebar.header.overview")
+            .firstMatch
+            .exists
     }
 
     private func isSystemFullScreenButtonWrapper(
