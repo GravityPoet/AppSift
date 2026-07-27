@@ -21,7 +21,7 @@ enum SidebarPrimaryDestination: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: return "sparkles"
         case .installedApps: return "square.grid.2x2"
-        case .spaceLens: return "square.3.layers.3d"
+        case .spaceLens: return "internaldrive.fill"
         case .tools: return "wrench.and.screwdriver"
         }
     }
