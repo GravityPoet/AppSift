@@ -524,7 +524,9 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             )
             return
         }
-        verticalScrollBar.adjust(toNormalizedSliderPosition: 0.35)
+        verticalScrollBar.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)
+        ).click()
 
         XCTAssertTrue(
             appsLabel.isHittable,
