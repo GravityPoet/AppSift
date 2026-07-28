@@ -515,8 +515,18 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             dashboardScrollView = descendantScrollView
         }
 
+        let initialAppsY = appsLabel.frame.minY
+        dashboardScrollView.scroll(byDeltaX: 0, deltaY: -280)
+        let firstScrollAppsY = appsLabel.frame.minY
+        let scrollDeltaY: CGFloat = firstScrollAppsY < initialAppsY - 1
+            ? -280
+            : 280
+
         for _ in 0..<3 where !appsLabel.isHittable {
-            dashboardScrollView.swipeUp()
+            dashboardScrollView.scroll(
+                byDeltaX: 0,
+                deltaY: scrollDeltaY
+            )
         }
 
         XCTAssertTrue(
