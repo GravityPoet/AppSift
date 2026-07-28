@@ -94,6 +94,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .animation(reduceMotion ? nil : MotionTokens.gentle, value: appState.scanState)
             }
+            .accessibilityIdentifier("dashboard.content")
 
             // Celebratory burst when a clean cycle finishes with something
             // freed. Origin tracks the SuccessMedal's real frame (see

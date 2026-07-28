@@ -132,6 +132,14 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         )
     }
 
+    func testDashboardSummaryRemainsReadableAfterScrolling() throws {
+        guard #available(macOS 14.0, *) else {
+            throw XCTSkip("Automated accessibility audits require macOS 14 or newer.")
+        }
+        assertScrollableDashboardStatsLayout()
+        try performAccessibilityAudit(.contrast)
+    }
+
     func testMainWindowDarkAppearanceContrast() throws {
         guard #available(macOS 14.0, *) else {
             throw XCTSkip("Automated accessibility audits require macOS 14 or newer.")
@@ -156,6 +164,8 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "Limited access"
         )
 
+        try performAccessibilityAudit(.contrast)
+        assertScrollableDashboardStatsLayout()
         try performAccessibilityAudit(.contrast)
     }
 
@@ -430,20 +440,20 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             ("dashboard.stat.internaldrive.fill.delta", 22),
             ("dashboard.stat.trash.circle.fill.label", 22),
             ("dashboard.stat.trash.circle.fill.delta", 22),
-            ("dashboard.stat.square.grid.2x2.fill.label", 22),
-            ("dashboard.stat.square.grid.2x2.fill.delta", 22),
-            ("dashboard.stat.memorychip.fill.label", 22),
-            ("dashboard.stat.memorychip.fill.delta", 22),
         ]
 
         for (identifier, maximumHeight) in singleLineLimits {
-            let element = app.staticTexts[identifier]
-            XCTAssertTrue(
-                element.waitForExistence(timeout: 5),
-                "\(identifier) must exist in the default dashboard layout.",
-                file: file,
-                line: line
-            )
+            let element = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            guard element.waitForExistence(timeout: 5) else {
+                XCTFail(
+                    "\(identifier) must exist in the default dashboard layout.",
+                    file: file,
+                    line: line
+                )
+                continue
+            }
             XCTAssertLessThanOrEqual(
                 element.frame.height,
                 maximumHeight,
@@ -452,17 +462,67 @@ final class AppSiftAccessibilityUITests: XCTestCase {
                 line: line
             )
         }
+    }
 
-        let firstRow = app.staticTexts[
-            "dashboard.stat.internaldrive.fill.label"
+    private func assertScrollableDashboardStatsLayout(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let dashboard = app.descendants(matching: .any)
+            .matching(identifier: "dashboard.content")
+            .firstMatch
+        guard dashboard.waitForExistence(timeout: 5) else {
+            XCTFail(
+                "The dashboard must expose its scrollable content.",
+                file: file,
+                line: line
+            )
+            return
+        }
+
+        let limits: [(String, CGFloat)] = [
+            ("dashboard.stat.square.grid.2x2.fill.label", 22),
+            ("dashboard.stat.square.grid.2x2.fill.delta", 22),
+            ("dashboard.stat.memorychip.fill.label", 22),
+            ("dashboard.stat.memorychip.fill.delta", 22),
         ]
-        let secondRow = app.staticTexts[
-            "dashboard.stat.square.grid.2x2.fill.label"
-        ]
-        XCTAssertGreaterThanOrEqual(
-            secondRow.frame.minY,
-            firstRow.frame.maxY,
-            "The default-width dashboard must use two stat columns.",
+        let appsLabel = app.descendants(matching: .any)
+            .matching(identifier: "dashboard.stat.square.grid.2x2.fill.label")
+            .firstMatch
+
+        for _ in 0..<3 where !appsLabel.waitForExistence(timeout: 1) {
+            dashboard.swipeUp()
+        }
+
+        for (identifier, maximumHeight) in limits {
+            let element = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            guard element.waitForExistence(timeout: 3) else {
+                XCTFail(
+                    "\(identifier) must appear after scrolling the dashboard.",
+                    file: file,
+                    line: line
+                )
+                continue
+            }
+            XCTAssertLessThanOrEqual(
+                element.frame.height,
+                maximumHeight,
+                "\(identifier) wrapped or overlapped after scrolling.",
+                file: file,
+                line: line
+            )
+        }
+
+        let purgeableLabel = app.descendants(matching: .any)
+            .matching(identifier: "dashboard.stat.memorychip.fill.label")
+            .firstMatch
+        guard appsLabel.exists, purgeableLabel.exists else { return }
+        XCTAssertLessThanOrEqual(
+            abs(appsLabel.frame.minY - purgeableLabel.frame.minY),
+            4,
+            "The compact dashboard's second stat row must stay aligned.",
             file: file,
             line: line
         )
