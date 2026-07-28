@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class SidebarVisualLayoutTests: XCTestCase {
-    func testToolsLayoutRendersOffscreenAtDefaultWindowSize() throws {
+    func testPrimaryLayoutsRenderOffscreenAtDefaultWindowSize() throws {
         let defaults = UserDefaults.standard
         let favoritesKey = ToolboxFavorites.storageKey
         let previousFavorites = defaults.object(forKey: favoritesKey)
@@ -18,11 +18,19 @@ final class SidebarVisualLayoutTests: XCTestCase {
             }
         }
 
-        let appState = AppState()
+        let appState = AppState(performStartupTasks: false)
+        appState.fdaBannerDismissed = true
+        let gibibyte: Int64 = 1_073_741_824
+        appState.diskInfo = DiskInfo(
+            totalSpace: 512 * gibibyte,
+            freeSpace: 158 * gibibyte,
+            usedSpace: 354 * gibibyte,
+            purgeableSpace: 12 * gibibyte
+        )
         let lightRender = try render(
             MainWindow(
                 initialSection: .tools,
-                highlightsSidebarSelection: false
+                highlightsSidebarSelection: true
             )
                 .environmentObject(appState)
                 .environmentObject(ThemeManager.shared)
@@ -32,7 +40,27 @@ final class SidebarVisualLayoutTests: XCTestCase {
         let darkRender = try render(
             MainWindow(
                 initialSection: .tools,
-                highlightsSidebarSelection: false
+                highlightsSidebarSelection: true
+            )
+                .environmentObject(appState)
+                .environmentObject(ThemeManager.shared)
+                .preferredColorScheme(.dark),
+            size: CGSize(width: 1000, height: 680)
+        )
+        let dashboardLightRender = try render(
+            MainWindow(
+                initialSection: .cleaning(.smartScan),
+                highlightsSidebarSelection: true
+            )
+                .environmentObject(appState)
+                .environmentObject(ThemeManager.shared)
+                .preferredColorScheme(.light),
+            size: CGSize(width: 1000, height: 680)
+        )
+        let dashboardDarkRender = try render(
+            MainWindow(
+                initialSection: .cleaning(.smartScan),
+                highlightsSidebarSelection: true
             )
                 .environmentObject(appState)
                 .environmentObject(ThemeManager.shared)
@@ -63,6 +91,16 @@ final class SidebarVisualLayoutTests: XCTestCase {
             contentSize: darkRender.contentSize,
             to: directory.appendingPathComponent("sidebar-tools-dark.png")
         )
+        try validateAndWrite(
+            dashboardLightRender.image,
+            contentSize: dashboardLightRender.contentSize,
+            to: directory.appendingPathComponent("dashboard-light.png")
+        )
+        try validateAndWrite(
+            dashboardDarkRender.image,
+            contentSize: dashboardDarkRender.contentSize,
+            to: directory.appendingPathComponent("dashboard-dark.png")
+        )
     }
 
     private func render<Content: View>(
@@ -84,7 +122,7 @@ final class SidebarVisualLayoutTests: XCTestCase {
         window.contentView?.layoutSubtreeIfNeeded()
         hostingView.layoutSubtreeIfNeeded()
         RunLoop.main.run(
-            until: Date().addingTimeInterval(0.1)
+            until: Date().addingTimeInterval(1.0)
         )
         window.contentView?.layoutSubtreeIfNeeded()
         hostingView.layoutSubtreeIfNeeded()

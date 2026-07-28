@@ -20,9 +20,18 @@ enum SidebarPrimaryDestination: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .dashboard: return "sparkles"
-        case .installedApps: return "square.grid.2x2"
+        case .installedApps: return "square.grid.2x2.fill"
         case .spaceLens: return "internaldrive.fill"
-        case .tools: return "wrench.and.screwdriver"
+        case .tools: return "square.stack.3d.up.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .dashboard: return Tint.blue
+        case .installedApps: return Tint.purple
+        case .spaceLens: return Tint.cyan
+        case .tools: return Tint.orange
         }
     }
 
@@ -71,11 +80,12 @@ struct MainWindow: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
-                .frame(minWidth: 210)
-                .navigationSplitViewColumnWidth(min: 210, ideal: 224, max: 300)
+                .frame(minWidth: 224)
+                .navigationSplitViewColumnWidth(min: 224, ideal: 238, max: 290)
         } detail: {
             detailContainer
         }
+        .background(AppBackdrop())
         .frame(minWidth: 980, minHeight: 600)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.checkFullDiskAccess()
@@ -138,67 +148,156 @@ struct MainWindow: View {
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            List(selection: sidebarSelection) {
+            sidebarBrand
+
+            List {
                 Section {
                     ForEach(SidebarPrimaryDestination.allCases) { destination in
                         sidebarRow(destination)
                     }
                 } header: {
                     Text("Overview")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(
+                            colorScheme == .dark
+                                ? Color.white.opacity(0.58)
+                                : Color.secondary
+                        )
                         .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("main.sidebar.header.overview")
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
             .accessibilityLabel("Feature navigation")
             .accessibilityIdentifier("main.sidebar")
 
-            Divider()
             healthFooter
         }
-        .background(.bar)
-        .navigationTitle("AppSift")
+        .background(AppBackdrop(sidebar: true))
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.48))
+                .frame(width: 0.5)
+        }
+        .navigationTitle("")
     }
 
-    private var sidebarSelection: Binding<SidebarPrimaryDestination?> {
-        Binding(
-            get: {
-                guard highlightsSidebarSelection else { return nil }
-                return SidebarPrimaryDestination.selection(for: selectedSection)
-            },
-            set: { destination in
-                guard let destination else { return }
-                navigate(to: destination.section)
+    private var sidebarBrand: some View {
+        HStack(spacing: 11) {
+            IconTile(
+                systemName: "eraser.fill",
+                tint: Tint.blue,
+                size: 38,
+                corner: 11,
+                glow: true
+            )
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("AppSift")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        colorScheme == .dark ? Color.white : Color.primary
+                    )
+                Text("Offline & private")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.white.opacity(0.62)
+                            : Color.secondary
+                    )
             }
-        )
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
     }
 
     private func sidebarRow(_ destination: SidebarPrimaryDestination) -> some View {
-        return HStack(spacing: 8) {
-            Label {
+        let selected = highlightsSidebarSelection
+            && SidebarPrimaryDestination.selection(for: selectedSection) == destination
+
+        return Button {
+            navigate(to: destination.section)
+        } label: {
+            HStack(spacing: 11) {
+                IconTile(
+                    systemName: destination.systemImage,
+                    tint: destination.tint,
+                    size: 30,
+                    corner: 9,
+                    glow: selected
+                )
+
                 Text(destination.label)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(
+                        colorScheme == .dark
+                            ? Color.white.opacity(selected ? 1 : 0.88)
+                            : Color.primary
+                    )
                     .lineLimit(1)
-            } icon: {
-                Image(systemName: destination.systemImage)
-                    .foregroundStyle(Color(nsColor: .labelColor))
-                    .frame(width: 18)
+                    .layoutPriority(1)
+
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 6)
-            if let badge = sidebarBadge(for: destination) {
-                Text(badge)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 10)
+            .frame(height: 44)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    destination.tint.opacity(
+                                        colorScheme == .dark ? 0.30 : 0.18
+                                    ),
+                                    Tint.purple.opacity(
+                                        colorScheme == .dark ? 0.18 : 0.09
+                                    ),
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .strokeBorder(
+                                    Color.white.opacity(
+                                        colorScheme == .dark ? 0.16 : 0.72
+                                    ),
+                                    lineWidth: 0.75
+                                )
+                        }
+                        .shadow(
+                            color: destination.tint.opacity(
+                                colorScheme == .dark ? 0.22 : 0.10
+                            ),
+                            radius: 12,
+                            y: 5
+                        )
+                }
             }
+            .contentShape(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+            )
         }
+        .buttonStyle(.plain)
+        .listRowInsets(
+            EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)
+        )
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(destination.label))
         .accessibilityValue(
             Text(verbatim: sidebarBadge(for: destination) ?? "")
         )
         .accessibilityIdentifier("main.sidebar.item.\(destination.rawValue)")
-        .tag(destination)
     }
 
     private func navigate(to section: AppSection) {
@@ -221,7 +320,7 @@ struct MainWindow: View {
     private var healthFooter: some View {
         let ok = appState.hasFullDiskAccess
         let tint = ok ? Tint.green : Tint.orange
-        return HStack(spacing: 6) {
+        return HStack(spacing: 7) {
             Button {
                 navigate(to: .systemHealth)
             } label: {
@@ -230,6 +329,11 @@ struct MainWindow: View {
                         .fixedSize()
                     Text(LocalizedStringKey(ok ? "Ready to clean" : "Limited access"))
                         .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(
+                            colorScheme == .dark
+                                ? Color.white.opacity(0.90)
+                                : Color.primary
+                        )
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 4)
@@ -259,9 +363,20 @@ struct MainWindow: View {
                 .fixedSize()
             }
         }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(AppBrand.card(for: colorScheme))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(
+                    AppBrand.cardBorder(for: colorScheme),
+                    lineWidth: 0.75
+                )
+        }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Detail
@@ -304,22 +419,7 @@ struct MainWindow: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Main content")
         .accessibilityIdentifier("main.detail")
-        .background(
-            // Quiet ambient gradient under every section. Static layers,
-            // opacities kept low enough to stay clean in light mode.
-            ZStack {
-                Color(nsColor: .windowBackgroundColor)
-                LinearGradient(
-                    colors: [Tint.blue.opacity(0.05), .clear],
-                    startPoint: .topLeading, endPoint: .center
-                )
-                RadialGradient(
-                    colors: [Tint.purple.opacity(0.03), .clear],
-                    center: .topTrailing, startRadius: 0, endRadius: 600
-                )
-            }
-            .ignoresSafeArea()
-        )
+        .background(AppBackdrop())
     }
 
     @ViewBuilder

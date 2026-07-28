@@ -29,6 +29,53 @@ struct AppTool: Identifiable {
     let systemImage: String
     let tint: Color
     let category: ToolboxCategory
+
+    var summaryKey: String {
+        switch section {
+        case .apps:
+            return "Review installed apps and all related files."
+        case .appUpdates:
+            return "Check supported apps for trusted updates."
+        case .installationFiles:
+            return "Find old DMG, PKG, XIP, and app archives."
+        case .startupItems:
+            return "Review login items, agents, and broken entries."
+        case .extensions:
+            return "Inspect extensions and background components."
+        case .appPermissions:
+            return "Audit declared and granted app permissions."
+        case .browserPrivacy:
+            return "Clear history, downloads, cookies, and caches."
+        case .defaultApplications:
+            return "Review and change default handlers safely."
+        case .removalHistory:
+            return "Restore files moved during previous removals."
+        case .orphans:
+            return "Find leftovers from apps no longer installed."
+        case .spaceLens:
+            return "Explore disk usage with an interactive space map."
+        case .duplicateFiles:
+            return "Find exact copies by verified file content."
+        case .similarImages:
+            return "Group near-duplicate photos and keep the best."
+        case .timeMachine:
+            return "Review local snapshots and reclaim space carefully."
+        case .iosBackups:
+            return "Review local device backups by device and date."
+        case .downloadsBySource:
+            return "Group downloaded files by their source app."
+        case .systemHealth:
+            return "See evidence-based alerts and recommended actions."
+        case .systemMaintenance:
+            return "Run targeted DNS, Spotlight, and Mail repairs."
+        case .systemResidue:
+            return "Inspect old users, preferences, and document versions."
+        case .cleaning(let category):
+            return category.description
+        case .tools:
+            return "Everything you need for apps, storage, privacy, and maintenance."
+        }
+    }
 }
 
 enum AppToolCatalog {
@@ -265,6 +312,7 @@ struct ToolboxView: View {
     @ObservedObject private var alertCenter = SystemAlertCenter.shared
     @AppStorage private var favoriteIDsRaw: String
     @State private var searchText = ""
+    @Environment(\.colorScheme) private var colorScheme
 
     let navigate: (AppSection) -> Void
 
@@ -280,7 +328,7 @@ struct ToolboxView: View {
     }()
 
     private let grid = [
-        GridItem(.adaptive(minimum: 250, maximum: 380), spacing: 12, alignment: .top)
+        GridItem(.adaptive(minimum: 210, maximum: 330), spacing: 16, alignment: .top)
     ]
 
     init(navigate: @escaping (AppSection) -> Void) {
@@ -293,42 +341,101 @@ struct ToolboxView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            LazyVStack(alignment: .leading, spacing: 28) {
+                toolboxHeader
+
                 if hasSearchQuery {
                     searchResults
                 } else {
                     catalogSections
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 28)
+            .padding(.top, 28)
+            .padding(.bottom, 40)
+            .frame(maxWidth: 1120, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .accessibilityIdentifier("toolbox.content")
         .navigationTitle("Tools")
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: Text("Search tools")
-        )
+    }
+
+    private var toolboxHeader: some View {
+        HStack(alignment: .center, spacing: 24) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tools")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .tracking(0.2)
+                Text("Everything you need for apps, storage, privacy, and maintenance.")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            HStack(spacing: 9) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                TextField("Search tools", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13, weight: .medium))
+                    .accessibilityLabel("Search tools")
+                    .accessibilityIdentifier("toolbox.search")
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear Search")
+                }
+            }
+            .padding(.horizontal, 13)
+            .frame(width: 250, height: 40)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppBrand.card(for: colorScheme))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        AppBrand.cardBorder(for: colorScheme),
+                        lineWidth: 0.75
+                    )
+            }
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+        }
     }
 
     @ViewBuilder
     private var searchResults: some View {
         if matchingTools.isEmpty {
-            VStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 34, weight: .medium))
-                    .foregroundStyle(.secondary)
-                Text("No tools found")
-                    .font(.title3.weight(.semibold))
-                Text("Try a different search.")
-                    .foregroundStyle(.secondary)
-                Button("Clear Search") {
-                    searchText = ""
+            CardSurface(padding: 28, accent: Tint.purple, elevation: .standard) {
+                VStack(spacing: 10) {
+                    IconTile(
+                        systemName: "magnifyingglass",
+                        tint: Tint.purple,
+                        size: 44,
+                        corner: 13,
+                        glow: true
+                    )
+                    Text("No tools found")
+                        .font(.title3.weight(.semibold))
+                    Text("Try a different search.")
+                        .foregroundStyle(.secondary)
+                    Button("Clear Search") {
+                        searchText = ""
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.top, 2)
                 }
-                .buttonStyle(.bordered)
-                .padding(.top, 2)
+                .frame(maxWidth: .infinity, minHeight: 250)
             }
-            .frame(maxWidth: .infinity, minHeight: 320)
         } else {
             toolGrid(matchingTools)
         }
@@ -361,11 +468,24 @@ struct ToolboxView: View {
         systemImage: String,
         tools: [AppTool]
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 2)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 9) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tint.cyan)
+                Text(title)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                Text("\(tools.count)")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule().fill(Color.primary.opacity(0.07))
+                    )
+                Spacer()
+            }
+            .padding(.horizontal, 2)
             toolGrid(tools)
         }
     }
@@ -373,7 +493,7 @@ struct ToolboxView: View {
     private func toolGrid(_ tools: [AppTool]) -> some View {
         LazyVGrid(columns: grid, alignment: .leading, spacing: 12) {
             ForEach(tools) { tool in
-                ToolboxToolRow(
+                ToolboxToolCard(
                     tool: tool,
                     badge: badge(for: tool.section),
                     isFavorite: favoriteIDs.contains(tool.id),
@@ -525,7 +645,7 @@ struct ToolboxView: View {
     }
 }
 
-private struct ToolboxToolRow: View {
+private struct ToolboxToolCard: View {
     let tool: AppTool
     let badge: String?
     let isFavorite: Bool
@@ -533,87 +653,116 @@ private struct ToolboxToolRow: View {
     let toggleFavorite: () -> Void
 
     @State private var hovering = false
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button(action: open) {
-                HStack(spacing: 10) {
-                    IconTile(
-                        systemName: tool.systemImage,
-                        tint: tool.tint,
-                        size: 32,
-                        corner: 8
-                    )
-                    .fixedSize()
+        CardSurface(
+            padding: 0,
+            accent: tool.tint,
+            elevation: hovering ? .raised : .standard
+        ) {
+            ZStack(alignment: .topTrailing) {
+                Button(action: open) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        IconTile(
+                            systemName: tool.systemImage,
+                            tint: tool.tint,
+                            size: 44,
+                            corner: 13,
+                            glow: true
+                        )
+                        .padding(.bottom, 14)
 
-                    VStack(alignment: .leading, spacing: 2) {
                         Text(LocalizedStringKey(tool.titleKey))
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                        Text(tool.category.title)
-                            .font(.caption)
+
+                        Text(LocalizedStringKey(tool.summaryKey))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                            .padding(.top, 5)
+
+                        Spacer(minLength: 12)
+
+                        HStack(spacing: 8) {
+                            if let badge {
+                                Text(badge)
+                                    .font(.caption.monospacedDigit().weight(.semibold))
+                                    .foregroundStyle(tool.tint)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+
+                            Spacer()
+
+                            HStack(spacing: 5) {
+                                Text("Open")
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 9, weight: .bold))
+                            }
+                            .foregroundStyle(.primary)
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if let badge {
-                        Text(badge)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.leading, 10)
-                .padding(.vertical, 9)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel(Text(LocalizedStringKey(tool.titleKey)))
-            .accessibilityValue(Text(verbatim: badge ?? ""))
-            .accessibilityIdentifier("toolbox.tool.\(tool.id)")
-
-            Button(action: toggleFavorite) {
-                Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(isFavorite ? Color.accentColor : .secondary)
-                    .frame(width: 34, height: 34)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, minHeight: 178, alignment: .leading)
                     .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(LocalizedStringKey(tool.titleKey)))
+                .accessibilityValue(Text(verbatim: badge ?? ""))
+                .accessibilityIdentifier("toolbox.tool.\(tool.id)")
+
+                Button(action: toggleFavorite) {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(
+                            isFavorite ? Color.yellow : Color.secondary
+                        )
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(
+                                    Color.white.opacity(
+                                        colorScheme == .dark ? 0.08 : 0.52
+                                    )
+                                )
+                        )
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(11)
+                .accessibilityLabel(
+                    Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                )
+                .accessibilityIdentifier("toolbox.favorite.\(tool.id)")
+                .help(
+                    Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                )
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 5)
-            .accessibilityLabel(
-                Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-            )
-            .accessibilityIdentifier("toolbox.favorite.\(tool.id)")
-            .help(
-                Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-            )
         }
-        .frame(minHeight: 52)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
         .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.primary.opacity(hovering ? 0.04 : 0))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    tool.tint.opacity(hovering ? 0.42 : 0),
+                    lineWidth: 1
+                )
                 .allowsHitTesting(false)
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
-                .allowsHitTesting(false)
+        .scaleEffect(reduceMotion ? 1 : (hovering ? 1.012 : 1))
+        .offset(y: hovering && !reduceMotion ? -2 : 0)
+        .animation(
+            reduceMotion ? nil : MotionTokens.snappy,
+            value: hovering
         )
-        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .contentShape(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
         .onHover { hovering = $0 }
     }
 }
