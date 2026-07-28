@@ -47,14 +47,101 @@ final class ThemeManager: ObservableObject {
 /// for warning, one red for destructive. Other tints exist for categorical
 /// differentiation but the surface chrome only uses these four.
 enum Tint {
-    static let blue   = Color(red: 0.04, green: 0.52, blue: 1.00)
-    static let green  = Color(red: 0.18, green: 0.78, blue: 0.47)
+    static let blue   = Color(red: 0.16, green: 0.49, blue: 1.00)
+    static let green  = Color(red: 0.20, green: 0.82, blue: 0.57)
     static let orange = Color(red: 1.00, green: 0.58, blue: 0.04)
-    static let purple = Color(red: 0.55, green: 0.32, blue: 0.87)
-    static let pink   = Color(red: 1.00, green: 0.30, blue: 0.50)
-    static let cyan   = Color(red: 0.30, green: 0.78, blue: 0.95)
+    static let purple = Color(red: 0.53, green: 0.36, blue: 1.00)
+    static let pink   = Color(red: 1.00, green: 0.32, blue: 0.66)
+    static let cyan   = Color(red: 0.20, green: 0.83, blue: 0.96)
     static let red    = Color(red: 1.00, green: 0.27, blue: 0.23)
     static let yellow = Color(red: 1.00, green: 0.78, blue: 0.04)
+}
+
+/// AppSift's visual identity. The palette keeps the blue of the eraser icon,
+/// adds a cool violet for depth, and deliberately avoids the magenta-dominant
+/// CleanMyMac look used as a layout reference.
+enum AppBrand {
+    static let midnight = Color(red: 0.035, green: 0.050, blue: 0.105)
+    static let deepBlue = Color(red: 0.055, green: 0.090, blue: 0.205)
+    static let indigo = Color(red: 0.16, green: 0.19, blue: 0.42)
+
+    static func canvas(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? midnight
+            : Color(red: 0.925, green: 0.945, blue: 0.985)
+    }
+
+    static func sidebar(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.045, green: 0.058, blue: 0.125).opacity(0.94)
+            : Color.white.opacity(0.76)
+    }
+
+    static func card(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.105, green: 0.125, blue: 0.235).opacity(0.86)
+            : Color.white.opacity(0.78)
+    }
+
+    static func cardBorder(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.12)
+            : Color.white.opacity(0.76)
+    }
+}
+
+/// Shared atmospheric window canvas. Static radial light keeps it inexpensive
+/// and safe for Reduce Motion while giving every feature screen one coherent
+/// visual environment.
+struct AppBackdrop: View {
+    var sidebar = false
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            (sidebar
+                ? AppBrand.sidebar(for: colorScheme)
+                : AppBrand.canvas(for: colorScheme))
+
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [
+                        AppBrand.deepBlue.opacity(sidebar ? 0.82 : 0.68),
+                        AppBrand.midnight.opacity(0.90),
+                    ]
+                    : [
+                        Color.white.opacity(sidebar ? 0.74 : 0.28),
+                        Tint.blue.opacity(sidebar ? 0.10 : 0.07),
+                    ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    Tint.purple.opacity(colorScheme == .dark ? 0.28 : 0.10),
+                    .clear,
+                ],
+                center: sidebar ? .bottomLeading : .topTrailing,
+                startRadius: 0,
+                endRadius: sidebar ? 430 : 760
+            )
+
+            if !sidebar {
+                RadialGradient(
+                    colors: [
+                        Tint.cyan.opacity(colorScheme == .dark ? 0.14 : 0.07),
+                        .clear,
+                    ],
+                    center: .bottomLeading,
+                    startRadius: 0,
+                    endRadius: 620
+                )
+            }
+        }
+        .ignoresSafeArea()
+    }
 }
 
 /// Shared animation vocabulary so every surface moves with the same feel.
@@ -70,7 +157,7 @@ enum MotionTokens {
 /// CTAs and focal chrome — secondary surfaces stay flat.
 enum TintGradient {
     static let accent = LinearGradient(
-        colors: [Tint.blue, Tint.purple],
+        colors: [Tint.blue, Tint.purple, Tint.cyan],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
     static let destructive = LinearGradient(
@@ -99,15 +186,32 @@ struct IconTile: View {
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [tint.opacity(glow ? 0.30 : 0.14), tint.opacity(0.14)],
+                        colors: glow
+                            ? [tint.opacity(0.98), tint.opacity(0.64)]
+                            : [tint.opacity(0.20), tint.opacity(0.10)],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                 )
-                .shadow(color: tint.opacity(glow ? 0.45 : 0), radius: glow ? 5 : 0)
+                .overlay {
+                    RoundedRectangle(cornerRadius: corner, style: .continuous)
+                        .strokeBorder(
+                            Color.white.opacity(glow ? 0.28 : 0.10),
+                            lineWidth: 0.75
+                        )
+                }
+                .shadow(
+                    color: tint.opacity(glow ? 0.42 : 0),
+                    radius: glow ? size * 0.28 : 0,
+                    y: glow ? size * 0.10 : 0
+                )
             Image(systemName: systemName)
                 .font(.system(size: size * 0.52, weight: .semibold))
-                .foregroundStyle(tint)
-                .shadow(color: tint.opacity(glow ? 0.5 : 0), radius: glow ? 3 : 0)
+                .foregroundStyle(glow ? Color.white : tint)
+                .shadow(
+                    color: .black.opacity(glow ? 0.22 : 0),
+                    radius: glow ? 1.5 : 0,
+                    y: glow ? 1 : 0
+                )
         }
         .frame(width: size, height: size)
         .animation(reduceMotion ? nil : MotionTokens.snappy, value: glow)
@@ -126,6 +230,7 @@ struct CardSurface<Content: View>: View {
     var elevation: CardElevation = .standard
     var material: Material? = nil
     @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         content
@@ -133,22 +238,59 @@ struct CardSurface<Content: View>: View {
             .background(
                 ZStack {
                     if let material {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(material)
                     } else {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(nsColor: .controlBackgroundColor))
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(AppBrand.card(for: colorScheme))
+                    }
+
+                    if let accent {
+                        RadialGradient(
+                            colors: [accent.opacity(0.16), .clear],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 240
+                        )
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        )
                     }
                 }
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(
-                        material != nil ? Color.white.opacity(0.14) : Color.primary.opacity(0.07),
-                        lineWidth: material != nil ? 1 : 0.5
+                        material != nil
+                            ? Color.white.opacity(colorScheme == .dark ? 0.16 : 0.58)
+                            : AppBrand.cardBorder(for: colorScheme),
+                        lineWidth: 1
                     )
             )
-            .shadow(color: .black.opacity(elevation.ambient), radius: elevation.ambientRadius, y: elevation.ambientY)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(
+                                    colorScheme == .dark ? 0.13 : 0.62
+                                ),
+                                .clear,
+                                Color.black.opacity(
+                                    colorScheme == .dark ? 0.16 : 0.04
+                                ),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.75
+                    )
+            }
+            .shadow(
+                color: .black.opacity(elevation.ambient),
+                radius: elevation.ambientRadius,
+                y: elevation.ambientY
+            )
     }
 }
 
@@ -158,24 +300,24 @@ enum CardElevation {
     var ambient: Double {
         switch self {
         case .flat: return 0.0
-        case .standard: return 0.04
-        case .raised: return 0.07
+        case .standard: return 0.10
+        case .raised: return 0.18
         }
     }
 
     var ambientRadius: CGFloat {
         switch self {
         case .flat: return 0
-        case .standard: return 4
-        case .raised: return 10
+        case .standard: return 10
+        case .raised: return 22
         }
     }
 
     var ambientY: CGFloat {
         switch self {
         case .flat: return 0
-        case .standard: return 1
-        case .raised: return 3
+        case .standard: return 4
+        case .raised: return 10
         }
     }
 }

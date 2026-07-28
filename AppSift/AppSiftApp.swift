@@ -354,8 +354,8 @@ struct AppSiftApp: App {
             // scene graph and can't use openWindow itself).
             .background(WindowOpenerCapture())
         }
-        .windowStyle(.automatic)
-        .windowToolbarStyle(.unified)
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unifiedCompact)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 680)
         .commands {

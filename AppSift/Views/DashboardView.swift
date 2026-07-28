@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Product overview with storage health, smart-clean progress, and direct
@@ -16,13 +17,9 @@ struct DashboardView: View {
     @State private var burstOrigin: UnitPoint = UnitPoint(x: 0.25, y: 0.28)
     @State private var dashboardSize: CGSize = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     private let dashboardSpace = "dashboard"
     private let compactDashboardWidth: CGFloat = 800
-    private var highContrastTextColor: Color {
-        colorScheme == .dark ? .white : .black
-    }
 
     init(onNavigate: @escaping (AppSection) -> Void = { _ in }) {
         self.onNavigate = onNavigate
@@ -43,16 +40,12 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            // Quiet tinted wash so the glass hero states have color to
-            // refract. Static — no Reduce Motion concerns.
-            LinearGradient(
-                colors: [Tint.blue.opacity(0.08), Tint.purple.opacity(0.05), .clear],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color.clear
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    dashboardHeader
+
                     switch appState.scanState {
                     case .idle:
                         hero
@@ -97,7 +90,7 @@ struct DashboardView: View {
                 }
                 .padding(.horizontal, 28)
                 .padding(.vertical, 24)
-                .frame(maxWidth: 920, alignment: .leading)
+                .frame(maxWidth: 1080, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .animation(reduceMotion ? nil : MotionTokens.gentle, value: appState.scanState)
             }
@@ -170,6 +163,18 @@ struct DashboardView: View {
         )
     }
 
+    private var dashboardHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Smart Scan")
+                .font(.system(size: 38, weight: .bold, design: .rounded))
+                .tracking(0.2)
+            Text("See what matters, review every result, and reclaim space safely.")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 2)
+    }
+
     // MARK: - Hero (idle)
 
     private var hero: some View {
@@ -182,63 +187,150 @@ struct DashboardView: View {
         // card, so the hero stacks vertically and the ring shrinks.
         let compact = dashboardSize.width > 0
             && dashboardSize.width < compactDashboardWidth
-        let ringSize: CGFloat = compact ? 132 : 180
+        let artworkSize: CGFloat = compact ? 150 : 220
+        let heroTint = stress ? Tint.orange : Tint.blue
 
-        return CardSurface(padding: 24, accent: stress ? Tint.orange : Tint.blue, elevation: .raised) {
-            AdaptiveStack(compact: compact, spacing: compact ? 18 : 28) {
-                ZStack {
-                    // Slow atmospheric drift behind the ring — barely-there
-                    // ambient depth, frozen under Reduce Motion.
-                    HeroDrift(tint: stress ? Tint.orange : Tint.blue)
-                    HealthRing(percent: percentUsed, warnTint: highContrastTextColor)
-                        .frame(width: ringSize, height: ringSize)
-                }
+        return AdaptiveStack(compact: compact, spacing: compact ? 20 : 34) {
+            AppSiftHeroArtwork(size: artworkSize, tint: heroTint)
+                .frame(maxWidth: compact ? .infinity : artworkSize + 28)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 8) {
-                                Text("Storage")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(highContrastTextColor)
-                                    .textCase(.uppercase)
-                                    .tracking(0.6)
-                                    .accessibilityIdentifier(
-                                        "dashboard.hero.storage-label"
-                                    )
-                                if stress {
-                                    StatusChip(label: String(localized: "Low space"),
-                                               systemImage: "exclamationmark.triangle.fill",
-                                               tint: Tint.orange,
-                                               foreground: highContrastTextColor)
-                                        .fixedSize(horizontal: true, vertical: false)
-                                }
-                            }
-                            CountUpBytes(bytes: free)
-                                .font(.system(size: 34, weight: .semibold))
-                                .foregroundStyle(highContrastTextColor)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 8) {
+                            Text("Storage")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.82))
+                                .textCase(.uppercase)
+                                .tracking(0.9)
                                 .accessibilityIdentifier(
-                                    "dashboard.hero.free-value"
+                                    "dashboard.hero.storage-label"
                                 )
-                            Text(freeOfText(total: total))
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(highContrastTextColor)
-                                .accessibilityIdentifier("dashboard.hero.free-total")
+                            if stress {
+                                StatusChip(
+                                    label: String(localized: "Low space"),
+                                    systemImage: "exclamationmark.triangle.fill",
+                                    tint: Tint.orange,
+                                    foreground: .white
+                                )
+                                .fixedSize(horizontal: true, vertical: false)
+                            }
                         }
-                        Spacer()
-                        Button {
-                            appState.startSmartScan()
-                        } label: {
-                            Label("Smart Scan", systemImage: "sparkles")
-                                .padding(.horizontal, 4)
-                        }
-                        .buttonStyle(GlowProminentButtonStyle(breathes: true))
+
+                        CountUpBytes(bytes: free)
+                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .accessibilityIdentifier(
+                                "dashboard.hero.free-value"
+                            )
+                        Text(freeOfText(total: total))
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.74))
+                            .accessibilityIdentifier(
+                                "dashboard.hero.free-total"
+                            )
                     }
 
-                    storageBreakdown(used: used, total: total)
+                    Spacer(minLength: 0)
+
+                    Button {
+                        appState.startSmartScan()
+                    } label: {
+                        Label("Smart Scan", systemImage: "sparkles")
+                            .padding(.horizontal, 5)
+                    }
+                    .buttonStyle(
+                        GlowProminentButtonStyle(
+                            tint: heroTint,
+                            breathes: true
+                        )
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                storageBreakdown(used: used, total: total)
+
+                HStack(spacing: compact ? 14 : 20) {
+                    heroCapability(
+                        title: "Storage",
+                        systemImage: "internaldrive.fill",
+                        tint: Tint.cyan
+                    )
+                    heroCapability(
+                        title: "Installed Apps",
+                        systemImage: "square.grid.2x2.fill",
+                        tint: Tint.purple
+                    )
+                    heroCapability(
+                        title: "System Health",
+                        systemImage: "waveform.path.ecg",
+                        tint: Tint.green
+                    )
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(compact ? 22 : 28)
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AppBrand.indigo,
+                            AppBrand.deepBlue,
+                            AppBrand.midnight,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay {
+                    RadialGradient(
+                        colors: [
+                            heroTint.opacity(0.30),
+                            Tint.purple.opacity(0.12),
+                            .clear,
+                        ],
+                        center: .topLeading,
+                        startRadius: 0,
+                        endRadius: 520
+                    )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    )
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.24),
+                            Color.white.opacity(0.06),
+                            heroTint.opacity(0.24),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.24), radius: 26, y: 14)
+        .shadow(color: heroTint.opacity(0.14), radius: 32, y: 8)
+    }
+
+    private func heroCapability(
+        title: LocalizedStringKey,
+        systemImage: String,
+        tint: Color
+    ) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(title)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(1)
         }
     }
 
@@ -257,7 +349,7 @@ struct DashboardView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(Color.white.opacity(0.10))
                     HStack(spacing: 0) {
                         Capsule()
                             .fill(LinearGradient(colors: [Tint.blue, Tint.purple], startPoint: .leading, endPoint: .trailing))
@@ -279,22 +371,23 @@ struct DashboardView: View {
                     color: Tint.blue,
                     label: "Used",
                     value: ByteCountFormatter.string(fromByteCount: used, countStyle: .file),
-                    identifier: "used"
+                    identifier: "used",
+                    foreground: .white
                 )
                 if appState.totalJunkSize > 0 {
                     LegendDot(color: Tint.orange, label: "Junk",
                               value: ByteCountFormatter.string(fromByteCount: appState.totalJunkSize, countStyle: .file),
-                              identifier: "junk")
+                              identifier: "junk", foreground: .white)
                 }
                 if appState.diskInfo.purgeableSpace > 0 {
                     LegendDot(color: Tint.green, label: "Purgeable",
                               value: ByteCountFormatter.string(fromByteCount: appState.diskInfo.purgeableSpace, countStyle: .file),
-                              identifier: "purgeable")
+                              identifier: "purgeable", foreground: .white)
                 }
                 Spacer()
                 Text(percentUsedText(usedPct))
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(highContrastTextColor)
+                    .foregroundStyle(.white)
                     .monospacedDigit()
                     .accessibilityIdentifier("dashboard.storage.percent")
             }
@@ -922,12 +1015,116 @@ struct DashboardView: View {
 
     private func sectionHeader(_ text: LocalizedStringKey) -> some View {
         Text(text)
-            .font(.system(size: 16, weight: .bold))
-            .padding(.top, 4)
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .tracking(0.1)
+            .padding(.top, 6)
     }
 }
 
 // MARK: - Components
+
+private struct AppSiftHeroArtwork: View {
+    let size: CGFloat
+    let tint: Color
+
+    private static let applicationIcon: NSImage = {
+        let appBundle = Bundle(for: AppDelegate.self)
+        if let path = appBundle.path(forResource: "AppIcon", ofType: "icns"),
+           let image = NSImage(contentsOfFile: path) {
+            return image
+        }
+        return NSApp.applicationIconImage
+    }()
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [tint.opacity(0.42), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size * 0.58
+                    )
+                )
+                .frame(width: size * 1.12, height: size * 1.12)
+                .blur(radius: size * 0.06)
+
+            Circle()
+                .stroke(
+                    AngularGradient(
+                        colors: [
+                            Tint.cyan.opacity(0.76),
+                            Tint.blue.opacity(0.10),
+                            Tint.purple.opacity(0.58),
+                            Tint.cyan.opacity(0.76),
+                        ],
+                        center: .center
+                    ),
+                    lineWidth: 1.5
+                )
+                .frame(width: size * 0.92, height: size * 0.92)
+                .opacity(0.72)
+
+            Image(nsImage: Self.applicationIcon)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size * 0.76, height: size * 0.76)
+                .rotationEffect(.degrees(-5))
+                .rotation3DEffect(
+                    .degrees(7),
+                    axis: (x: 1, y: -0.35, z: 0)
+                )
+                .shadow(color: .black.opacity(0.34), radius: 18, y: 12)
+                .shadow(color: tint.opacity(0.34), radius: 22, y: 4)
+
+            floatingParticle(
+                color: Tint.cyan,
+                size: size * 0.075,
+                x: -size * 0.39,
+                y: -size * 0.22
+            )
+            floatingParticle(
+                color: Tint.purple,
+                size: size * 0.10,
+                x: size * 0.41,
+                y: size * 0.16
+            )
+            floatingParticle(
+                color: Tint.orange,
+                size: size * 0.055,
+                x: -size * 0.30,
+                y: size * 0.37
+            )
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    private func floatingParticle(
+        color: Color,
+        size: CGFloat,
+        x: CGFloat,
+        y: CGFloat
+    ) -> some View {
+        RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [color, color.opacity(0.58)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.34), lineWidth: 0.75)
+            }
+            .frame(width: size, height: size)
+            .offset(x: x, y: y)
+            .shadow(color: color.opacity(0.40), radius: size * 0.55, y: 3)
+    }
+}
 
 private struct DashboardToolSummary: Identifiable {
     var id: AppSection { section }
@@ -1105,6 +1302,7 @@ private struct LegendDot: View {
     let label: LocalizedStringKey
     let value: String
     let identifier: String
+    var foreground: Color? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     private var highContrastTextColor: Color {
@@ -1120,11 +1318,11 @@ private struct LegendDot: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(highContrastTextColor)
+                    .foregroundStyle(foreground ?? highContrastTextColor)
                     .accessibilityIdentifier("dashboard.storage.legend.\(identifier).label")
                 Text(value)
                     .font(.system(size: 13.5, weight: .bold))
-                    .foregroundStyle(highContrastTextColor)
+                    .foregroundStyle(foreground ?? highContrastTextColor)
                     .monospacedDigit()
                     .accessibilityIdentifier("dashboard.storage.legend.\(identifier).value")
             }
@@ -1154,31 +1352,6 @@ private struct HoverableLegendChip: View {
                 hovering = h
                 onHoverChange(h)
             }
-    }
-}
-
-/// Barely-there radial wash that drifts behind the idle hero ring. Static at
-/// rest size under Reduce Motion.
-private struct HeroDrift: View {
-    let tint: Color
-
-    @State private var drift = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        RadialGradient(
-            colors: [tint.opacity(0.16), .clear],
-            center: .center, startRadius: 10, endRadius: 130
-        )
-        .blur(radius: 24)
-        .scaleEffect(drift ? 1.12 : 0.96)
-        .offset(x: drift ? 8 : -8)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                drift = true
-            }
-        }
     }
 }
 

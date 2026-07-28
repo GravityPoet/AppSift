@@ -79,10 +79,12 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         XCTAssertTrue(toolsRow.isHittable)
         toolsRow.click()
 
-        let search = app.searchFields["Search tools"].firstMatch
+        let search = app.descendants(matching: .any)
+            .matching(identifier: "toolbox.search")
+            .firstMatch
         XCTAssertTrue(
             search.waitForExistence(timeout: 3),
-            "The tool catalog must expose a native searchable field."
+            "The tool catalog must expose an accessible search field."
         )
         search.click()
         search.typeText("Duplicate Files")
