@@ -328,16 +328,25 @@ struct StatusChip: View {
     var systemImage: String? = nil
     var tint: Color = Tint.blue
     var foreground: Color? = nil
+    var textAccessibilityIdentifier: String? = nil
 
     var body: some View {
         HStack(spacing: 4) {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: 9, weight: .bold))
+                    .accessibilityHidden(true)
             }
-            Text(label)
-                .font(.system(size: 11, weight: .semibold))
-                .monospacedDigit()
+            if let textAccessibilityIdentifier {
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .monospacedDigit()
+                    .accessibilityIdentifier(textAccessibilityIdentifier)
+            } else {
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .monospacedDigit()
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
