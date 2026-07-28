@@ -396,10 +396,13 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "dashboard.hero.capability.square.grid.2x2.fill.label": 22,
             "dashboard.hero.capability.waveform.path.ecg.label": 22,
             "dashboard.storage.legend.used.label": 22,
+            "dashboard.storage.legend.used.value": 22,
             "dashboard.storage.percent": 22,
             "dashboard.stat.internaldrive.fill.label": 22,
+            "dashboard.stat.internaldrive.fill.value": 30,
             "dashboard.stat.internaldrive.fill.delta": 22,
             "dashboard.stat.trash.circle.fill.label": 22,
+            "dashboard.stat.trash.circle.fill.value": 30,
             "dashboard.stat.trash.circle.fill.delta": 22,
             "dashboard.stat.square.grid.2x2.fill.label": 22,
             "dashboard.stat.memorychip.fill.label": 22,
@@ -483,9 +486,37 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         let appsLabel = app.descendants(matching: .any)
             .matching(identifier: "dashboard.stat.square.grid.2x2.fill.label")
             .firstMatch
+        let mainDetail = app.descendants(matching: .any)
+            .matching(identifier: "main.detail")
+            .firstMatch
+        guard mainDetail.waitForExistence(timeout: 5) else {
+            XCTFail(
+                "The dashboard's main content must expose its scroll container.",
+                file: file,
+                line: line
+            )
+            return
+        }
+        let dashboardScrollView: XCUIElement
+        if mainDetail.elementType == .scrollView {
+            dashboardScrollView = mainDetail
+        } else {
+            let descendantScrollView = mainDetail
+                .descendants(matching: .scrollView)
+                .firstMatch
+            guard descendantScrollView.waitForExistence(timeout: 3) else {
+                XCTFail(
+                    "The dashboard's main content must contain a scroll view.",
+                    file: file,
+                    line: line
+                )
+                return
+            }
+            dashboardScrollView = descendantScrollView
+        }
 
         for _ in 0..<3 where !appsLabel.isHittable {
-            app.windows.firstMatch.swipeUp()
+            dashboardScrollView.swipeUp()
         }
 
         XCTAssertTrue(
