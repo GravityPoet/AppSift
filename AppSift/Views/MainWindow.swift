@@ -195,6 +195,7 @@ struct MainWindow: View {
                 corner: 11,
                 glow: true
             )
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("AppSift")
@@ -204,11 +205,8 @@ struct MainWindow: View {
                     )
                 Text("Offline & private")
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(
-                        colorScheme == .dark
-                            ? Color.white.opacity(0.62)
-                            : Color.secondary
-                    )
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                    .accessibilityIdentifier("main.brand.subtitle")
             }
             Spacer(minLength: 0)
         }

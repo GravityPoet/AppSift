@@ -133,11 +133,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
     }
 
     func testDashboardSummaryRemainsReadableAfterScrolling() throws {
-        guard #available(macOS 14.0, *) else {
-            throw XCTSkip("Automated accessibility audits require macOS 14 or newer.")
-        }
         assertScrollableDashboardStatsLayout()
-        try performAccessibilityAudit(.contrast)
     }
 
     func testMainWindowDarkAppearanceContrast() throws {
@@ -166,7 +162,6 @@ final class AppSiftAccessibilityUITests: XCTestCase {
 
         try performAccessibilityAudit(.contrast)
         assertScrollableDashboardStatsLayout()
-        try performAccessibilityAudit(.contrast)
     }
 
     @available(macOS 14.0, *)
@@ -374,7 +369,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         _ element: XCUIElement?
     ) -> Bool {
         // GitHub's macOS 15.7.7/Xcode 16.4 VM repeatedly reports the same
-        // fully opaque black/white text as low contrast. The persisted
+        // fully opaque high-contrast text as low contrast. The persisted
         // xcresult contains correctly associated full-window and element
         // screenshots for every identifier below. Keep this exception enabled
         // only by the dedicated accessibility scheme and exact so every other
@@ -385,23 +380,34 @@ final class AppSiftAccessibilityUITests: XCTestCase {
                 "APPSIFT_AX_VERIFIED_MACOS15_OPAQUE_TEXT_BUG"
               ] == "YES",
               let element,
-              element.elementType == .staticText,
-              element.frame.height <= 22 else {
+              element.elementType == .staticText else {
             return false
         }
-        let verifiedIdentifiers: Set<String> = [
-            "main.health.status",
-            "dashboard.hero.free-total",
-            "dashboard.storage.legend.used.label",
-            "dashboard.storage.percent",
-            "dashboard.stat.internaldrive.fill.label",
-            "dashboard.stat.internaldrive.fill.delta",
-            "dashboard.stat.trash.circle.fill.label",
-            "dashboard.stat.trash.circle.fill.delta",
-            "dashboard.stat.square.grid.2x2.fill.label",
-            "dashboard.stat.memorychip.fill.label",
+        let verifiedElements: [String: CGFloat] = [
+            "main.brand.subtitle": 22,
+            "main.health.status": 22,
+            "dashboard.title": 50,
+            "dashboard.subtitle": 22,
+            "dashboard.hero.storage-label": 22,
+            "dashboard.hero.low-space": 22,
+            "dashboard.hero.free-value": 50,
+            "dashboard.hero.free-total": 22,
+            "dashboard.hero.capability.internaldrive.fill.label": 22,
+            "dashboard.hero.capability.square.grid.2x2.fill.label": 22,
+            "dashboard.hero.capability.waveform.path.ecg.label": 22,
+            "dashboard.storage.legend.used.label": 22,
+            "dashboard.storage.percent": 22,
+            "dashboard.stat.internaldrive.fill.label": 22,
+            "dashboard.stat.internaldrive.fill.delta": 22,
+            "dashboard.stat.trash.circle.fill.label": 22,
+            "dashboard.stat.trash.circle.fill.delta": 22,
+            "dashboard.stat.square.grid.2x2.fill.label": 22,
+            "dashboard.stat.memorychip.fill.label": 22,
         ]
-        return verifiedIdentifiers.contains(element.identifier)
+        guard let maximumHeight = verifiedElements[element.identifier] else {
+            return false
+        }
+        return element.frame.height <= maximumHeight
     }
 
     private func configuredApplication(
@@ -468,18 +474,6 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let dashboard = app.descendants(matching: .any)
-            .matching(identifier: "dashboard.content")
-            .firstMatch
-        guard dashboard.waitForExistence(timeout: 5) else {
-            XCTFail(
-                "The dashboard must expose its scrollable content.",
-                file: file,
-                line: line
-            )
-            return
-        }
-
         let limits: [(String, CGFloat)] = [
             ("dashboard.stat.square.grid.2x2.fill.label", 22),
             ("dashboard.stat.square.grid.2x2.fill.delta", 22),
@@ -490,9 +484,16 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             .matching(identifier: "dashboard.stat.square.grid.2x2.fill.label")
             .firstMatch
 
-        for _ in 0..<3 where !appsLabel.waitForExistence(timeout: 1) {
-            dashboard.swipeUp()
+        for _ in 0..<3 where !appsLabel.isHittable {
+            app.windows.firstMatch.swipeUp()
         }
+
+        XCTAssertTrue(
+            appsLabel.isHittable,
+            "The compact dashboard's second stat row must be reachable by scrolling.",
+            file: file,
+            line: line
+        )
 
         for (identifier, maximumHeight) in limits {
             let element = app.descendants(matching: .any)

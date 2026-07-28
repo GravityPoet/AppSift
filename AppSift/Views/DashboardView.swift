@@ -94,7 +94,6 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .animation(reduceMotion ? nil : MotionTokens.gentle, value: appState.scanState)
             }
-            .accessibilityIdentifier("dashboard.content")
 
             // Celebratory burst when a clean cycle finishes with something
             // freed. Origin tracks the SuccessMedal's real frame (see
@@ -169,9 +168,11 @@ struct DashboardView: View {
             Text("Smart Scan")
                 .font(.system(size: 38, weight: .bold, design: .rounded))
                 .tracking(0.2)
+                .accessibilityIdentifier("dashboard.title")
             Text("See what matters, review every result, and reclaim space safely.")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .accessibilityIdentifier("dashboard.subtitle")
         }
         .padding(.bottom, 2)
     }
@@ -201,7 +202,7 @@ struct DashboardView: View {
                         HStack(spacing: 8) {
                             Text("Storage")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.82))
+                                .foregroundStyle(.white)
                                 .textCase(.uppercase)
                                 .tracking(0.9)
                                 .accessibilityIdentifier(
@@ -212,7 +213,8 @@ struct DashboardView: View {
                                     label: String(localized: "Low space"),
                                     systemImage: "exclamationmark.triangle.fill",
                                     tint: Tint.orange,
-                                    foreground: .white
+                                    foreground: .white,
+                                    textAccessibilityIdentifier: "dashboard.hero.low-space"
                                 )
                                 .fixedSize(horizontal: true, vertical: false)
                             }
@@ -226,7 +228,7 @@ struct DashboardView: View {
                             )
                         Text(freeOfText(total: total))
                             .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.74))
+                            .foregroundStyle(.white)
                             .accessibilityIdentifier(
                                 "dashboard.hero.free-total"
                             )
@@ -324,15 +326,19 @@ struct DashboardView: View {
         systemImage: String,
         tint: Color
     ) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(tint)
+        Label {
             Text(title)
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.78))
-                .lineLimit(1)
+                .foregroundStyle(.white)
+                .accessibilityIdentifier(
+                    "dashboard.hero.capability.\(systemImage).label"
+                )
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
         }
+        .font(.system(size: 10.5, weight: .semibold))
+        .lineLimit(1)
     }
 
     private func freeOfText(total: Int64) -> String {
@@ -405,22 +411,16 @@ struct DashboardView: View {
         let free = appState.diskInfo.freeSpace
         let total = appState.diskInfo.totalSpace
         let percentUsed = total > 0 ? Double(total - free) / Double(total) : 0
-
-        // Four across when there's room, two when the dashboard is narrow so the
-        // cards don't crush their values.
-        let columnCount = dashboardSize.width > 0
-            && dashboardSize.width < compactDashboardWidth ? 2 : 4
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columnCount), spacing: 12) {
-            StatCard(
+        let summaries = [
+            DashboardStatSummary(
                 icon: "internaldrive.fill",
                 tint: Tint.blue,
                 label: "Free Space",
                 value: ByteCountFormatter.string(fromByteCount: free, countStyle: .file),
                 delta: total > 0 ? freeSpaceDelta(total: total, percentUsed: percentUsed) : nil,
                 byteValue: free
-            )
-            .staggered(0)
-            StatCard(
+            ),
+            DashboardStatSummary(
                 icon: "trash.circle.fill",
                 tint: Tint.orange,
                 label: "Junk Found",
@@ -432,17 +432,15 @@ struct DashboardView: View {
                     ? String(localized: "Run a scan")
                     : junkFoundDelta(count: appState.allResults.count),
                 byteValue: appState.totalJunkSize
-            )
-            .staggered(1)
-            StatCard(
+            ),
+            DashboardStatSummary(
                 icon: "square.grid.2x2.fill",
                 tint: Tint.purple,
                 label: "Apps",
                 value: "\(appState.installedApps.count)",
                 delta: String(localized: "installed")
-            )
-            .staggered(2)
-            StatCard(
+            ),
+            DashboardStatSummary(
                 icon: "memorychip.fill",
                 tint: Tint.green,
                 label: "Purgeable",
@@ -452,12 +450,52 @@ struct DashboardView: View {
                 ),
                 delta: String(localized: "Managed by macOS"),
                 byteValue: appState.diskInfo.purgeableSpace
-            )
-            .staggered(3)
+            ),
+        ]
+
+        // Four across when there's room, two when the dashboard is narrow so the
+        // cards don't crush their values.
+        let compact = dashboardSize.width > 0
+            && dashboardSize.width < compactDashboardWidth
+        return Group {
+            if compact {
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        statCard(summaries[0], index: 0)
+                        statCard(summaries[1], index: 1)
+                    }
+                    HStack(spacing: 12) {
+                        statCard(summaries[2], index: 2)
+                        statCard(summaries[3], index: 3)
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    ForEach(Array(summaries.enumerated()), id: \.element.id) { index, summary in
+                        statCard(summary, index: index)
+                    }
+                }
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Storage summary")
         .accessibilityIdentifier("dashboard.storage-summary")
+    }
+
+    private func statCard(
+        _ summary: DashboardStatSummary,
+        index: Int
+    ) -> some View {
+        StatCard(
+            icon: summary.icon,
+            tint: summary.tint,
+            label: summary.label,
+            value: summary.value,
+            delta: summary.delta,
+            byteValue: summary.byteValue
+        )
+        .frame(maxWidth: .infinity)
+        .staggered(index)
     }
 
     private func freeSpaceDelta(total: Int64, percentUsed: Double) -> String {
@@ -1183,6 +1221,16 @@ private struct DashboardToolCard: View {
     }
 }
 
+private struct DashboardStatSummary: Identifiable {
+    var id: String { icon }
+    let icon: String
+    let tint: Color
+    let label: LocalizedStringKey
+    let value: String
+    let delta: String?
+    var byteValue: Int64? = nil
+}
+
 private struct StatCard: View {
     let icon: String
     let tint: Color
@@ -1232,6 +1280,7 @@ private struct StatCard: View {
                         .accessibilityIdentifier("dashboard.stat.\(icon).delta")
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .hoverLift(hoverScale: 1.02, lift: true)
     }
