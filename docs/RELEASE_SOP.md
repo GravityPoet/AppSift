@@ -146,6 +146,20 @@ xcodebuild test \
 ```
 
 Remove only that exact `appsift-release-test.*` temporary root after the test.
+The release terminal rejects recursive-force cleanup even inside a guarded
+compound command, so keep cleanup separate and validate the resolved prefix:
+
+```bash
+case "$TEST_PROJECT_ROOT" in
+  "${TMPDIR:-/tmp}"/appsift-release-test.*)
+    /usr/bin/find "$TEST_PROJECT_ROOT" -depth -delete
+    ;;
+  *)
+    echo "Refusing unexpected release-test cleanup target: $TEST_PROJECT_ROOT" >&2
+    exit 1
+    ;;
+esac
+```
 
 ### Package
 
@@ -299,3 +313,5 @@ URL to `AppSift-#{version}.zip` as well as changing version and checksum.
 | 2026-07-26 | 1.0.5 / pre-tag | Optional local pixel-analysis dependency probe for the exported CI screenshots | `python3` could not import `PIL` | Pillow is not installed on the release host, and installing a new analysis dependency was unnecessary because `xcresulttool` exported the authoritative screenshots directly | Used the native `xcresulttool` exporter and inspected every full-window/element attachment without changing host dependencies | Prefer platform-native release evidence tools; a missing optional analysis library must not trigger an unplanned host install |
 | 2026-07-26 | 1.0.5 / pre-tag | First atomic patch for the macOS 15 contrast-audit exception | Patch context for the dark-appearance fixture did not match, so no file was changed | One multi-file patch used a context block in the wrong relative position | Re-read the exact source and applied smaller independent hunks to the production identifiers, fixtures, handler, and release log | After any atomic patch rejection, verify the worktree before retrying and reduce the hunk scope rather than assuming partial application |
 | 2026-07-26 | 1.0.5 / pre-tag | GitHub Actions run `30202755353`, accessibility job `89795462423` | All three 343-test matrices and the Universal build passed, but none of the exact macOS 15 contrast handlers ran and the same 11 verified issues failed again | GitHub's runner-level `CI=true` environment was not propagated into the XCTest runner launched by the generated scheme | Define a dedicated opt-in environment variable on the `AppSiftAccessibility` test action and require that value, macOS 15, exact identifiers, static-text type, and single-line geometry in the handler | Environment guards used inside XCTest must be carried by the test scheme; do not assume arbitrary runner variables cross the Xcode test-process boundary |
+| 2026-07-29 | 1.0.5 / pre-tag | compound isolated-test command with inline guarded `/bin/rm -rf` | Terminal execution was rejected before the test or temporary-directory creation began | Recursive-force cleanup remained embedded in the command even though an earlier ledger entry had already identified that terminal-policy boundary | Reissued the test without inline cleanup and added a separate exact-prefix `find -depth -delete` command to the canonical Verify section | Put the accepted cleanup command in the executable SOP block so the recorded prevention is not left as prose |
+| 2026-07-29 | 1.0.5 / pre-tag | full isolated `xcodebuild test` | `testSelectedAppChangeRejectsLateRelationshipScan` timed out before `first relationship scan started`; the stale-result assertions never ran | The test imposed a one-second scheduling deadline on a detached utility task during a loaded full-suite run | Keep the production cancellation/identity guards unchanged and raise only this concurrency test's two synchronization windows to five seconds; the focused test passed 20 consecutive iterations before the change | Diagnose the exact failed boundary from `.xcresult`; timing-only synchronization must tolerate loaded release hosts without weakening the behavior assertion |

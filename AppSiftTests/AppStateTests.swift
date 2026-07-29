@@ -425,11 +425,11 @@ final class AppStateTests: XCTestCase {
         )
 
         appState.scanForAppFiles(first)
-        await fulfillment(of: [firstStarted], timeout: 1)
+        await fulfillment(of: [firstStarted], timeout: 5)
         appState.scanForAppFiles(second)
         releaseFirst.signal()
 
-        try await waitUntil {
+        try await waitUntil(timeout: 5) {
             appState.selectedAppRelationships?.selectedApplicationID == second.id
         }
         XCTAssertEqual(appState.selectedApp?.id, second.id)
