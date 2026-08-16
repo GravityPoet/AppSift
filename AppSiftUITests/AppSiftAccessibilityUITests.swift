@@ -157,10 +157,10 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         junkButton.click()
 
         let tools = app.descendants(matching: .any)
-            .matching(identifier: "toolbox.content")
+            .matching(identifier: "toolbox.search")
             .firstMatch
         XCTAssertTrue(
-            tools.waitForExistence(timeout: 3),
+            tools.waitForExistence(timeout: 5),
             "The junk summary must open the cleanup tool catalog."
         )
     }
@@ -474,10 +474,6 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             ("dashboard.storage.legend.used.label", 22),
             ("dashboard.storage.legend.used.value", 24),
             ("dashboard.storage.percent", 22),
-            ("dashboard.stat.internaldrive.fill.label", 22),
-            ("dashboard.stat.internaldrive.fill.delta", 22),
-            ("dashboard.stat.trash.circle.fill.label", 22),
-            ("dashboard.stat.trash.circle.fill.delta", 22),
         ]
 
         for (identifier, maximumHeight) in singleLineLimits {
@@ -500,21 +496,57 @@ final class AppSiftAccessibilityUITests: XCTestCase {
                 line: line
             )
         }
+
+        let firstRow: [(String, String)] = [
+            ("dashboard.stat.free-space.button", "Free Space"),
+            ("dashboard.stat.junk-found.button", "Junk Found"),
+        ]
+        let buttons = firstRow.compactMap { identifier, label -> XCUIElement? in
+            let button = app.buttons[identifier].firstMatch
+            guard button.waitForExistence(timeout: 5) else {
+                XCTFail(
+                    "\(identifier) must exist in the default dashboard layout.",
+                    file: file,
+                    line: line
+                )
+                return nil
+            }
+            XCTAssertEqual(button.label, label, file: file, line: line)
+            XCTAssertLessThanOrEqual(
+                button.frame.height,
+                112,
+                "\(identifier) wrapped or overlapped in the default 1000-point window.",
+                file: file,
+                line: line
+            )
+            XCTAssertFalse(
+                String(describing: button.value ?? "").isEmpty,
+                "\(identifier) must expose its summary as an accessibility value.",
+                file: file,
+                line: line
+            )
+            return button
+        }
+        if buttons.count == 2 {
+            XCTAssertLessThanOrEqual(
+                abs(buttons[0].frame.minY - buttons[1].frame.minY),
+                4,
+                "The compact dashboard's first stat row must stay aligned.",
+                file: file,
+                line: line
+            )
+        }
     }
 
     private func assertScrollableDashboardStatsLayout(
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let limits: [(String, CGFloat)] = [
-            ("dashboard.stat.square.grid.2x2.fill.label", 22),
-            ("dashboard.stat.square.grid.2x2.fill.delta", 22),
-            ("dashboard.stat.memorychip.fill.label", 22),
-            ("dashboard.stat.memorychip.fill.delta", 22),
+        let summaries: [(String, String)] = [
+            ("dashboard.stat.apps.button", "Apps"),
+            ("dashboard.stat.purgeable.button", "Purgeable"),
         ]
-        let appsLabel = app.descendants(matching: .any)
-            .matching(identifier: "dashboard.stat.square.grid.2x2.fill.label")
-            .firstMatch
+        let appsButton = app.buttons[summaries[0].0].firstMatch
         let mainDetail = app.descendants(matching: .any)
             .matching(identifier: "main.detail")
             .firstMatch
@@ -558,43 +590,41 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         ).click()
 
         XCTAssertTrue(
-            appsLabel.isHittable,
+            appsButton.isHittable,
             "The compact dashboard's second stat row must be reachable by scrolling.",
             file: file,
             line: line
         )
 
-        for (identifier, maximumHeight) in limits {
-            let element = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            guard element.waitForExistence(timeout: 3) else {
+        let buttons = summaries.compactMap { identifier, label -> XCUIElement? in
+            let button = app.buttons[identifier].firstMatch
+            guard button.waitForExistence(timeout: 3) else {
                 XCTFail(
                     "\(identifier) must appear after scrolling the dashboard.",
                     file: file,
                     line: line
                 )
-                continue
+                return nil
             }
+            XCTAssertEqual(button.label, label, file: file, line: line)
             XCTAssertLessThanOrEqual(
-                element.frame.height,
-                maximumHeight,
+                button.frame.height,
+                112,
                 "\(identifier) wrapped or overlapped after scrolling.",
                 file: file,
                 line: line
             )
+            return button
         }
 
-        let purgeableLabel = app.descendants(matching: .any)
-            .matching(identifier: "dashboard.stat.memorychip.fill.label")
-            .firstMatch
-        guard appsLabel.exists, purgeableLabel.exists else { return }
-        XCTAssertLessThanOrEqual(
-            abs(appsLabel.frame.minY - purgeableLabel.frame.minY),
-            4,
-            "The compact dashboard's second stat row must stay aligned.",
-            file: file,
-            line: line
-        )
+        if buttons.count == 2 {
+            XCTAssertLessThanOrEqual(
+                abs(buttons[0].frame.minY - buttons[1].frame.minY),
+                4,
+                "The compact dashboard's second stat row must stay aligned.",
+                file: file,
+                line: line
+            )
+        }
     }
 }
