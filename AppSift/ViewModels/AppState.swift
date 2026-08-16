@@ -4926,7 +4926,7 @@ final class AppState: ObservableObject {
                 historyRecordID: recordID,
                 operation: operation
             )
-            self.refreshStartupItemsAfterSuccessfulUninstall(
+            self.reconcileCachedStartupItemsAfterSuccessfulUninstall(
                 removed,
                 app: app,
                 operation: operation
@@ -4934,7 +4934,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func refreshStartupItemsAfterSuccessfulUninstall(
+    private func reconcileCachedStartupItemsAfterSuccessfulUninstall(
         _ removedURLs: [URL],
         app: InstalledApp,
         operation: AppRemovalOperation
@@ -4945,12 +4945,33 @@ final class AppState: ObservableObject {
             $0.standardizedFileURL.path == appPath
         }) else { return }
 
-        // A startup scan is relatively expensive because macOS owns the BTM
-        // registry. Refresh only an already-visible or in-flight inventory;
-        // otherwise the Startup Items screen will perform its normal first
-        // scan when opened.
-        guard hasScannedStartupItems || isScanningStartupItems else { return }
-        scanStartupItems(force: true)
+        // `sfltool dumpbtm` requests a fresh administrator authorization on
+        // current macOS releases. An app uninstall must not trigger that
+        // unrelated privileged scan. Reconcile the already-loaded inventory
+        // from the verified removal result; an explicit Startup Items refresh
+        // remains available when the user wants a new registry snapshot.
+        guard hasScannedStartupItems else { return }
+        let removedPaths = removedURLs.map { $0.standardizedFileURL.path }
+        let selectedBundleIdentifier = app.bundleIdentifier
+
+        func wasRemoved(_ url: URL?) -> Bool {
+            guard let path = url?.standardizedFileURL.path else { return false }
+            return removedPaths.contains {
+                path == $0 || path.hasPrefix($0 + "/")
+            }
+        }
+
+        startupItems = startupItems.map { item in
+            let associatedIdentifiers = Set(item.associatedBundleIdentifiers)
+            let belongsOnlyToSelectedApp = !selectedBundleIdentifier.isEmpty
+                && associatedIdentifiers == Set([selectedBundleIdentifier])
+            guard belongsOnlyToSelectedApp
+                    || wasRemoved(item.itemURL)
+                    || wasRemoved(item.executableURL) else {
+                return item
+            }
+            return item.replacingMissing(true)
+        }
     }
 
     private static func defaultAppTerminationHandler(

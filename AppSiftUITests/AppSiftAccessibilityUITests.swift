@@ -136,6 +136,35 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         assertScrollableDashboardStatsLayout()
     }
 
+    func testDashboardStatCardsExposeNativeNavigationActions() throws {
+        let identifiers = [
+            "dashboard.stat.free-space.button",
+            "dashboard.stat.junk-found.button",
+            "dashboard.stat.apps.button",
+            "dashboard.stat.purgeable.button",
+        ]
+        for identifier in identifiers {
+            XCTAssertTrue(
+                app.buttons[identifier].firstMatch.waitForExistence(timeout: 5),
+                "\(identifier) must be exposed as a native button."
+            )
+        }
+
+        let junkButton = app.buttons[
+            "dashboard.stat.junk-found.button"
+        ].firstMatch
+        XCTAssertTrue(junkButton.isHittable)
+        junkButton.click()
+
+        let tools = app.descendants(matching: .any)
+            .matching(identifier: "toolbox.content")
+            .firstMatch
+        XCTAssertTrue(
+            tools.waitForExistence(timeout: 3),
+            "The junk summary must open the cleanup tool catalog."
+        )
+    }
+
     func testMainWindowDarkAppearanceContrast() throws {
         guard #available(macOS 14.0, *) else {
             throw XCTSkip("Automated accessibility audits require macOS 14 or newer.")

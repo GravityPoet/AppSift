@@ -5,6 +5,14 @@ import XCTest
 
 @MainActor
 final class SidebarVisualLayoutTests: XCTestCase {
+    func testDashboardStatCardsRouteToRelevantDetailSurfaces() {
+        XCTAssertEqual(DashboardStatKind.freeSpace.destination, .spaceLens)
+        XCTAssertEqual(DashboardStatKind.junkFound.destination, .tools)
+        XCTAssertEqual(DashboardStatKind.apps.destination, .apps)
+        XCTAssertEqual(DashboardStatKind.purgeable.destination, .spaceLens)
+        XCTAssertEqual(Set(DashboardStatKind.allCases.map(\.rawValue)).count, 4)
+    }
+
     func testPrimaryLayoutsRenderOffscreenAtDefaultWindowSize() throws {
         let defaults = UserDefaults.standard
         let favoritesKey = ToolboxFavorites.storageKey

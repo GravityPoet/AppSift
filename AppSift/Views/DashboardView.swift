@@ -413,6 +413,7 @@ struct DashboardView: View {
         let percentUsed = total > 0 ? Double(total - free) / Double(total) : 0
         let summaries = [
             DashboardStatSummary(
+                kind: .freeSpace,
                 icon: "internaldrive.fill",
                 tint: Tint.blue,
                 label: "Free Space",
@@ -421,6 +422,7 @@ struct DashboardView: View {
                 byteValue: free
             ),
             DashboardStatSummary(
+                kind: .junkFound,
                 icon: "trash.circle.fill",
                 tint: Tint.orange,
                 label: "Junk Found",
@@ -434,6 +436,7 @@ struct DashboardView: View {
                 byteValue: appState.totalJunkSize
             ),
             DashboardStatSummary(
+                kind: .apps,
                 icon: "square.grid.2x2.fill",
                 tint: Tint.purple,
                 label: "Apps",
@@ -441,6 +444,7 @@ struct DashboardView: View {
                 delta: String(localized: "installed")
             ),
             DashboardStatSummary(
+                kind: .purgeable,
                 icon: "memorychip.fill",
                 tint: Tint.green,
                 label: "Purgeable",
@@ -486,16 +490,26 @@ struct DashboardView: View {
         _ summary: DashboardStatSummary,
         index: Int
     ) -> some View {
-        StatCard(
-            icon: summary.icon,
-            tint: summary.tint,
-            label: summary.label,
-            value: summary.value,
-            delta: summary.delta,
-            byteValue: summary.byteValue
-        )
+        Button {
+            onNavigate(summary.kind.destination)
+        } label: {
+            StatCard(
+                icon: summary.icon,
+                tint: summary.tint,
+                label: summary.label,
+                value: summary.value,
+                delta: summary.delta,
+                byteValue: summary.byteValue
+            )
+        }
+        .buttonStyle(DashboardStatButtonStyle())
+        .contentShape(Rectangle())
+        .hoverLift(hoverScale: 1.02, lift: true)
         .frame(maxWidth: .infinity)
         .staggered(index)
+        .accessibilityIdentifier("dashboard.stat.\(summary.kind.rawValue).button")
+        .accessibilityLabel(summary.label)
+        .accessibilityValue(summary.spokenValue)
     }
 
     private func freeSpaceDelta(total: Int64, percentUsed: Double) -> String {
@@ -1221,14 +1235,60 @@ private struct DashboardToolCard: View {
     }
 }
 
+enum DashboardStatKind: String, CaseIterable {
+    case freeSpace = "free-space"
+    case junkFound = "junk-found"
+    case apps
+    case purgeable
+
+    var destination: AppSection {
+        switch self {
+        case .freeSpace, .purgeable:
+            return .spaceLens
+        case .junkFound:
+            return .tools
+        case .apps:
+            return .apps
+        }
+    }
+}
+
 private struct DashboardStatSummary: Identifiable {
-    var id: String { icon }
+    var id: DashboardStatKind { kind }
+    let kind: DashboardStatKind
     let icon: String
     let tint: Color
     let label: LocalizedStringKey
     let value: String
     let delta: String?
     var byteValue: Int64? = nil
+
+    var spokenValue: String {
+        [value, delta].compactMap { $0 }.joined(separator: ", ")
+    }
+}
+
+private struct DashboardStatButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> Content {
+        Content(configuration: configuration)
+    }
+
+    fileprivate struct Content: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(
+                    reduceMotion || !configuration.isPressed ? 1 : 0.985
+                )
+                .opacity(configuration.isPressed ? 0.92 : 1)
+                .animation(
+                    reduceMotion ? nil : MotionTokens.press,
+                    value: configuration.isPressed
+                )
+        }
+    }
 }
 
 private struct StatCard: View {
@@ -1258,6 +1318,11 @@ private struct StatCard: View {
                         .textCase(.uppercase)
                         .tracking(0.4)
                         .accessibilityIdentifier("dashboard.stat.\(icon).label")
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
                 Group {
                     if let byteValue {
@@ -1282,7 +1347,6 @@ private struct StatCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .hoverLift(hoverScale: 1.02, lift: true)
     }
 }
 

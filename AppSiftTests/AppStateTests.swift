@@ -626,10 +626,14 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(appState.discoveredFiles.isEmpty)
     }
 
-    func testSuccessfulUninstallRefreshesPreviouslyScannedStartupItems() async throws {
+    func testSuccessfulUninstallReconcilesCachedStartupItemsWithoutRefreshing() async throws {
         var completion: ((Set<URL>) -> Void)?
-        let refreshCalls = expectation(description: "startup items scanned before and after uninstall")
-        refreshCalls.expectedFulfillmentCount = 2
+        let initialScan = expectation(description: "startup items initially scanned")
+        let unexpectedRefresh = expectation(
+            description: "uninstall must not invoke the privileged startup registry again"
+        )
+        unexpectedRefresh.isInverted = true
+        let scanCalls = ThreadSafeCounter()
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AppSiftStartupRefresh-\(UUID().uuidString)", isDirectory: true)
         let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
@@ -642,6 +646,22 @@ final class AppStateTests: XCTestCase {
             name: "Example",
             bundleIdentifier: "com.example.editor",
             path: appBundle.path
+        )
+        let startupItem = StartupItem(
+            id: "background|com.example.editor",
+            name: "Example",
+            developerName: "Example Corp",
+            teamIdentifier: "TEAM123",
+            serviceIdentifier: "com.example.editor",
+            kind: .backgroundItem,
+            state: .enabled,
+            scope: .user,
+            itemURL: appBundle,
+            executableURL: appBundle.appendingPathComponent("Contents/MacOS/Example"),
+            associatedBundleIdentifiers: ["com.example.editor"],
+            evidence: [.backgroundTaskManagement],
+            isLegacy: false,
+            isMissing: false
         )
         let appState = AppState(
             performStartupTasks: false,
@@ -664,9 +684,13 @@ final class AppStateTests: XCTestCase {
             removalHistoryStore: AppRemovalHistoryStore(fileURL: historyURL),
             appTerminationHandler: { _, _ in .notRunning },
             startupItemsScanner: {
-                refreshCalls.fulfill()
+                if scanCalls.increment() == 1 {
+                    initialScan.fulfill()
+                } else {
+                    unexpectedRefresh.fulfill()
+                }
                 return StartupItemScanResult(
-                    items: [],
+                    items: [startupItem],
                     backgroundTaskDataAvailable: true,
                     backgroundTaskDataTruncated: false
                 )
@@ -674,16 +698,23 @@ final class AppStateTests: XCTestCase {
         )
 
         appState.scanStartupItems()
-        try await waitUntil { appState.hasScannedStartupItems }
+        await fulfillment(of: [initialScan], timeout: 1)
+        try await waitUntil {
+            appState.hasScannedStartupItems && appState.startupItems == [startupItem]
+        }
         appState.scanForAppFiles(app)
         try XCTUnwrap(completion)([appBundle])
         appState.removeSelectedFiles()
 
-        await fulfillment(of: [refreshCalls], timeout: 1)
+        await fulfillment(of: [unexpectedRefresh], timeout: 0.25)
         try await waitUntil {
             !appState.isRemovingAppFiles && !appState.isScanningStartupItems
         }
+        XCTAssertEqual(scanCalls.value, 1)
         XCTAssertEqual(appState.removalHistory.first?.operation, .uninstall)
+        let reconciled = try XCTUnwrap(appState.startupItems.first)
+        XCTAssertTrue(reconciled.isMissing)
+        XCTAssertTrue(reconciled.isInactiveRegistration)
     }
 
     func testRemovalRecordCapturesEveryOutcomeAndProtectedGroup() async throws {
@@ -1752,6 +1783,25 @@ private final class ThreadSafeFlag: @unchecked Sendable {
         lock.lock()
         storedValue = true
         lock.unlock()
+    }
+}
+
+private final class ThreadSafeCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedValue
+    }
+
+    @discardableResult
+    func increment() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        storedValue += 1
+        return storedValue
     }
 }
 
