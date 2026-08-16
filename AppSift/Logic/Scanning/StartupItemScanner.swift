@@ -90,6 +90,25 @@ struct StartupItem: Identifiable, Hashable, Sendable {
             isMissing: isMissing
         )
     }
+
+    func replacingMissing(_ isMissing: Bool) -> StartupItem {
+        StartupItem(
+            id: id,
+            name: name,
+            developerName: developerName,
+            teamIdentifier: teamIdentifier,
+            serviceIdentifier: serviceIdentifier,
+            kind: kind,
+            state: state,
+            scope: scope,
+            itemURL: itemURL,
+            executableURL: executableURL,
+            associatedBundleIdentifiers: associatedBundleIdentifiers,
+            evidence: evidence,
+            isLegacy: isLegacy,
+            isMissing: isMissing
+        )
+    }
 }
 
 struct StartupItemScanResult: Sendable {
