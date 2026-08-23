@@ -123,7 +123,16 @@ actor TimeMachineSnapshotService {
         return output
             .split(whereSeparator: \.isNewline)
             .compactMap { line -> TimeMachineSnapshot? in
-                let name = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Newer macOS releases annotate dataless snapshots in the
+                // `tmutil` output, while APFS metadata still uses the
+                // canonical `.local` snapshot name.
+                let name = line
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(
+                        of: #"\s+\(dataless\)$"#,
+                        with: "",
+                        options: .regularExpression
+                    )
                 guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return nil }
 
                 let tokenStart = name.index(name.startIndex, offsetBy: prefix.count)

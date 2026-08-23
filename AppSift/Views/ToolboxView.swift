@@ -284,6 +284,7 @@ enum AppToolCatalog {
         case .brewCache: return "cleanup-brew-cache"
         case .nodeCache: return "cleanup-node-cache"
         case .dockerCache: return "cleanup-docker-cache"
+        case .developerArtifacts: return "cleanup-developer-artifacts"
         case .smartScan, .purgeableSpace:
             preconditionFailure("Non-cleanable category cannot enter the tool catalog")
         }

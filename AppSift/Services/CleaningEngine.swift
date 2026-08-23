@@ -54,6 +54,12 @@ actor CleaningEngine {
                     if item.category == .largeFiles {
                         return isExplicitSingleFileDeletable(resolvedPath: resolved)
                     }
+                    if item.category == .developerArtifacts {
+                        return DeveloperArtifactScanner.isSafeRemovalRoot(
+                            resolvedPath: resolved,
+                            expectedSize: item.size
+                        )
+                    }
                     return isSafeToDelete(resolvedPath: resolved)
                 }()
                 guard pathAccepted else {
@@ -127,6 +133,12 @@ actor CleaningEngine {
             let accepted: Bool = {
                 if item.category == .largeFiles {
                     return isExplicitSingleFileDeletable(resolvedPath: resolved)
+                }
+                if item.category == .developerArtifacts {
+                    return DeveloperArtifactScanner.isSafeRemovalRoot(
+                        resolvedPath: resolved,
+                        expectedSize: item.size
+                    )
                 }
                 return isSafeToDelete(resolvedPath: resolved)
             }()
@@ -299,10 +311,33 @@ actor CleaningEngine {
         // sits strictly inside one. The trailing "/" on the prefix match
         // prevents siblings like "/tmpfoo" from sneaking past "/tmp".
         let normalized = (resolvedPath as NSString).standardizingPath
+        guard !isProtectedRuntimePath(normalized, home: home) else {
+            // Cloud transport state and live browser runtime roots are shown
+            // nowhere in the generic cleanup selection. Keep this second
+            // boundary even if a stale result or an injected item bypasses
+            // the scanner's ownership filter.
+            return false
+        }
         return allowedRoots.contains { root in
             if normalized == root { return true }
             let rootWithSeparator = root.hasSuffix("/") ? root : root + "/"
             return normalized.hasPrefix(rootWithSeparator)
+        }
+    }
+
+    private func isProtectedRuntimePath(_ path: String, home: String) -> Bool {
+        let roots = [
+            "\(home)/Library/Caches/CloudKit",
+            "\(home)/Library/Caches/CloudDocs",
+            "\(home)/Library/Caches/com.apple.CloudDocs",
+            "\(home)/Library/Caches/com.apple.CloudDocs.iCloudDriveFileProvider",
+            "\(home)/Library/Caches/Google",
+            "\(home)/Library/Caches/Chromium",
+            "\(home)/Library/Caches/Firefox",
+            "\(home)/Library/Caches/com.apple.Safari",
+        ]
+        return roots.contains { root in
+            path == root || path.hasPrefix(root + "/")
         }
     }
 

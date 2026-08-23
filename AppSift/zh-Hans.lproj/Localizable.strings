@@ -247,6 +247,7 @@
 "Brew Cache" = "Brew 缓存";
 "Node Cache" = "Node 缓存";
 "Docker Cache" = "Docker 缓存";
+"Developer Artifacts" = "开发产物";
 
 /* Cleaning category descriptions */
 "Scan everything at once" = "一次扫描所有内容";
@@ -259,8 +260,9 @@
 "APFS purgeable disk space" = "APFS 可清理磁盘空间";
 "Derived data, archives, and simulators" = "派生数据、归档和模拟器";
 "Homebrew download cache" = "Homebrew 下载缓存";
-"npm, yarn, and pnpm download caches" = "npm、yarn 和 pnpm 下载缓存";
+"npm, yarn, pnpm, and uv download caches" = "npm、yarn、pnpm 和 uv 下载缓存";
 "Docker images, containers, and build cache" = "Docker 镜像、容器和构建缓存";
+"Rebuildable Cargo, Rust, and Python artifacts" = "可重建的 Cargo、Rust 和 Python 产物";
 
 /* Node Cache subcategories */
 "npm cache" = "npm 缓存";

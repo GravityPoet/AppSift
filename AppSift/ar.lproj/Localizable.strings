@@ -247,6 +247,7 @@
 "Brew Cache" = "ذاكرة Brew المؤقتة";
 "Node Cache" = "ذاكرة Node المؤقتة";
 "Docker Cache" = "ذاكرة Docker المؤقتة";
+"Developer Artifacts" = "مخرجات التطوير";
 
 /* Cleaning category descriptions */
 "Scan everything at once" = "فحص كل شيء دفعة واحدة";
@@ -259,8 +260,9 @@
 "APFS purgeable disk space" = "مساحة القرص القابلة للتحرير في APFS";
 "Derived data, archives, and simulators" = "البيانات المشتقة والأرشيفات والمحاكيات";
 "Homebrew download cache" = "ذاكرة تنزيلات Homebrew المؤقتة";
-"npm, yarn, and pnpm download caches" = "ذاكرات تنزيلات npm وyarn وpnpm المؤقتة";
+"npm, yarn, pnpm, and uv download caches" = "ذاكرات تنزيلات npm وyarn وpnpm وuv المؤقتة";
 "Docker images, containers, and build cache" = "صور Docker والحاويات وذاكرة البناء المؤقتة";
+"Rebuildable Cargo, Rust, and Python artifacts" = "مخرجات Cargo وRust وPython القابلة لإعادة البناء";
 
 /* Node Cache subcategories */
 "npm cache" = "ذاكرة npm المؤقتة";

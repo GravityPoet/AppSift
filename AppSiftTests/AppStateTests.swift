@@ -71,6 +71,33 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(lmStudioModels)
     }
 
+    func testCleaningEngineRejectsCloudAndBrowserRuntimeRoots() async {
+        let engine = CleaningEngine()
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+
+        for root in [
+            "\(home)/Library/Caches/CloudKit",
+            "\(home)/Library/Caches/CloudDocs",
+            "\(home)/Library/Caches/Google/Chrome",
+            "\(home)/Library/Caches/Chromium",
+            "\(home)/Library/Caches/com.apple.Safari",
+        ] {
+            let isSafe = await engine.isSafeToDelete(resolvedPath: root)
+            XCTAssertFalse(
+                isSafe,
+                "Runtime-owned path must not enter generic permanent cleanup: \(root)"
+            )
+        }
+
+        let noTraceIsSafe = await engine.isSafeToDelete(
+            resolvedPath: "\(home)/Library/Caches/NoTrace Browser"
+        )
+        XCTAssertTrue(
+            noTraceIsSafe,
+            "NoTrace is surfaced as an explicit manual-review cache item."
+        )
+    }
+
     func testScanForAppFilesTracksLocationsWhileResultsArePending() throws {
         var completion: ((Set<URL>) -> Void)?
         let expectedLocations = ["/one", "/two", "/three"]

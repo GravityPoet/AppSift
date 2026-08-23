@@ -468,6 +468,119 @@ final class SystemHealthRecommendationEngineTests: XCTestCase {
     }
 }
 
+final class ScanEngineCacheBoundaryTests: XCTestCase {
+    func testUserCacheExcludesCloudTransportAndBrowserRuntimeRoots() async throws {
+        let home = try makeTemporaryDirectory(prefix: "AppSiftScanEngineHome")
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let cacheRoot = home.appendingPathComponent("Library/Caches", isDirectory: true)
+        let ordinary = cacheRoot.appendingPathComponent("com.example.cache", isDirectory: true)
+        let cloudKit = cacheRoot.appendingPathComponent("CloudKit", isDirectory: true)
+        let cloudDocs = cacheRoot.appendingPathComponent("CloudDocs", isDirectory: true)
+        let chrome = cacheRoot.appendingPathComponent("Google/Chrome", isDirectory: true)
+        let safari = cacheRoot.appendingPathComponent("com.apple.Safari", isDirectory: true)
+        let noTrace = cacheRoot.appendingPathComponent("NoTrace Browser", isDirectory: true)
+
+        for directory in [ordinary, cloudKit, cloudDocs, chrome, safari, noTrace] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data(repeating: 0x41, count: 4_096).write(
+                to: directory.appendingPathComponent("payload.bin"),
+                options: .atomic
+            )
+        }
+        try Data(repeating: 0x45, count: 2_048).write(
+            to: noTrace.appendingPathComponent(".hidden-payload"),
+            options: .atomic
+        )
+
+        let result = await ScanEngine(homeURL: home).scanCategory(.userCache)
+        let paths = Set(result.items.map(\.path))
+
+        XCTAssertTrue(paths.contains(ordinary.path))
+        XCTAssertFalse(paths.contains(cloudKit.path))
+        XCTAssertFalse(paths.contains(cloudDocs.path))
+        XCTAssertFalse(paths.contains(cacheRoot.appendingPathComponent("Google").path))
+        XCTAssertFalse(paths.contains(safari.path))
+
+        let noTraceItem = try XCTUnwrap(result.items.first { $0.path == noTrace.path })
+        XCTAssertFalse(noTraceItem.isSelected, "NoTrace needs an explicit review/close flow before cleanup.")
+        XCTAssertEqual(noTraceItem.size, 6_144, "The review-only cache estimate must include hidden entries.")
+    }
+
+    func testNpmCacheIsOwnedByNodeCategoryAndNotUserCache() async throws {
+        let home = try makeTemporaryDirectory(prefix: "AppSiftScanEngineNpmHome")
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let npmCache = home.appendingPathComponent(".npm/_cacache", isDirectory: true)
+        try FileManager.default.createDirectory(at: npmCache, withIntermediateDirectories: true)
+        try Data(repeating: 0x42, count: 4_096).write(
+            to: npmCache.appendingPathComponent("content.bin"),
+            options: .atomic
+        )
+
+        let result = await ScanEngine(homeURL: home).scanCategory(.userCache)
+        XCTAssertFalse(
+            result.items.contains { $0.path == npmCache.path || $0.path.hasPrefix(home.appendingPathComponent(".npm").path + "/") },
+            "npm's ~/.npm/_cacache must not be reported by both User Cache and Node Cache."
+        )
+        XCTAssertTrue(
+            ScanEngine.isUserCachePathExcluded(
+                home.appendingPathComponent(".npm/_cacache/index-v5/aa").path,
+                home: home.path
+            )
+        )
+    }
+
+    func testUVCacheIsOwnedByNodeCategory() async throws {
+        let home = try makeTemporaryDirectory(prefix: "AppSiftScanEngineUVHome")
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let uvCache = home.appendingPathComponent("Library/Caches/uv", isDirectory: true)
+        try FileManager.default.createDirectory(at: uvCache, withIntermediateDirectories: true)
+        try Data(repeating: 0x46, count: 4_096).write(
+            to: uvCache.appendingPathComponent("wheel.whl"),
+            options: .atomic
+        )
+
+        let nodeResult = await ScanEngine(homeURL: home).scanCategory(.nodeCache)
+        XCTAssertTrue(nodeResult.items.contains { $0.path == uvCache.path })
+
+        let userResult = await ScanEngine(homeURL: home).scanCategory(.userCache)
+        XCTAssertFalse(userResult.items.contains { $0.path == uvCache.path })
+    }
+}
+
+final class ScanEngineDeveloperArtifactTests: XCTestCase {
+    func testDeveloperArtifactsAreSurfacedForExplicitReviewOnly() async throws {
+        let home = try makeTemporaryDirectory(prefix: "AppSiftScanEngineDeveloperHome")
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let project = home
+            .appendingPathComponent("Tools/ExampleProject/src-tauri", isDirectory: true)
+        let target = project.appendingPathComponent("target", isDirectory: true)
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        try Data(repeating: 0x43, count: 8_192).write(
+            to: project.appendingPathComponent("Cargo.toml"),
+            options: .atomic
+        )
+        try Data(repeating: 0x44, count: 16_384).write(
+            to: target.appendingPathComponent("release.bin"),
+            options: .atomic
+        )
+
+        let result = await ScanEngine(homeURL: home).scanCategory(.developerArtifacts)
+        let targetItem = try XCTUnwrap(
+            result.items.first {
+                URL(fileURLWithPath: $0.path).standardizedFileURL
+                    == target.standardizedFileURL
+            }
+        )
+        XCTAssertEqual(targetItem.category, .developerArtifacts)
+        XCTAssertEqual(targetItem.size, 16_384)
+        XCTAssertFalse(targetItem.isSelected)
+    }
+}
+
 private func makeTemporaryDirectory(prefix: String) throws -> URL {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
