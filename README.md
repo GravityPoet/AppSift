@@ -283,8 +283,9 @@ Smart Scan runs every category in parallel. Each category is its own deliberate 
 - **Large & Old Files** - >100 MB or older than 1 year (never auto-selected)
 - **Xcode Junk** - DerivedData, Archives, simulator caches
 - **Brew Cache** - respects custom `HOMEBREW_CACHE`
-- **Node Cache** - npm, yarn classic, pnpm content-addressable store
+- **Node Cache** - npm, yarn classic, pnpm content-addressable store, and uv downloads
 - **Docker Cache** - images, containers, build cache
+- **Developer Artifacts** - Cargo registry, Rust `target` directories with a nearby `Cargo.toml`, and marked `.venv-subaligner` environments (review-only by default)
 
 > **On "purgeable space":** AppSift shows your APFS purgeable space in the storage breakdown for transparency, but it deliberately does **not** list it as junk to delete. Purgeable space is reserved and reclaimed by macOS itself - no third-party app can reliably free it, and even the Finder's purgeable figure is known to be inaccurate. Cleaners that claim to "reclaim purgeable space" are overpromising. We'd rather be honest than impressive.
 

@@ -39,6 +39,18 @@ final class TimeMachineSnapshotServiceTests: XCTestCase {
         XCTAssertEqual(snapshots.first?.privateSize, 872_087_552)
     }
 
+    func testParseSnapshotsAcceptsDatalessStatusSuffix() {
+        let snapshotName = "com.apple.TimeMachine.2026-08-15-000715.local"
+        let snapshots = TimeMachineSnapshotService.parseSnapshots(
+            "Snapshots for disk /:\n\(snapshotName) (dataless)",
+            privateSizes: [snapshotName: 1_048_576]
+        )
+
+        XCTAssertEqual(snapshots.map(\.name), [snapshotName])
+        XCTAssertEqual(snapshots.first?.dateToken, "2026-08-15-000715")
+        XCTAssertEqual(snapshots.first?.privateSize, 1_048_576)
+    }
+
     func testParseBackupRunningRecognizesTmutilStatus() {
         XCTAssertTrue(TimeMachineSnapshotService.parseBackupRunning("Running = 1;"))
         XCTAssertTrue(TimeMachineSnapshotService.parseBackupRunning("  Running = 1 ;\n"))

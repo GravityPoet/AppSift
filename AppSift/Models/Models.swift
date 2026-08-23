@@ -15,6 +15,7 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable, Sendable {
     case brewCache = "Brew Cache"
     case nodeCache = "Node Cache"
     case dockerCache = "Docker Cache"
+    case developerArtifacts = "Developer Artifacts"
 
     var id: String { rawValue }
 
@@ -32,6 +33,7 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable, Sendable {
         case .brewCache: return "mug.fill"
         case .nodeCache: return "leaf.fill"
         case .dockerCache: return "shippingbox.fill"
+        case .developerArtifacts: return "hammer.circle.fill"
         }
     }
 
@@ -47,8 +49,9 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable, Sendable {
         case .purgeableSpace: return "Reserved by macOS - freed automatically when space is needed"
         case .xcodeJunk: return "Derived data, archives, and simulators"
         case .brewCache: return "Homebrew download cache"
-        case .nodeCache: return "npm, yarn, and pnpm download caches"
+        case .nodeCache: return "npm, yarn, pnpm, and uv download caches"
         case .dockerCache: return "Docker images, containers, and build cache"
+        case .developerArtifacts: return "Rebuildable Cargo, Rust, and Python artifacts"
         }
     }
 
@@ -66,6 +69,7 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable, Sendable {
         case .brewCache: return .mint
         case .nodeCache: return .pink
         case .dockerCache: return .indigo
+        case .developerArtifacts: return .orange
         }
     }
 

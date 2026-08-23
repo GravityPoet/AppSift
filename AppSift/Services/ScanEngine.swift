@@ -1,8 +1,24 @@
 import Foundation
 
 actor ScanEngine {
-    private let fileManager = FileManager.default
-    private let home = FileManager.default.homeDirectoryForCurrentUser.path
+    private let fileManager: FileManager
+    private let home: String
+    private let developerArtifactScanner: DeveloperArtifactScanner
+
+    /// The scanner normally walks the current user's home directory.  Keeping
+    /// the root injectable makes the cache ownership policy testable without
+    /// touching a real user's Library (and is also useful for fixture scans).
+    init(
+        fileManager: FileManager = .default,
+        homeURL: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) {
+        self.fileManager = fileManager
+        self.home = homeURL.standardizedFileURL.path
+        self.developerArtifactScanner = DeveloperArtifactScanner(
+            fileManager: fileManager,
+            homeURL: homeURL
+        )
+    }
 
     /// Live path reporter for the dashboard's scanning ticker. Throttled so
     /// a directory with thousands of entries doesn't flood the main actor.
@@ -67,6 +83,8 @@ actor ScanEngine {
             return scanNodeCache()
         case .dockerCache:
             return scanDockerCache()
+        case .developerArtifacts:
+            return scanDeveloperArtifacts()
         }
     }
 
@@ -128,12 +146,11 @@ actor ScanEngine {
 
     private func scanUserCache() -> CategoryResult {
         var items: [CleanableItem] = []
-        // Exclude cache roots claimed by dedicated categories to avoid double-counting.
-        let excludedRootPaths = Set([
-            "\(home)/Library/Caches/Homebrew",
-            "\(home)/Library/Caches/com.electron.ollama",
-            "\(home)/Library/Caches/ollama",
-        ].map(normalizePath))
+        // Exclude cache roots claimed by dedicated categories, macOS/iCloud,
+        // or the browser privacy flow.  The generic cache scanner must never
+        // turn transport databases or live browser profiles into ordinary
+        // "junk" rows (and must not count a root again in another category).
+        let excludedRootPaths = Self.userCacheExcludedRootPaths(home: home)
 
         // Dynamically enumerate ~/Library/Caches/ so every subdirectory is visible
         let cachePath = "\(home)/Library/Caches"
@@ -146,12 +163,12 @@ actor ScanEngine {
         )
         items.append(contentsOf: scanned)
 
-        // Also scan for npm/pip/yarn caches
+        // Pip has no dedicated category, so keep its global cache visible.
+        // npm/yarn/pnpm are owned by Node Cache; listing them here as well
+        // would make Smart Scan report the same bytes twice (npm's
+        // ~/.npm/_cacache is the common example).
         let devCaches = [
-            "\(home)/.npm/_cacache",
             "\(home)/.cache/pip",
-            "\(home)/.cache/yarn",
-            "\(home)/.cache/pnpm",
             "\(home)/Library/Caches/pip",
         ]
 
@@ -165,9 +182,91 @@ actor ScanEngine {
             }
         }
 
+        // NoTrace is not one of the three browsers handled by
+        // BrowserPrivacyScanner. Keep its cache visible for an explicit
+        // review, but never preselect it in the generic cleaner: the browser
+        // may still own/open these files and there is no close-and-trash flow
+        // here yet. Use a larger, hidden-file-inclusive bound because this
+        // cache can legitimately contain hundreds of thousands of entries;
+        // Chrome/Safari/Firefox remain owned by Browser Privacy.
+        let reviewOnlyCaches = [
+            (name: "NoTrace Browser cache (manual review)", path: "\(home)/Library/Caches/NoTrace Browser"),
+        ]
+        for target in reviewOnlyCaches {
+            if let item = makeCleanupItem(
+                name: target.name,
+                path: target.path,
+                category: .userCache,
+                isSelected: false,
+                maximumEntries: 1_000_000,
+                includeHiddenFiles: true
+            ) {
+                items.append(item)
+            }
+        }
+
         let uniqueItems = deduplicatedItems(items)
         let totalSize = uniqueItems.reduce(0) { $0 + $1.size }
         return CategoryResult(category: .userCache, items: uniqueItems, totalSize: totalSize)
+    }
+
+    /// Cache roots that are not safe to classify as generic user junk.
+    ///
+    /// The list is deliberately explicit rather than matching on broad words
+    /// such as "cloud" or "browser".  This avoids hiding unrelated developer
+    /// caches while protecting macOS transport state and roots owned by a
+    /// dedicated AppSift scanner.  Browser roots are excluded from User Cache
+    /// because BrowserPrivacyCenter closes supported browsers before moving
+    /// their data to Trash; the generic cleaner has no equivalent lifecycle
+    /// gate.
+    static func userCacheExcludedRootPaths(home: String) -> Set<String> {
+        let normalizedHome = normalizedPath(home)
+        let roots = [
+            // Dedicated AppSift categories.
+            "\(normalizedHome)/Library/Caches/Homebrew",
+            "\(normalizedHome)/Library/Caches/com.electron.ollama",
+            "\(normalizedHome)/Library/Caches/ollama",
+            "\(normalizedHome)/Library/Caches/com.apple.dt.Xcode",
+            "\(normalizedHome)/Library/Caches/uv",
+            "\(normalizedHome)/Library/Caches/Yarn",
+            "\(normalizedHome)/Library/pnpm/store",
+
+            // Node-owned global caches that may be surfaced from another
+            // location in a future scanner.  User Cache currently only walks
+            // Library/Caches plus the explicit pip paths, but keeping these in
+            // the ownership policy makes cross-category de-duplication clear.
+            "\(normalizedHome)/.npm",
+            "\(normalizedHome)/.cache/yarn",
+            "\(normalizedHome)/.cache/pnpm",
+
+            // macOS/iCloud transport and metadata state.  These are not
+            // disposable app caches even when their logical size is large.
+            "\(normalizedHome)/Library/Caches/CloudKit",
+            "\(normalizedHome)/Library/Caches/CloudDocs",
+            "\(normalizedHome)/Library/Caches/com.apple.CloudDocs",
+            "\(normalizedHome)/Library/Caches/com.apple.CloudDocs.iCloudDriveFileProvider",
+
+            // Browser runtime roots.  Chrome's cache is nested below Google;
+            // excluding the vendor root is intentional because the current
+            // one-level generic scanner cannot safely split Google/Chrome
+            // from sibling Google developer caches.
+            "\(normalizedHome)/Library/Caches/Google",
+            "\(normalizedHome)/Library/Caches/Chromium",
+            "\(normalizedHome)/Library/Caches/Firefox",
+            "\(normalizedHome)/Library/Caches/com.apple.Safari",
+            "\(normalizedHome)/Library/Caches/NoTrace Browser",
+        ]
+        return Set(roots.map(normalizedPath))
+    }
+
+    /// Returns true when a path is one of the explicitly protected roots or a
+    /// descendant of one.  This helper is internal so regression tests can
+    /// prove the boundary without depending on the machine's live processes.
+    static func isUserCachePathExcluded(_ path: String, home: String) -> Bool {
+        let normalized = normalizedPath(path)
+        return userCacheExcludedRootPaths(home: home).contains { root in
+            normalized == root || normalized.hasPrefix(root + "/")
+        }
     }
 
     private func scanAIApps() -> CategoryResult {
@@ -478,6 +577,16 @@ actor ScanEngine {
                 defaultPath: "\(home)/Library/pnpm/store",
                 detectionCommand: (cli: "pnpm", args: ["store", "path"])
             ),
+            ManagerCache(
+                name: "uv cache",
+                defaultPath: "\(home)/Library/Caches/uv",
+                detectionCommand: nil
+            ),
+            ManagerCache(
+                name: "uv cache",
+                defaultPath: "\(home)/.cache/uv",
+                detectionCommand: nil
+            ),
         ]
 
         var items: [CleanableItem] = []
@@ -522,6 +631,25 @@ actor ScanEngine {
 
         let totalSize = items.reduce(0) { $0 + $1.size }
         return CategoryResult(category: .nodeCache, items: items, totalSize: totalSize)
+    }
+
+    private func scanDeveloperArtifacts() -> CategoryResult {
+        let result = developerArtifactScanner.scan()
+        let items = result.candidates.map { candidate in
+            CleanableItem(
+                name: candidate.name,
+                path: candidate.url.path,
+                size: candidate.size,
+                category: .developerArtifacts,
+                isSelected: candidate.isSelectedByDefault,
+                lastModified: candidate.lastModified
+            )
+        }
+        return CategoryResult(
+            category: .developerArtifacts,
+            items: items,
+            totalSize: items.reduce(0) { $0 + $1.size }
+        )
     }
 
     // -- Process helpers (used by scanNodeCache) --
@@ -697,7 +825,11 @@ actor ScanEngine {
             for item in contents {
                 let fullPath = (path as NSString).appendingPathComponent(item)
                 report(fullPath)
-                if excludedPaths.contains(normalizePath(fullPath)) {
+                let normalizedFullPath = normalizePath(fullPath)
+                if excludedPaths.contains(where: { excludedPath in
+                    normalizedFullPath == excludedPath ||
+                    normalizedFullPath.hasPrefix(excludedPath + "/")
+                }) {
                     continue
                 }
 
@@ -749,7 +881,9 @@ actor ScanEngine {
         path: String,
         category: CleaningCategory,
         isSelected: Bool = true,
-        minimumSize: Int64 = 1024
+        minimumSize: Int64 = 1024,
+        maximumEntries: Int = 10_000,
+        includeHiddenFiles: Bool = false
     ) -> CleanableItem? {
         report(path)
         var isDirectory: ObjCBool = false
@@ -757,7 +891,11 @@ actor ScanEngine {
               fileManager.isReadableFile(atPath: path) else { return nil }
 
         if isDirectory.boolValue {
-            let size = directorySize(path: path)
+            let size = directorySize(
+                path: path,
+                maximumEntries: maximumEntries,
+                includeHiddenFiles: includeHiddenFiles
+            )
             guard size > minimumSize else { return nil }
             return CleanableItem(
                 name: name,
@@ -798,22 +936,34 @@ actor ScanEngine {
     }
 
     private func normalizePath(_ path: String) -> String {
+        Self.normalizedPath(path)
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
         (path as NSString).standardizingPath
     }
 
-    private func directorySize(path: String) -> Int64 {
+    private func directorySize(
+        path: String,
+        maximumEntries: Int = 10_000,
+        includeHiddenFiles: Bool = false
+    ) -> Int64 {
         var totalSize: Int64 = 0
 
+        var options: FileManager.DirectoryEnumerationOptions = []
+        if !includeHiddenFiles {
+            options.insert(.skipsHiddenFiles)
+        }
         guard let enumerator = fileManager.enumerator(
             at: URL(fileURLWithPath: path),
             includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles]
+            options: options
         ) else { return 0 }
 
         var count = 0
         for case let fileURL as URL in enumerator {
             count += 1
-            if count > 10000 { break } // Safety limit for very large directories
+            if count > maximumEntries { break } // Safety limit for very large directories
 
             report(fileURL.path)
             guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),

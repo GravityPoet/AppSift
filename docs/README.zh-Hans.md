@@ -202,7 +202,8 @@ Smart Scan 并行机制下，智能归类清理：
 *   **User Cache**: 动态分析用户缓存目录。
 *   **AI Apps**: 清理 Ollama & LM Studio 日志，历史可选。
 *   **Xcode Junk**: `DerivedData`、Archives 与模拟器缓存。
-*   **Brew / Node / Docker Cache**: 智能卸载 dangling images、pnpm 缓存等。
+*   **Brew / Node / Docker Cache**: 智能卸载 dangling images、npm/yarn/pnpm/uv 缓存等。
+*   **Developer Artifacts**: Cargo 注册表、带 `Cargo.toml` 证据的 Rust `target`，以及带 Python 环境标记的 `.venv-subaligner`；默认仅供审核，不自动勾选。
 
 > **关于 APFS "可清除空间"**：AppSift 会将可清除空间以直观图表展示以供知情，但绝不声称能“一键强制抹除”。因为 APFS 机制规定这部分空间应由 macOS 系统自发回收。我们选择提供诚实的数据，而不是虚假的噱头。
 

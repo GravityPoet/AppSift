@@ -247,6 +247,7 @@
 "Brew Cache" = "Brewキャッシュ";
 "Node Cache" = "Nodeキャッシュ";
 "Docker Cache" = "Dockerキャッシュ";
+"Developer Artifacts" = "開発成果物";
 
 /* Cleaning category descriptions */
 "Scan everything at once" = "すべてを一度にスキャン";
@@ -259,8 +260,9 @@
 "APFS purgeable disk space" = "APFSの削除可能ディスク領域";
 "Derived data, archives, and simulators" = "派生データ、アーカイブ、シミュレータ";
 "Homebrew download cache" = "Homebrewのダウンロードキャッシュ";
-"npm, yarn, and pnpm download caches" = "npm、yarn、pnpm のダウンロードキャッシュ";
+"npm, yarn, pnpm, and uv download caches" = "npm、yarn、pnpm、uv のダウンロードキャッシュ";
 "Docker images, containers, and build cache" = "Dockerイメージ、コンテナ、ビルドキャッシュ";
+"Rebuildable Cargo, Rust, and Python artifacts" = "再構築できる Cargo、Rust、Python の成果物";
 
 /* Node Cache subcategories */
 "npm cache" = "npmキャッシュ";
