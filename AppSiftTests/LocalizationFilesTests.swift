@@ -131,6 +131,17 @@ final class LocalizationFilesTests: XCTestCase {
         XCTAssertNotEqual(zhHant["Selected"], zhHant["Selected for cleanup"])
     }
 
+    func testSpaceLensNameIsTranslatedInChineseCatalogs() throws {
+        let files = try localizableStringsFiles()
+        let zhHans = try localizedDictionary(in: try XCTUnwrap(files["zh-Hans"]))
+        let zhHant = try localizedDictionary(in: try XCTUnwrap(files["zh-Hant"]))
+
+        XCTAssertEqual(zhHans["Space Lens"], "空间透镜")
+        XCTAssertEqual(zhHant["Space Lens"], "空間透鏡")
+        XCTAssertNotEqual(zhHans["Space Lens"], "Space Lens")
+        XCTAssertNotEqual(zhHant["Space Lens"], "Space Lens")
+    }
+
     func testLocalizationDirectoriesMatchSelectableLanguages() throws {
         let localizationDirectories = Set(try localizableStringsFiles().keys)
         let selectableLanguages = Set(

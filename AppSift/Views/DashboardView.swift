@@ -77,7 +77,7 @@ struct DashboardView: View {
                             completedHero
                                 .transition(heroTransition)
                             if appState.totalJunkSize > 0 {
-                                sectionHeader("Review before cleaning")
+                                cleanupReviewHeader
                                 resultsList(scrollProxy: proxy)
                                 sectionHeader("Size breakdown")
                                 categoryChartCard
@@ -949,19 +949,8 @@ struct DashboardView: View {
                 }
 
                 if !isClean {
-                    HStack(alignment: .center, spacing: 12) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Tint.blue)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Review every item before cleaning")
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("Nothing is removed until you press Clean Selected.")
-                                .font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
+                    HStack {
+                        Spacer(minLength: 0)
                         Button {
                             showConfirmation = true
                         } label: {
@@ -989,16 +978,14 @@ struct DashboardView: View {
     }
 
     private var selectedCleanupItemCount: Int {
-        appState.allResults
-            .flatMap(\.items)
-            .count(where: { appState.isItemSelected($0) })
+        appState.selectedSelectableCleanupItemCount
     }
 
     private var cleanupSelectionSummary: String {
         String(
             format: String(localized: "%lld of %lld items selected · %@ ready"),
             Int64(selectedCleanupItemCount),
-            Int64(appState.totalItemCount),
+            Int64(appState.totalSelectableCleanupItemCount),
             ByteCountFormatter.string(
                 fromByteCount: appState.totalSelectedSize,
                 countStyle: .file
@@ -1020,8 +1007,6 @@ struct DashboardView: View {
 
     private func resultsList(scrollProxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            cleanupReviewIntro
-
             ForEach(Array(sortedCleanupResults.enumerated()), id: \.element.category) { idx, result in
                 let isOpening = !expandedCleanupCategories.contains(result.category)
                 CleanupCategoryCard(
@@ -1040,8 +1025,6 @@ struct DashboardView: View {
                 .id(result.category.id)
                 .staggered(idx)
             }
-
-            cleanupActionBar
         }
         .accessibilityIdentifier("dashboard.cleanup.results")
     }
@@ -1058,63 +1041,44 @@ struct DashboardView: View {
         }
     }
 
-    private var cleanupReviewIntro: some View {
-        CardSurface(padding: 18, accent: Tint.blue, elevation: .standard) {
-            HStack(alignment: .top, spacing: 12) {
-                IconTile(systemName: "checklist", tint: Tint.blue, size: 34, corner: 10, glow: true)
+    private var cleanupReviewHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("Review before cleaning")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .tracking(0.1)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Review before cleaning")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked.")
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            Spacer(minLength: 8)
 
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(String(format: String(localized: "%lld categories scanned"), Int64(sortedCleanupResults.count)))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Tint.blue)
-                    Text(String(format: String(localized: "%lld with findings"), Int64(sortedCleanupResults.count(where: { $0.itemCount > 0 }))))
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .monospacedDigit()
+            Button(action: toggleAllCleanupItems) {
+                Label(globalSelectionLabel, systemImage: globalSelectionState.systemImage)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(appState.totalSelectableCleanupItemCount == 0)
+            .accessibilityIdentifier("dashboard.cleanup.select-all")
+            .accessibilityLabel(globalSelectionLabel)
+            .accessibilityValue(globalSelectionState.accessibilityValue)
         }
-        .accessibilityIdentifier("dashboard.cleanup.review-intro")
+        .accessibilityIdentifier("dashboard.cleanup.review-header")
     }
 
-    private var cleanupActionBar: some View {
-        CardSurface(padding: 16, accent: appState.totalSelectedSize > 0 ? Tint.blue : Color.secondary, elevation: .standard) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Ready to clean")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(cleanupSelectionSummary)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                Spacer(minLength: 8)
-                Button {
-                    showConfirmation = true
-                } label: {
-                    Label(cleanSelectedLabel, systemImage: "trash")
-                        .padding(.horizontal, 4)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(appState.totalSelectedSize <= 0)
-                .accessibilityIdentifier("dashboard.cleanup.action-bar")
-                .accessibilityLabel("Clean selected files")
-                .accessibilityValue(cleanSelectedLabel)
-            }
+    private var globalSelectionState: CleanupSelectionState {
+        let total = appState.totalSelectableCleanupItemCount
+        let selected = appState.selectedSelectableCleanupItemCount
+        guard total > 0, selected > 0 else { return .none }
+        return selected == total ? .all : .partial
+    }
+
+    private var globalSelectionLabel: LocalizedStringKey {
+        globalSelectionState == .all ? "Deselect All" : "Select All"
+    }
+
+    private func toggleAllCleanupItems() {
+        if globalSelectionState == .all {
+            appState.deselectAllCleanupItems()
+        } else {
+            appState.selectAllCleanupItems()
         }
-        .accessibilityIdentifier("dashboard.cleanup.action-summary")
     }
 
     private func toggleCleanupCategory(_ category: CleaningCategory) {
@@ -1708,34 +1672,10 @@ private struct CleanupCategoryCard: View {
         appState.selectedSizeInCategory(result.category)
     }
 
-    private var selectionState: CleanupSelectionState {
-        if selectedCount == 0 { return .none }
-        if selectedCount == result.itemCount { return .all }
-        return .partial
-    }
-
     var body: some View {
         CardSurface(padding: 0, accent: result.category.color, elevation: .standard) {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    Button(action: toggleSelection) {
-                        Image(systemName: selectionState.systemImage)
-                            .font(.system(size: 19, weight: .semibold))
-                            .foregroundStyle(
-                                selectionState == .none
-                                    ? Color.secondary
-                                    : result.category.color
-                            )
-                            .frame(width: 30, height: 30)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(
-                        "dashboard.cleanup.category.\(result.category.id).toggle"
-                    )
-                    .accessibilityLabel(selectionToggleLabel)
-                    .accessibilityValue(selectionState.accessibilityValue)
-
                     Button(action: onToggleExpanded) {
                         HStack(spacing: 10) {
                             IconTile(
@@ -1830,29 +1770,6 @@ private struct CleanupCategoryCard: View {
         )
     }
 
-    private var selectionToggleLabel: String {
-        switch selectionState {
-        case .all:
-            return String(
-                format: String(localized: "Deselect all %@"),
-                String(localized: String.LocalizationValue(result.category.rawValue))
-            )
-        case .none, .partial:
-            return String(
-                format: String(localized: "Select all %@"),
-                String(localized: String.LocalizationValue(result.category.rawValue))
-            )
-        }
-    }
-
-    private func toggleSelection() {
-        if selectionState == .all {
-            appState.deselectAllInCategory(result.category)
-        } else {
-            appState.selectAllInCategory(result.category)
-        }
-    }
-
     private var categoryItems: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
@@ -1936,8 +1853,7 @@ private struct CleanupItemRow: View {
     /// Docker's `system df` entry is evidence for a manual Docker command,
     /// not a filesystem path that AppSift can safely unlink itself.
     private var isManualOnly: Bool {
-        item.category == .dockerCache
-            && item.name.localizedCaseInsensitiveContains("docker system prune")
+        item.isManualAction
     }
 
     var body: some View {

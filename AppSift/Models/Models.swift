@@ -118,6 +118,14 @@ struct CleanableItem: Identifiable, Hashable {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 
+    /// Some scan results are guidance for a user-run command rather than a
+    /// filesystem path AppSift may delete. Keep them visible in the review
+    /// list, but never include them in selection actions or cleanup batches.
+    var isManualAction: Bool {
+        category == .dockerCache
+            && name.localizedCaseInsensitiveContains("docker system prune")
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
