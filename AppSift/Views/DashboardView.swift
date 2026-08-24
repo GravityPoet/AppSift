@@ -11,6 +11,9 @@ struct DashboardView: View {
     @State private var fireCleanConfetti = false
     @State private var lastCleanedScanState: Bool = false
     @State private var hoveredSegment: String?
+    /// Categories are collapsed by default so the scan result stays scannable;
+    /// the largest result is opened automatically when a scan completes.
+    @State private var expandedCleanupCategories: Set<CleaningCategory> = []
     /// Confetti burst origin as a fraction of the dashboard, derived from the
     /// SuccessMedal's real frame so the burst tracks it across window sizes
     /// and RTL layout instead of a hand-aimed constant.
@@ -71,13 +74,14 @@ struct DashboardView: View {
                     case .completed:
                         completedHero
                             .transition(heroTransition)
-                        sectionHeader("AppSift tools")
-                        toolOverview
                         if appState.totalJunkSize > 0 {
-                            sectionHeader("By category")
-                            categoryChartCard
+                            sectionHeader("Review before cleaning")
                             resultsList
+                            sectionHeader("Size breakdown")
+                            categoryChartCard
                         }
+                        sectionHeader("More tools")
+                        toolOverview
                     case .cleaning:
                         cleaningHero
                             .transition(heroTransition)
@@ -122,6 +126,15 @@ struct DashboardView: View {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onChange(of: appState.scanState) { newState in
+            if case .scanning = newState {
+                expandedCleanupCategories.removeAll()
+            } else if newState == .completed, expandedCleanupCategories.isEmpty {
+                // Give the user an immediate, useful first detail view without
+                // opening every category and creating a wall of rows.
+                if let largest = appState.allResults.max(by: { $0.totalSize < $1.totalSize }) {
+                    expandedCleanupCategories.insert(largest.category)
+                }
+            }
             // Fire only on the rising edge of .cleaned with freed > 0 so
             // the burst doesn't replay when the user navigates back to the
             // dashboard while .cleaned is still on screen.
@@ -898,22 +911,34 @@ struct DashboardView: View {
         let isClean = appState.totalJunkSize <= 0
         return CardSurface(padding: 24, accent: isClean ? Tint.green : Tint.orange, elevation: .raised) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    if !isClean {
-                        CountUpBytes(bytes: appState.totalJunkSize)
-                            .font(.system(size: 40, weight: .semibold))
-                        Text("found")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        HStack(spacing: 10) {
-                            cleanSealIcon
-                            Text("Your Mac is clean")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(Tint.green)
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        if !isClean {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                CountUpBytes(bytes: appState.totalJunkSize)
+                                    .font(.system(size: 40, weight: .semibold))
+                                Text("found")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .accessibilityIdentifier("dashboard.cleanup.found-total")
+
+                            Text(cleanupSelectionSummary)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("dashboard.cleanup.selection-summary")
+                        } else {
+                            HStack(spacing: 10) {
+                                cleanSealIcon
+                                Text("Your Mac is clean")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundStyle(Tint.green)
+                            }
                         }
                     }
-                    Spacer()
+
+                    Spacer(minLength: 0)
+
                     HStack(spacing: 8) {
                         Button("Overview") { appState.showDashboardOverview() }
                             .controlSize(.large)
@@ -921,23 +946,35 @@ struct DashboardView: View {
                             .controlSize(.large)
                     }
                 }
+
                 if !isClean {
-                    HStack {
-                        if appState.totalSelectedSize > 0 {
-                            Button {
-                                showConfirmation = true
-                            } label: {
-                                Label {
-                                    Text(cleanSelectedLabel)
-                                } icon: {
-                                    Image(systemName: "sparkles")
-                                }
-                                .padding(.horizontal, 6)
-                            }
-                            .buttonStyle(GlowProminentButtonStyle())
+                    HStack(alignment: .center, spacing: 12) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Tint.blue)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Review every item before cleaning")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Nothing is removed until you press Clean Selected.")
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundStyle(.secondary)
                         }
-                        Spacer()
+                        Spacer(minLength: 8)
+                        Button {
+                            showConfirmation = true
+                        } label: {
+                            Label(cleanSelectedLabel, systemImage: "sparkles")
+                                .padding(.horizontal, 5)
+                        }
+                        .buttonStyle(GlowProminentButtonStyle())
+                        .controlSize(.large)
+                        .disabled(appState.totalSelectedSize <= 0)
+                        .accessibilityIdentifier("dashboard.cleanup.clean-selected")
+                        .accessibilityLabel("Clean selected files")
+                        .accessibilityValue(cleanSelectedLabel)
                     }
+                    .padding(.top, 2)
                 }
             }
         }
@@ -947,6 +984,24 @@ struct DashboardView: View {
         String(
             format: String(localized: "Clean %@"),
             ByteCountFormatter.string(fromByteCount: appState.totalSelectedSize, countStyle: .file)
+        )
+    }
+
+    private var selectedCleanupItemCount: Int {
+        appState.allResults
+            .flatMap(\.items)
+            .count(where: { appState.isItemSelected($0) })
+    }
+
+    private var cleanupSelectionSummary: String {
+        String(
+            format: String(localized: "%lld of %lld items selected · %@ ready"),
+            Int64(selectedCleanupItemCount),
+            Int64(appState.totalItemCount),
+            ByteCountFormatter.string(
+                fromByteCount: appState.totalSelectedSize,
+                countStyle: .file
+            )
         )
     }
 
@@ -963,16 +1018,101 @@ struct DashboardView: View {
     }
 
     private var resultsList: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                ForEach(Array(appState.allResults.enumerated()), id: \.element.id) { idx, result in
-                    CategoryToggleRow(result: result)
-                        .staggered(idx)
-                    if result.id != appState.allResults.last?.id {
-                        Divider().padding(.leading, 54)
+        VStack(alignment: .leading, spacing: 12) {
+            cleanupReviewIntro
+
+            ForEach(Array(sortedCleanupResults.enumerated()), id: \.element.category) { idx, result in
+                CleanupCategoryCard(
+                    result: result,
+                    isExpanded: expandedCleanupCategories.contains(result.category),
+                    onToggleExpanded: {
+                        toggleCleanupCategory(result.category)
                     }
-                }
+                )
+                .staggered(idx)
             }
+
+            cleanupActionBar
+        }
+        .accessibilityIdentifier("dashboard.cleanup.results")
+    }
+
+    private var sortedCleanupResults: [CategoryResult] {
+        // Keep zero-result categories visible after a Smart Scan. A beginner
+        // should be able to see that every scan module ran, not infer that a
+        // missing row was skipped.
+        CleaningCategory.scannable.compactMap { appState.categoryResults[$0] }.sorted { lhs, rhs in
+            if lhs.totalSize == rhs.totalSize {
+                return lhs.category.rawValue < rhs.category.rawValue
+            }
+            return lhs.totalSize > rhs.totalSize
+        }
+    }
+
+    private var cleanupReviewIntro: some View {
+        CardSurface(padding: 18, accent: Tint.blue, elevation: .standard) {
+            HStack(alignment: .top, spacing: 12) {
+                IconTile(systemName: "checklist", tint: Tint.blue, size: 34, corner: 10, glow: true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Review before cleaning")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked.")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(String(format: String(localized: "%lld categories scanned"), Int64(sortedCleanupResults.count)))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Tint.blue)
+                    Text(String(format: String(localized: "%lld with findings"), Int64(sortedCleanupResults.count(where: { $0.itemCount > 0 }))))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .monospacedDigit()
+            }
+        }
+        .accessibilityIdentifier("dashboard.cleanup.review-intro")
+    }
+
+    private var cleanupActionBar: some View {
+        CardSurface(padding: 16, accent: appState.totalSelectedSize > 0 ? Tint.blue : Color.secondary, elevation: .standard) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Ready to clean")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(cleanupSelectionSummary)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                Spacer(minLength: 8)
+                Button {
+                    showConfirmation = true
+                } label: {
+                    Label(cleanSelectedLabel, systemImage: "trash")
+                        .padding(.horizontal, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(appState.totalSelectedSize <= 0)
+                .accessibilityIdentifier("dashboard.cleanup.action-bar")
+                .accessibilityLabel("Clean selected files")
+                .accessibilityValue(cleanSelectedLabel)
+            }
+        }
+        .accessibilityIdentifier("dashboard.cleanup.action-summary")
+    }
+
+    private func toggleCleanupCategory(_ category: CleaningCategory) {
+        if expandedCleanupCategories.contains(category) {
+            expandedCleanupCategories.remove(category)
+        } else {
+            expandedCleanupCategories.insert(category)
         }
     }
 
@@ -1519,50 +1659,415 @@ private struct ShimmerProgressBar: View {
     }
 }
 
-// MARK: - Toggle row
+// MARK: - Scan result review
 
-private struct CategoryToggleRow: View {
+private enum CleanupSelectionState {
+    case none
+    case partial
+    case all
+
+    var systemImage: String {
+        switch self {
+        case .none: return "square"
+        case .partial: return "minus.square.fill"
+        case .all: return "checkmark.square.fill"
+        }
+    }
+
+    var accessibilityValue: String {
+        switch self {
+        case .none: return String(localized: "None selected")
+        case .partial: return String(localized: "Partially selected")
+        case .all: return String(localized: "All selected")
+        }
+    }
+}
+
+private struct CleanupCategoryCard: View {
     @EnvironmentObject var appState: AppState
     let result: CategoryResult
+    let isExpanded: Bool
+    let onToggleExpanded: () -> Void
 
-    private var isFullySelected: Bool {
-        appState.selectedCountInCategory(result.category) == result.itemCount
+    private var selectedCount: Int {
+        appState.selectedCountInCategory(result.category)
+    }
+
+    private var selectedSize: Int64 {
+        appState.selectedSizeInCategory(result.category)
+    }
+
+    private var selectionState: CleanupSelectionState {
+        if selectedCount == 0 { return .none }
+        if selectedCount == result.itemCount { return .all }
+        return .partial
     }
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { isFullySelected },
-            set: { newValue in
-                if newValue {
-                    appState.selectAllInCategory(result.category)
-                } else {
-                    appState.deselectAllInCategory(result.category)
+        CardSurface(padding: 0, accent: result.category.color, elevation: .standard) {
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Button(action: toggleSelection) {
+                        Image(systemName: selectionState.systemImage)
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(
+                                selectionState == .none
+                                    ? Color.secondary
+                                    : result.category.color
+                            )
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(
+                        "dashboard.cleanup.category.\(result.category.id).toggle"
+                    )
+                    .accessibilityLabel(selectionToggleLabel)
+                    .accessibilityValue(selectionState.accessibilityValue)
+
+                    Button(action: onToggleExpanded) {
+                        HStack(spacing: 10) {
+                            IconTile(
+                                systemName: result.category.icon,
+                                tint: result.category.color,
+                                size: 34,
+                                corner: 10,
+                                glow: isExpanded
+                            )
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(LocalizedStringKey(result.category.rawValue))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text(LocalizedStringKey(result.category.description))
+                                    .font(.system(size: 11.5, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Text(categorySelectionText)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(result.category.color)
+                                    .monospacedDigit()
+                            }
+
+                            Spacer(minLength: 8)
+
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text(result.formattedSize)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .monospacedDigit()
+                                Text(selectedSizeText)
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 22, height: 30)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(
+                        "dashboard.cleanup.category.\(result.category.id).review"
+                    )
+                    .accessibilityLabel(
+                        Text(
+                            String(
+                                format: String(localized: "%@ files"),
+                                String(localized: String.LocalizationValue(result.category.rawValue))
+                            )
+                        )
+                    )
+                    .accessibilityValue(
+                        Text(
+                            isExpanded
+                                ? String(localized: "Expanded")
+                                : String(localized: "Collapsed")
+                        )
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+
+                if isExpanded {
+                    Divider()
+                        .padding(.leading, 54)
+                    categoryItems
+                        .transition(.opacity)
                 }
             }
-        )) {
-            HStack(spacing: 12) {
-                IconTile(systemName: result.category.icon, tint: result.category.color, size: 28)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(LocalizedStringKey(result.category.rawValue))
-                        .font(.system(size: 13.5, weight: .semibold))
-                    Text(itemsCountText)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dashboard.cleanup.category.\(result.category.id)")
+    }
+
+    private var categorySelectionText: String {
+        String(
+            format: String(localized: "%lld of %lld selected"),
+            Int64(selectedCount),
+            Int64(result.itemCount)
+        )
+    }
+
+    private var selectedSizeText: String {
+        String(
+            format: String(localized: "%@ selected"),
+            ByteCountFormatter.string(fromByteCount: selectedSize, countStyle: .file)
+        )
+    }
+
+    private var selectionToggleLabel: String {
+        switch selectionState {
+        case .all:
+            return String(
+                format: String(localized: "Deselect all %@"),
+                String(localized: String.LocalizationValue(result.category.rawValue))
+            )
+        case .none, .partial:
+            return String(
+                format: String(localized: "Select all %@"),
+                String(localized: String.LocalizationValue(result.category.rawValue))
+            )
+        }
+    }
+
+    private func toggleSelection() {
+        if selectionState == .all {
+            appState.deselectAllInCategory(result.category)
+        } else {
+            appState.selectAllInCategory(result.category)
+        }
+    }
+
+    private var categoryItems: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Files found")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
                 Spacer()
-                Text(result.formattedSize)
-                    .font(.system(size: 13, weight: .semibold))
+                Text(categorySelectionText)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .padding(.bottom, 8)
+
+            if sortedItems.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Tint.green)
+                        .accessibilityHidden(true)
+                    Text("No removable files found in this category.")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 6)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(sortedItems.enumerated()), id: \.element.id) { index, item in
+                        CleanupItemRow(item: item)
+                            .padding(.vertical, 5)
+                        if index < sortedItems.count - 1 {
+                            Divider().padding(.leading, 38)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .background(Color.primary.opacity(0.025))
+        .accessibilityIdentifier(
+            "dashboard.cleanup.category.\(result.category.id).items"
+        )
+    }
+
+    private var sortedItems: [CleanableItem] {
+        result.items.sorted { lhs, rhs in
+            if lhs.size == rhs.size { return lhs.name < rhs.name }
+            return lhs.size > rhs.size
+        }
+    }
+}
+
+private struct CleanupItemRow: View {
+    @EnvironmentObject var appState: AppState
+    let item: CleanableItem
+
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isSelected: Bool {
+        appState.isItemSelected(item)
+    }
+
+    /// Docker's `system df` entry is evidence for a manual Docker command,
+    /// not a filesystem path that AppSift can safely unlink itself.
+    private var isManualOnly: Bool {
+        item.category == .dockerCache
+            && item.name.localizedCaseInsensitiveContains("docker system prune")
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            if isManualOnly {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Tint.orange)
+                    .frame(width: 24, height: 24)
+                    .accessibilityHidden(true)
+
+                itemDetails
+
+                Text("Manual")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Tint.orange)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Tint.orange.opacity(0.13)))
+            } else {
+                Toggle(isOn: Binding(
+                    get: { isSelected },
+                    set: { _ in appState.toggleItem(item) }
+                )) {
+                    itemDetails
+                }
+                .toggleStyle(AnimatedCheckboxStyle(tint: item.category.color))
+                .accessibilityIdentifier("dashboard.cleanup.item.\(item.id.uuidString)")
+            }
+        }
+        .padding(.horizontal, 3)
+        .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(
+                    hovering
+                        ? Color.primary.opacity(0.055)
+                        : (isSelected ? item.category.color.opacity(0.045) : .clear)
+                )
+        )
+        .animation(reduceMotion ? nil : MotionTokens.snappy, value: hovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isSelected)
+        .onHover { hovering = $0 }
+        .contextMenu {
+            if !item.path.isEmpty {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dashboard.cleanup.item-row.\(item.id.uuidString)")
+    }
+
+    @ViewBuilder
+    private var itemDetails: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: fileIcon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(item.category.color)
+                    .frame(width: 18)
+                    .accessibilityHidden(true)
+
+                Text(item.name)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer(minLength: 6)
+
+                Text(item.formattedSize)
+                    .font(.system(size: 12.5, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
+
+            if !item.path.isEmpty {
+                Text(item.path)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            } else {
+                Text("Managed by macOS")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.tertiary)
+            }
+
+            HStack(spacing: 6) {
+                Text(itemGuidance)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(isManualOnly ? Tint.orange : .secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer(minLength: 4)
+
+                Text(selectionStatus)
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(isSelected ? item.category.color : .secondary)
+            }
         }
-        .toggleStyle(.checkbox)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .accessibilityLabel(Text(item.name))
+        .accessibilityValue(Text(accessibilityDescription))
     }
 
-    private var itemsCountText: String {
-        String(format: String(localized: "%lld items"), Int64(result.itemCount))
+    private var itemGuidance: String {
+        if isManualOnly {
+            return String(localized: "Review in Docker before pruning")
+        }
+        switch item.category {
+        case .largeFiles:
+            return String(localized: "Personal file · choose carefully")
+        case .aiApps:
+            return String(localized: "Recreated by the app when needed")
+        case .mailAttachments:
+            return String(localized: "Downloaded copy · review before removing")
+        case .trashBins:
+            return String(localized: "Already in Trash")
+        default:
+            return String(localized: "Rebuildable cache or log")
+        }
+    }
+
+    private var selectionStatus: String {
+        if isManualOnly { return String(localized: "Manual action") }
+        if isSelected { return String(localized: "Selected") }
+        return item.isSelected
+            ? String(localized: "Excluded")
+            : String(localized: "Review manually")
+    }
+
+    private var accessibilityDescription: String {
+        let path = item.path.isEmpty ? String(localized: "Managed by macOS") : item.path
+        return [item.formattedSize, path, itemGuidance, selectionStatus]
+            .joined(separator: ", ")
+    }
+
+    private var fileIcon: String {
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        switch ext {
+        case "log", "txt": return "doc.text"
+        case "zip", "gz", "tar": return "doc.zipper"
+        case "dmg", "iso": return "opticaldisc"
+        case "app": return "app"
+        case "pkg": return "shippingbox"
+        default:
+            var isDirectory: ObjCBool = false
+            if !item.path.isEmpty,
+               FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                return "folder"
+            }
+            return "doc"
+        }
     }
 }
 

@@ -1404,3 +1404,33 @@
 "See evidence-based alerts and recommended actions." = "See evidence-based alerts and recommended actions.";
 "Run targeted DNS, Spotlight, and Mail repairs." = "Run targeted DNS, Spotlight, and Mail repairs.";
 "Inspect old users, preferences, and document versions." = "Inspect old users, preferences, and document versions.";
+
+/* Smart Scan result review (DashboardView) */
+"Review before cleaning" = "Review before cleaning";
+"Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked." = "Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked.";
+"Review every item before cleaning" = "Review every item before cleaning";
+"Nothing is removed until you press Clean Selected." = "Nothing is removed until you press Clean Selected.";
+"Clean selected files" = "Clean selected files";
+"%lld of %lld items selected · %@ ready" = "%lld of %lld items selected · %@ ready";
+"%lld categories scanned" = "%lld categories scanned";
+"%lld with findings" = "%lld with findings";
+"%@ files" = "%@ files";
+"%@ selected" = "%@ selected";
+"Select all %@" = "Select all %@";
+"Deselect all %@" = "Deselect all %@";
+"Files found" = "Files found";
+"No removable files found in this category." = "No removable files found in this category.";
+"None selected" = "None selected";
+"Partially selected" = "Partially selected";
+"All selected" = "All selected";
+"Manual" = "Manual";
+"Review in Docker before pruning" = "Review in Docker before pruning";
+"Personal file · choose carefully" = "Personal file · choose carefully";
+"Recreated by the app when needed" = "Recreated by the app when needed";
+"Downloaded copy · review before removing" = "Downloaded copy · review before removing";
+"Already in Trash" = "Already in Trash";
+"Rebuildable cache or log" = "Rebuildable cache or log";
+"Manual action" = "Manual action";
+"Review manually" = "Review manually";
+"More tools" = "More tools";
+"Size breakdown" = "Size breakdown";

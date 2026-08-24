@@ -1404,3 +1404,33 @@
 "See evidence-based alerts and recommended actions." = "Consulta alertas y acciones recomendadas basadas en datos.";
 "Run targeted DNS, Spotlight, and Mail repairs." = "Ejecuta reparaciones específicas de DNS, Spotlight y Mail.";
 "Inspect old users, preferences, and document versions." = "Inspecciona usuarios antiguos, preferencias y versiones de documentos.";
+
+/* Smart Scan result review (DashboardView) */
+"Review before cleaning" = "Revisar antes de limpiar";
+"Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked." = "Cada categoría muestra los archivos exactos encontrados. AppSift preselecciona cachés y registros reconstruibles; los archivos personales grandes no se seleccionan.";
+"Review every item before cleaning" = "Revisa cada elemento antes de limpiar";
+"Nothing is removed until you press Clean Selected." = "No se elimina nada hasta que pulses Limpiar seleccionados.";
+"Clean selected files" = "Limpiar archivos seleccionados";
+"%lld of %lld items selected · %@ ready" = "%lld de %lld elementos seleccionados · %@ listos";
+"%lld categories scanned" = "%lld categorías analizadas";
+"%lld with findings" = "%lld con resultados";
+"%@ files" = "%@ archivos";
+"%@ selected" = "%@ seleccionados";
+"Select all %@" = "Seleccionar todo %@";
+"Deselect all %@" = "Anular selección de %@";
+"Files found" = "Archivos encontrados";
+"No removable files found in this category." = "No se encontraron archivos eliminables en esta categoría.";
+"None selected" = "Ninguno seleccionado";
+"Partially selected" = "Selección parcial";
+"All selected" = "Todos seleccionados";
+"Manual" = "Manual";
+"Review in Docker before pruning" = "Revisa Docker antes de depurar";
+"Personal file · choose carefully" = "Archivo personal · elige con cuidado";
+"Recreated by the app when needed" = "La app lo recreará cuando sea necesario";
+"Downloaded copy · review before removing" = "Copia descargada · revisa antes de eliminar";
+"Already in Trash" = "Ya está en la Papelera";
+"Rebuildable cache or log" = "Caché o registro reconstruible";
+"Manual action" = "Acción manual";
+"Review manually" = "Revisar manualmente";
+"More tools" = "Más herramientas";
+"Size breakdown" = "Desglose por tamaño";

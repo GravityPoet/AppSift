@@ -1404,3 +1404,33 @@
 "See evidence-based alerts and recommended actions." = "根拠に基づく警告と推奨操作を確認します。";
 "Run targeted DNS, Spotlight, and Mail repairs." = "DNS、Spotlight、Mail を対象に修復します。";
 "Inspect old users, preferences, and document versions." = "古いユーザ、環境設定、書類の履歴を確認します。";
+
+/* Smart Scan result review (DashboardView) */
+"Review before cleaning" = "クリーンアップ前に確認";
+"Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked." = "各カテゴリを開くと、見つかったファイルを確認できます。AppSift は再作成できるキャッシュとログをあらかじめ選択し、個人用の大きなファイルは選択しません。";
+"Review every item before cleaning" = "クリーンアップ前に項目を確認";
+"Nothing is removed until you press Clean Selected." = "「選択項目をクリーンアップ」を押すまで、ファイルは削除されません。";
+"Clean selected files" = "選択したファイルをクリーンアップ";
+"%lld of %lld items selected · %@ ready" = "%lld/%lld 項目を選択 · %@ をクリーンアップ可能";
+"%lld categories scanned" = "%lld カテゴリをスキャン";
+"%lld with findings" = "%lld 件に結果あり";
+"%@ files" = "%@ ファイル";
+"%@ selected" = "%@ を選択";
+"Select all %@" = "%@ をすべて選択";
+"Deselect all %@" = "%@ の選択をすべて解除";
+"Files found" = "見つかったファイル";
+"No removable files found in this category." = "このカテゴリに削除できるファイルはありません。";
+"None selected" = "未選択";
+"Partially selected" = "一部を選択";
+"All selected" = "すべて選択";
+"Manual" = "手動";
+"Review in Docker before pruning" = "削除前に Docker で確認";
+"Personal file · choose carefully" = "個人ファイル · 慎重に選択";
+"Recreated by the app when needed" = "必要に応じてアプリが再作成";
+"Downloaded copy · review before removing" = "ダウンロード済みコピー · 削除前に確認";
+"Already in Trash" = "ゴミ箱に移動済み";
+"Rebuildable cache or log" = "再作成できるキャッシュまたはログ";
+"Manual action" = "手動操作";
+"Review manually" = "手動で確認";
+"More tools" = "その他のツール";
+"Size breakdown" = "サイズの内訳";
