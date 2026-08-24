@@ -38,6 +38,67 @@ final class AppStateTests: XCTestCase {
         )
     }
 
+    func testGlobalCleanupSelectionSelectsAllRemovableItemsAndSkipsManualGuidance() {
+        let appState = AppState(performStartupTasks: false)
+        let defaultSelected = CleanableItem(
+            name: "Rebuildable cache",
+            path: "/tmp/cache",
+            size: 512,
+            category: .userCache,
+            isSelected: true,
+            lastModified: nil
+        )
+        let personalFile = CleanableItem(
+            name: "Archive.zip",
+            path: "/Users/test/Downloads/Archive.zip",
+            size: 1024,
+            category: .largeFiles,
+            isSelected: false,
+            lastModified: nil
+        )
+        let manualDockerAction = CleanableItem(
+            name: "Reclaimable (run `docker system prune -af`)",
+            path: "/opt/homebrew/bin/docker",
+            size: 2048,
+            category: .dockerCache,
+            isSelected: false,
+            lastModified: nil
+        )
+        appState.categoryResults = [
+            .userCache: CategoryResult(
+                category: .userCache,
+                items: [defaultSelected],
+                totalSize: defaultSelected.size
+            ),
+            .largeFiles: CategoryResult(
+                category: .largeFiles,
+                items: [personalFile],
+                totalSize: personalFile.size
+            ),
+            .dockerCache: CategoryResult(
+                category: .dockerCache,
+                items: [manualDockerAction],
+                totalSize: manualDockerAction.size
+            ),
+        ]
+
+        XCTAssertEqual(appState.totalSelectableCleanupItemCount, 2)
+        XCTAssertEqual(appState.selectedSelectableCleanupItemCount, 1)
+
+        appState.selectAllCleanupItems()
+
+        XCTAssertTrue(appState.isItemSelected(defaultSelected))
+        XCTAssertTrue(appState.isItemSelected(personalFile))
+        XCTAssertFalse(appState.isItemSelected(manualDockerAction))
+        XCTAssertEqual(appState.selectedSelectableCleanupItemCount, 2)
+
+        appState.deselectAllCleanupItems()
+
+        XCTAssertFalse(appState.isItemSelected(defaultSelected))
+        XCTAssertFalse(appState.isItemSelected(personalFile))
+        XCTAssertFalse(appState.isItemSelected(manualDockerAction))
+    }
+
     func testCleaningEngineAllowsOnlyReviewedAIAppCleanupRoots() async {
         let engine = CleaningEngine()
         let home = FileManager.default.homeDirectoryForCurrentUser.path

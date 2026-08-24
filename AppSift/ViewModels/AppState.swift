@@ -5694,6 +5694,7 @@ final class AppState: ObservableObject {
     // MARK: - Selection
 
     func isItemSelected(_ item: CleanableItem) -> Bool {
+        guard !item.isManualAction else { return false }
         if item.isSelected {
             return !deselectedItems.contains(item.id)
         }
@@ -5701,6 +5702,7 @@ final class AppState: ObservableObject {
     }
 
     func toggleItem(_ item: CleanableItem) {
+        guard !item.isManualAction else { return }
         if isItemSelected(item) {
             if item.isSelected {
                 deselectedItems.insert(item.id)
@@ -5718,7 +5720,7 @@ final class AppState: ObservableObject {
 
     func selectAllInCategory(_ category: CleaningCategory) {
         guard let result = categoryResults[category] else { return }
-        for item in result.items {
+        for item in result.items where !item.isManualAction {
             if item.isSelected {
                 deselectedItems.remove(item.id)
             } else {
@@ -5729,7 +5731,7 @@ final class AppState: ObservableObject {
 
     func deselectAllInCategory(_ category: CleaningCategory) {
         guard let result = categoryResults[category] else { return }
-        for item in result.items {
+        for item in result.items where !item.isManualAction {
             if item.isSelected {
                 deselectedItems.insert(item.id)
             } else {
@@ -5745,7 +5747,42 @@ final class AppState: ObservableObject {
 
     func selectedCountInCategory(_ category: CleaningCategory) -> Int {
         guard let result = categoryResults[category] else { return 0 }
-        return result.items.filter { isItemSelected($0) }.count
+        return result.items.filter { !$0.isManualAction && isItemSelected($0) }.count
+    }
+
+    /// Items that can actually be passed to the cleanup engine. Manual-action
+    /// guidance rows (for example Docker's `system prune` suggestion) stay in
+    /// the review list but are intentionally excluded from bulk selection.
+    var selectableCleanupItems: [CleanableItem] {
+        allResults.flatMap(\.items).filter { !$0.isManualAction }
+    }
+
+    var totalSelectableCleanupItemCount: Int {
+        selectableCleanupItems.count
+    }
+
+    var selectedSelectableCleanupItemCount: Int {
+        selectableCleanupItems.filter { isItemSelected($0) }.count
+    }
+
+    func selectAllCleanupItems() {
+        for item in selectableCleanupItems {
+            if item.isSelected {
+                deselectedItems.remove(item.id)
+            } else {
+                selectedCleanupItems.insert(item.id)
+            }
+        }
+    }
+
+    func deselectAllCleanupItems() {
+        for item in selectableCleanupItems {
+            if item.isSelected {
+                deselectedItems.insert(item.id)
+            } else {
+                selectedCleanupItems.remove(item.id)
+            }
+        }
     }
 
     // MARK: - Helper Methods
