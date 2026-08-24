@@ -11,8 +11,9 @@ struct DashboardView: View {
     @State private var fireCleanConfetti = false
     @State private var lastCleanedScanState: Bool = false
     @State private var hoveredSegment: String?
-    /// Categories are collapsed by default so the scan result stays scannable;
-    /// the largest result is opened automatically when a scan completes.
+    /// Keep only one category open at a time. Its file list gets its own
+    /// bounded scroll viewport, so the following category cards remain within
+    /// easy reach even when the scan finds hundreds of files.
     @State private var expandedCleanupCategories: Set<CleaningCategory> = []
     /// Confetti burst origin as a fraction of the dashboard, derived from the
     /// SuccessMedal's real frame so the burst tracks it across window sizes
@@ -45,58 +46,60 @@ struct DashboardView: View {
         ZStack {
             Color.clear
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    dashboardHeader
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        dashboardHeader
 
-                    switch appState.scanState {
-                    case .idle:
-                        hero
-                            .transition(heroTransition)
-                        stats
-                        sectionHeader("AppSift tools")
-                        toolOverview
-                        if appState.diskInfo.totalSpace > 0 {
-                            sectionHeader("Storage composition")
-                            storageComposition
+                        switch appState.scanState {
+                        case .idle:
+                            hero
+                                .transition(heroTransition)
+                            stats
+                            sectionHeader("AppSift tools")
+                            toolOverview
+                            if appState.diskInfo.totalSpace > 0 {
+                                sectionHeader("Storage composition")
+                                storageComposition
+                            }
+                            if !suggestionRows.isEmpty {
+                                sectionHeader("Suggested for you")
+                                suggestions
+                            }
+                        case .scanning:
+                            scanningHero
+                                .transition(heroTransition)
+                            if !appState.allResults.isEmpty {
+                                sectionHeader("Found so far")
+                                liveResults
+                            }
+                        case .completed:
+                            completedHero
+                                .transition(heroTransition)
+                            if appState.totalJunkSize > 0 {
+                                sectionHeader("Review before cleaning")
+                                resultsList(scrollProxy: proxy)
+                                sectionHeader("Size breakdown")
+                                categoryChartCard
+                            }
+                            sectionHeader("More tools")
+                            toolOverview
+                        case .cleaning:
+                            cleaningHero
+                                .transition(heroTransition)
+                        case .cleaned:
+                            cleanedHero
+                                .transition(heroTransition)
+                            sectionHeader("AppSift tools")
+                            toolOverview
                         }
-                        if !suggestionRows.isEmpty {
-                            sectionHeader("Suggested for you")
-                            suggestions
-                        }
-                    case .scanning:
-                        scanningHero
-                            .transition(heroTransition)
-                        if !appState.allResults.isEmpty {
-                            sectionHeader("Found so far")
-                            liveResults
-                        }
-                    case .completed:
-                        completedHero
-                            .transition(heroTransition)
-                        if appState.totalJunkSize > 0 {
-                            sectionHeader("Review before cleaning")
-                            resultsList
-                            sectionHeader("Size breakdown")
-                            categoryChartCard
-                        }
-                        sectionHeader("More tools")
-                        toolOverview
-                    case .cleaning:
-                        cleaningHero
-                            .transition(heroTransition)
-                    case .cleaned:
-                        cleanedHero
-                            .transition(heroTransition)
-                        sectionHeader("AppSift tools")
-                        toolOverview
                     }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: 1080, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .animation(reduceMotion ? nil : MotionTokens.gentle, value: appState.scanState)
                 }
-                .padding(.horizontal, 28)
-                .padding(.vertical, 24)
-                .frame(maxWidth: 1080, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .animation(reduceMotion ? nil : MotionTokens.gentle, value: appState.scanState)
             }
 
             // Celebratory burst when a clean cycle finishes with something
@@ -128,12 +131,10 @@ struct DashboardView: View {
         .onChange(of: appState.scanState) { newState in
             if case .scanning = newState {
                 expandedCleanupCategories.removeAll()
-            } else if newState == .completed, expandedCleanupCategories.isEmpty {
-                // Give the user an immediate, useful first detail view without
-                // opening every category and creating a wall of rows.
-                if let largest = appState.allResults.max(by: { $0.totalSize < $1.totalSize }) {
-                    expandedCleanupCategories.insert(largest.category)
-                }
+            } else if newState == .completed {
+                // Start with the compact category overview. The user chooses
+                // which category to inspect, and only that category can open.
+                expandedCleanupCategories.removeAll()
             }
             // Fire only on the rising edge of .cleaned with freed > 0 so
             // the burst doesn't replay when the user navigates back to the
@@ -1017,18 +1018,26 @@ struct DashboardView: View {
         }
     }
 
-    private var resultsList: some View {
+    private func resultsList(scrollProxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             cleanupReviewIntro
 
             ForEach(Array(sortedCleanupResults.enumerated()), id: \.element.category) { idx, result in
+                let isOpening = !expandedCleanupCategories.contains(result.category)
                 CleanupCategoryCard(
                     result: result,
                     isExpanded: expandedCleanupCategories.contains(result.category),
                     onToggleExpanded: {
                         toggleCleanupCategory(result.category)
+                        guard isOpening else { return }
+                        DispatchQueue.main.async {
+                            withAnimation(reduceMotion ? nil : MotionTokens.gentle) {
+                                scrollProxy.scrollTo(result.category.id, anchor: .top)
+                            }
+                        }
                     }
                 )
+                .id(result.category.id)
                 .staggered(idx)
             }
 
@@ -1112,7 +1121,9 @@ struct DashboardView: View {
         if expandedCleanupCategories.contains(category) {
             expandedCleanupCategories.remove(category)
         } else {
-            expandedCleanupCategories.insert(category)
+            // Never stack multiple long file lists. Switching categories
+            // closes the previous list so the next card stays visible below.
+            expandedCleanupCategories = [category]
         }
     }
 
@@ -1855,6 +1866,7 @@ private struct CleanupCategoryCard: View {
                     .monospacedDigit()
             }
             .padding(.bottom, 8)
+            .padding(.horizontal, 16)
 
             if sortedItems.isEmpty {
                 HStack(spacing: 8) {
@@ -1866,26 +1878,40 @@ private struct CleanupCategoryCard: View {
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 6)
             } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(sortedItems.enumerated()), id: \.element.id) { index, item in
-                        CleanupItemRow(item: item)
-                            .padding(.vertical, 5)
-                        if index < sortedItems.count - 1 {
-                            Divider().padding(.leading, 38)
+                // Keep the long file list inside the category card. The next
+                // category remains directly below this bounded viewport,
+                // instead of being pushed hundreds of rows away.
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(sortedItems.enumerated()), id: \.element.id) { index, item in
+                            CleanupItemRow(item: item)
+                                .padding(.vertical, 5)
+                            if index < sortedItems.count - 1 {
+                                Divider().padding(.leading, 38)
+                            }
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
                 }
+                .frame(height: categoryItemsViewportHeight)
             }
         }
-        .padding(.horizontal, 16)
         .padding(.top, 12)
-        .padding(.bottom, 10)
         .background(Color.primary.opacity(0.025))
         .accessibilityIdentifier(
             "dashboard.cleanup.category.\(result.category.id).items"
         )
+    }
+
+    private var categoryItemsViewportHeight: CGFloat {
+        // The estimate is deliberately conservative: it gives a few rows of
+        // context while keeping the following category card visible in the
+        // same window. The inner scroll handles the remainder.
+        min(max(CGFloat(sortedItems.count) * 74, 116), 360)
     }
 
     private var sortedItems: [CleanableItem] {
@@ -2039,7 +2065,7 @@ private struct CleanupItemRow: View {
 
     private var selectionStatus: String {
         if isManualOnly { return String(localized: "Manual action") }
-        if isSelected { return String(localized: "Selected") }
+        if isSelected { return String(localized: "Selected for cleanup") }
         return item.isSelected
             ? String(localized: "Excluded")
             : String(localized: "Review manually")

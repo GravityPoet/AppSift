@@ -120,6 +120,17 @@ final class LocalizationFilesTests: XCTestCase {
         }
     }
 
+    func testCleanupSelectionStatusUsesCleanupSpecificCopy() throws {
+        let files = try localizableStringsFiles()
+        let zhHans = try localizedDictionary(in: try XCTUnwrap(files["zh-Hans"]))
+        let zhHant = try localizedDictionary(in: try XCTUnwrap(files["zh-Hant"]))
+
+        XCTAssertEqual(zhHans["Selected for cleanup"], "已选择")
+        XCTAssertEqual(zhHant["Selected for cleanup"], "已選取")
+        XCTAssertNotEqual(zhHans["Selected"], zhHans["Selected for cleanup"])
+        XCTAssertNotEqual(zhHant["Selected"], zhHant["Selected for cleanup"])
+    }
+
     func testLocalizationDirectoriesMatchSelectableLanguages() throws {
         let localizationDirectories = Set(try localizableStringsFiles().keys)
         let selectableLanguages = Set(
