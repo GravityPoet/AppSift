@@ -1404,3 +1404,33 @@
 "See evidence-based alerts and recommended actions." = "اطّلع على التنبيهات والإجراءات المقترحة المستندة إلى أدلة.";
 "Run targeted DNS, Spotlight, and Mail repairs." = "نفّذ إصلاحات محددة لـ DNS وSpotlight وMail.";
 "Inspect old users, preferences, and document versions." = "افحص المستخدمين القدامى والتفضيلات وإصدارات المستندات.";
+
+/* Smart Scan result review (DashboardView) */
+"Review before cleaning" = "مراجعة قبل التنظيف";
+"Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked." = "افتح كل فئة لعرض الملفات التي عثر عليها الفحص بالضبط. يحدد AppSift ذاكرات التخزين المؤقت والسجلات القابلة لإعادة الإنشاء مسبقًا، ويترك الملفات الشخصية الكبيرة دون تحديد.";
+"Review every item before cleaning" = "راجع كل عنصر قبل التنظيف";
+"Nothing is removed until you press Clean Selected." = "لن تتم إزالة أي ملف حتى تضغط على تنظيف العناصر المحددة.";
+"Clean selected files" = "تنظيف الملفات المحددة";
+"%lld of %lld items selected · %@ ready" = "تم تحديد %lld من أصل %lld عنصرًا · %@ جاهزة للتنظيف";
+"%lld categories scanned" = "تم فحص %lld فئة";
+"%lld with findings" = "%lld فئة تحتوي على نتائج";
+"%@ files" = "%@ ملفًا";
+"%@ selected" = "تم تحديد %@";
+"Select all %@" = "تحديد كل %@";
+"Deselect all %@" = "إلغاء تحديد كل %@";
+"Files found" = "الملفات التي تم العثور عليها";
+"No removable files found in this category." = "لم يتم العثور على ملفات قابلة للإزالة في هذه الفئة.";
+"None selected" = "لم يتم تحديد أي عنصر";
+"Partially selected" = "تحديد جزئي";
+"All selected" = "تم تحديد الكل";
+"Manual" = "يدوي";
+"Review in Docker before pruning" = "راجع في Docker قبل الحذف";
+"Personal file · choose carefully" = "ملف شخصي · اختر بعناية";
+"Recreated by the app when needed" = "سيعيد التطبيق إنشاءه عند الحاجة";
+"Downloaded copy · review before removing" = "نسخة تم تنزيلها · راجعها قبل الإزالة";
+"Already in Trash" = "موجود بالفعل في سلة المهملات";
+"Rebuildable cache or log" = "ذاكرة مؤقتة أو سجل قابل لإعادة الإنشاء";
+"Manual action" = "إجراء يدوي";
+"Review manually" = "مراجعة يدوية";
+"More tools" = "أدوات إضافية";
+"Size breakdown" = "توزيع الحجم";

@@ -1404,3 +1404,33 @@
 "See evidence-based alerts and recommended actions." = "查看基于证据的告警和建议操作。";
 "Run targeted DNS, Spotlight, and Mail repairs." = "执行针对 DNS、Spotlight 和 Mail 的修复。";
 "Inspect old users, preferences, and document versions." = "检查旧用户、偏好设置和文档版本。";
+
+/* Smart Scan result review (DashboardView) */
+"Review before cleaning" = "清理前检查";
+"Each category opens into the exact files found. AppSift preselects rebuildable caches and logs; personal large files stay unchecked." = "每个分类都可以展开查看扫描到的具体文件。AppSift 会预选可重建的缓存和日志；个人大文件默认不勾选。";
+"Review every item before cleaning" = "清理前逐项检查";
+"Nothing is removed until you press Clean Selected." = "只有点击“清理已选文件”后才会删除文件。";
+"Clean selected files" = "清理已选文件";
+"%lld of %lld items selected · %@ ready" = "已选择 %lld/%lld 个项目 · 可清理 %@";
+"%lld categories scanned" = "已扫描 %lld 个分类";
+"%lld with findings" = "其中 %lld 个有发现";
+"%@ files" = "%@ 个文件";
+"%@ selected" = "已选择 %@";
+"Select all %@" = "全选 %@";
+"Deselect all %@" = "取消全选 %@";
+"Files found" = "找到的文件";
+"No removable files found in this category." = "此分类没有可移除的文件。";
+"None selected" = "未选择";
+"Partially selected" = "部分选择";
+"All selected" = "全部选择";
+"Manual" = "手动";
+"Review in Docker before pruning" = "请在 Docker 中检查后再清理";
+"Personal file · choose carefully" = "个人文件 · 请谨慎选择";
+"Recreated by the app when needed" = "需要时应用会重新创建";
+"Downloaded copy · review before removing" = "已下载副本 · 删除前请检查";
+"Already in Trash" = "已在废纸篓中";
+"Rebuildable cache or log" = "可重建的缓存或日志";
+"Manual action" = "手动操作";
+"Review manually" = "请手动检查";
+"More tools" = "更多工具";
+"Size breakdown" = "大小分布";
