@@ -29,7 +29,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         // Install the menu-bar monitor if the user has it enabled. Never under
         // XCTest — the status-item machinery would stall the test-host run loop.
-        if NSClassFromString("XCTestCase") == nil {
+        if AppLaunchPolicy.shouldRunUserSideEffects(
+            isRunningTests: AppLaunchPolicy.isRunningTests
+        ) {
             syncMenuBarMonitor()
             configureTrashAppNotifications()
             syncTrashAppWatcher()
@@ -46,14 +48,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 self, selector: #selector(systemAlertSettingChanged(_:)),
                 name: .appSiftSystemAlertsChanged, object: nil
             )
+            // Test hosts share the production bundle identifier. Keep their
+            // permission probes and Finder registration out of user state.
+            FullDiskAccessManager.shared.triggerRegistration()
+            // Register the Finder Services provider so uninstall/reset actions
+            // appear when an .app bundle is right-clicked.
+            NSApp.servicesProvider = self
+            NSUpdateDynamicServices()
         }
-        // Touch TCC-protected paths so macOS registers AppSift in the
-        // Full Disk Access pane on first launch (fixes issue #75).
-        FullDiskAccessManager.shared.triggerRegistration()
-        // Register the Finder Services provider so uninstall/reset actions
-        // appear when an .app bundle is right-clicked.
-        NSApp.servicesProvider = self
-        NSUpdateDynamicServices()
     }
 
     func applicationShouldHandleReopen(
@@ -309,6 +311,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             name: .appSiftReviewTrashApps,
             object: paths
         )
+    }
+}
+
+enum AppLaunchPolicy {
+    static var isRunningTests: Bool {
+        isTestEnvironment(
+            xctestClassAvailable: NSClassFromString("XCTestCase") != nil,
+            environment: ProcessInfo.processInfo.environment,
+            uiTestFullDiskAccessOverride: UserDefaults.standard.string(
+                forKey: "AppSift.UITest.FullDiskAccess"
+            )
+        )
+    }
+
+    static func isTestEnvironment(
+        xctestClassAvailable: Bool,
+        environment: [String: String],
+        uiTestFullDiskAccessOverride: String?
+    ) -> Bool {
+        xctestClassAvailable
+            || environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCInjectBundleInto"] != nil
+            || environment["APPSIFT_UITEST_EPHEMERAL_TOOLBOX_FAVORITES"] != nil
+            || uiTestFullDiskAccessOverride != nil
+    }
+
+    static func shouldRunUserSideEffects(isRunningTests: Bool) -> Bool {
+        !isRunningTests
     }
 }
 

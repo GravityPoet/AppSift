@@ -4,45 +4,58 @@ This document is the release gate for cleanup, maintenance, scanner scale, compa
 
 ## Automated gates
 
-Generate the project before running either scheme:
+Local app, unit-test host, and UI-test runner builds must all use the existing
+`AppSift Local Code Signing` identity. Do not copy the unsigned/ad-hoc overrides
+from GitHub Actions onto a Mac with an authorized AppSift installation: those
+overrides are only for disposable CI machines. Never launch a build product as a
+second installed app; use `scripts/install-local.sh` for product acceptance.
+
+Check the local identity and generate the project before running either scheme:
 
 ```bash
+./scripts/ensure-local-codesign-cert.sh
 xcodegen generate
 ```
 
 Run all unit, fixture, cancellation, and scale tests:
 
 ```bash
+APPSIFT_QA_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/appsift-qa.XXXXXX")"
 xcodebuild \
   -project AppSift.xcodeproj \
   -scheme AppSift \
   -configuration Debug \
   -destination "platform=macOS,arch=$(uname -m)" \
-  -derivedDataPath /tmp/AppSift-QA-Derived \
+  -derivedDataPath "$APPSIFT_QA_ROOT/DerivedData.noindex" \
+  -resultBundlePath "$APPSIFT_QA_ROOT/Unit.xcresult" \
   ARCHS="$(uname -m)" \
   ONLY_ACTIVE_ARCH=YES \
-  CODE_SIGN_IDENTITY="" \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGNING_ALLOWED=NO \
+  OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
   test
 ```
 
 Run the macOS accessibility UI audits on macOS 14 or newer. The test runner must be signed and allowed to perform UI automation:
 
 ```bash
+APPSIFT_AX_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/appsift-ax.XXXXXX")"
 xcodebuild \
   -project AppSift.xcodeproj \
   -scheme AppSiftAccessibility \
   -configuration Debug \
   -destination "platform=macOS,arch=$(uname -m)" \
-  -derivedDataPath /tmp/AppSift-Accessibility-QA \
+  -derivedDataPath "$APPSIFT_AX_ROOT/DerivedData.noindex" \
+  -resultBundlePath "$APPSIFT_AX_ROOT/Accessibility.xcresult" \
   ARCHS="$(uname -m)" \
   ONLY_ACTIVE_ARCH=YES \
-  CODE_SIGN_IDENTITY=- \
-  CODE_SIGNING_ALLOWED=YES \
-  CODE_SIGNING_REQUIRED=YES \
+  OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
   test
 ```
+
+Keep the result bundle for evidence, then remove only the exact temporary build
+root after its test processes exit. If retaining a rollback, use a verified ZIP
+archive, not another unpacked `.app` even inside a `.noindex` folder. Confirm
+Spotlight and LaunchServices resolve AppSift only to `/Applications/AppSift.app`;
+the installed signature requirement and Full Disk Access grant must be unchanged.
 
 The automated suite covers:
 

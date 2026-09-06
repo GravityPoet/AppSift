@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 private struct InstalledAppComparator: SortComparator, Sendable {
@@ -38,6 +39,55 @@ private struct InstalledAppComparator: SortComparator, Sendable {
     }
 }
 
+/// Search matching for the installed-app inventory lives outside the view so
+/// the query semantics stay deterministic and independently testable. The
+/// toolbar search field can emit mixed case, diacritics, or surrounding
+/// whitespace; all of those should behave like the same user query.
+enum InstalledAppSearch {
+    private static let metadataMinimumQueryLength = 3
+
+    static func normalized(_ text: String) -> String {
+        text
+            .folding(
+                options: [.caseInsensitive, .diacriticInsensitive],
+                locale: .current
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func matches(_ app: InstalledApp, query: String) -> Bool {
+        let normalizedQuery = normalized(query)
+        guard !normalizedQuery.isEmpty else { return true }
+
+        if normalized(app.appName).contains(normalizedQuery) {
+            return true
+        }
+
+        // One- and two-character queries are intended to narrow the visible
+        // app names immediately. Searching hidden metadata that early makes a
+        // query such as "m" match nearly every `com.*` bundle identifier and
+        // leaves the list looking unfiltered.
+        guard normalizedQuery.count >= metadataMinimumQueryLength else {
+            return false
+        }
+
+        let searchableFields = [
+            app.bundleIdentifier,
+            app.version,
+            app.signature.developerName,
+            app.signature.teamIdentifier,
+        ].compactMap { $0 }
+
+        return searchableFields.contains {
+            normalized($0).contains(normalizedQuery)
+        }
+    }
+
+    static func filter(_ apps: [InstalledApp], query: String) -> [InstalledApp] {
+        apps.filter { matches($0, query: query) }
+    }
+}
+
 struct AppListView: View {
     @EnvironmentObject var appState: AppState
     @State private var searchText = ""
@@ -48,20 +98,15 @@ struct AppListView: View {
         InstalledAppComparator(field: .appName)
     ]
 
+    private var normalizedSearchText: String {
+        InstalledAppSearch.normalized(searchText)
+    }
+
     private var filteredApps: [InstalledApp] {
-        let base: [InstalledApp]
-        if searchText.isEmpty {
-            base = appState.installedApps
-        } else {
-            let query = searchText.lowercased()
-            base = appState.installedApps.filter {
-                $0.appName.lowercased().contains(query) ||
-                $0.bundleIdentifier.lowercased().contains(query) ||
-                ($0.version?.lowercased().contains(query) == true) ||
-                ($0.signature.developerName?.lowercased().contains(query) == true) ||
-                ($0.signature.teamIdentifier?.lowercased().contains(query) == true)
-            }
-        }
+        let base = InstalledAppSearch.filter(
+            appState.installedApps,
+            query: searchText
+        )
         let usageFiltered = base.filter {
             usageFilter.matches(lastUsedAt: $0.lastUsedAt)
         }
@@ -181,6 +226,17 @@ struct AppListView: View {
                             }
                         }
                         .width(min: 70, ideal: 90, max: 110)
+                    }
+                    .overlay {
+                        if filteredApps.isEmpty && !normalizedSearchText.isEmpty {
+                            EmptyStateView(
+                                "No Matching Apps",
+                                systemImage: "magnifyingglass",
+                                description: "Try a different search.",
+                                tint: Tint.purple
+                            )
+                            .background(Color(nsColor: .controlBackgroundColor))
+                        }
                     }
                     .onChange(of: selection) { newValue in
                         guard let id = newValue,

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import AppKit
 import XCTest
 @testable import AppSift
 
@@ -40,6 +41,44 @@ final class SidebarPrimaryDestinationTests: XCTestCase {
                 "\(section) must keep the Tools root selected"
             )
         }
+    }
+}
+
+final class AppLaunchPolicyTests: XCTestCase {
+    func testUserSideEffectsStayDisabledForTestHost() {
+        XCTAssertTrue(AppLaunchPolicy.isRunningTests)
+        XCTAssertFalse(
+            AppLaunchPolicy.shouldRunUserSideEffects(isRunningTests: true)
+        )
+        XCTAssertTrue(
+            AppLaunchPolicy.shouldRunUserSideEffects(isRunningTests: false)
+        )
+    }
+
+    func testUITestLaunchSignalsDisableTCCSideEffects() {
+        XCTAssertTrue(
+            AppLaunchPolicy.isTestEnvironment(
+                xctestClassAvailable: false,
+                environment: [
+                    "APPSIFT_UITEST_EPHEMERAL_TOOLBOX_FAVORITES": "YES"
+                ],
+                uiTestFullDiskAccessOverride: nil
+            )
+        )
+        XCTAssertTrue(
+            AppLaunchPolicy.isTestEnvironment(
+                xctestClassAvailable: false,
+                environment: [:],
+                uiTestFullDiskAccessOverride: "granted"
+            )
+        )
+        XCTAssertFalse(
+            AppLaunchPolicy.isTestEnvironment(
+                xctestClassAvailable: false,
+                environment: [:],
+                uiTestFullDiskAccessOverride: nil
+            )
+        )
     }
 }
 
@@ -116,6 +155,85 @@ final class AppToolCatalogTests: XCTestCase {
             "app-updates,duplicate-files"
         )
     }
+}
+
+final class InstalledAppSearchTests: XCTestCase {
+    func testSingleCharacterQueryMatchesAppName() {
+        let apps = [
+            makeInstalledAppForSearch(
+                name: "AdGuard Mini",
+                bundleIdentifier: "com.adguard.minimal"
+            ),
+            makeInstalledAppForSearch(
+                name: "剪映专业版",
+                bundleIdentifier: "com.example.editor"
+            ),
+        ]
+
+        XCTAssertEqual(
+            InstalledAppSearch.filter(apps, query: "m").map(\.appName),
+            ["AdGuard Mini"]
+        )
+        XCTAssertEqual(
+            InstalledAppSearch.filter(apps, query: "editor").map(\.appName),
+            ["剪映专业版"]
+        )
+    }
+
+    func testMatchingIgnoresCaseDiacriticsAndSurroundingWhitespace() {
+        let apps = [
+            makeInstalledAppForSearch(
+                name: "Ménu Bar",
+                bundleIdentifier: "com.example.menu"
+            ),
+            makeInstalledAppForSearch(
+                name: "Other App",
+                bundleIdentifier: "com.example.other"
+            ),
+        ]
+
+        XCTAssertEqual(
+            InstalledAppSearch.filter(apps, query: "  MENU ").map(\.appName),
+            ["Ménu Bar"]
+        )
+        XCTAssertEqual(
+            InstalledAppSearch.filter(apps, query: "   ").count,
+            apps.count
+        )
+    }
+
+    func testQueryCanMatchBundleIdentifierAndSignatureMetadata() {
+        let app = makeInstalledAppForSearch(
+            name: "Example",
+            bundleIdentifier: "com.example.utility",
+            signature: AppSignatureMetadata(
+                status: .developerSigned,
+                signingIdentifier: "com.example.utility",
+                teamIdentifier: "TEAM123",
+                developerName: "Example Labs",
+                entitlementIdentifiers: []
+            )
+        )
+
+        XCTAssertTrue(InstalledAppSearch.matches(app, query: "UTILITY"))
+        XCTAssertTrue(InstalledAppSearch.matches(app, query: "example labs"))
+        XCTAssertTrue(InstalledAppSearch.matches(app, query: "team123"))
+    }
+}
+
+private func makeInstalledAppForSearch(
+    name: String,
+    bundleIdentifier: String,
+    signature: AppSignatureMetadata = .unknown
+) -> InstalledApp {
+    InstalledApp(
+        appName: name,
+        bundleIdentifier: bundleIdentifier,
+        path: URL(fileURLWithPath: "/Applications/\(name).app"),
+        icon: NSImage(),
+        size: 1,
+        signature: signature
+    )
 }
 
 final class MacOSUpdateScannerTests: XCTestCase {
