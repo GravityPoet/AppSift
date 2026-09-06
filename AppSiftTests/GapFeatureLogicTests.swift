@@ -161,8 +161,16 @@ final class InstalledAppSearchTests: XCTestCase {
     func testSingleCharacterQueryMatchesAppName() {
         let apps = [
             makeInstalledAppForSearch(
+                name: "Amphetamine",
+                bundleIdentifier: "com.example.amphetamine"
+            ),
+            makeInstalledAppForSearch(
                 name: "AdGuard Mini",
                 bundleIdentifier: "com.adguard.minimal"
+            ),
+            makeInstalledAppForSearch(
+                name: "Maccy",
+                bundleIdentifier: "com.example.maccy"
             ),
             makeInstalledAppForSearch(
                 name: "剪映专业版",
@@ -172,11 +180,15 @@ final class InstalledAppSearchTests: XCTestCase {
 
         XCTAssertEqual(
             InstalledAppSearch.filter(apps, query: "m").map(\.appName),
-            ["AdGuard Mini"]
+            ["Amphetamine", "AdGuard Mini", "Maccy"]
         )
         XCTAssertEqual(
             InstalledAppSearch.filter(apps, query: "editor").map(\.appName),
             ["剪映专业版"]
+        )
+        XCTAssertEqual(
+            InstalledAppSearch.ranked(apps, query: "m").map(\.appName),
+            ["Maccy", "AdGuard Mini", "Amphetamine"]
         )
     }
 
