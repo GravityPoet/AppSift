@@ -56,11 +56,32 @@ enum InstalledAppSearch {
     }
 
     static func matches(_ app: InstalledApp, query: String) -> Bool {
-        let normalizedQuery = normalized(query)
-        guard !normalizedQuery.isEmpty else { return true }
+        matchScore(for: app, query: query) != nil
+    }
 
-        if normalized(app.appName).contains(normalizedQuery) {
-            return true
+    /// Returns a lower score for a more useful visible-name match. Keeping the
+    /// score separate from filtering lets the table honour an explicit size or
+    /// last-used sort while still making the default name search feel relevant.
+    static func matchScore(for app: InstalledApp, query: String) -> Int? {
+        let normalizedQuery = normalized(query)
+        guard !normalizedQuery.isEmpty else { return 0 }
+
+        let normalizedName = normalized(app.appName)
+        if normalizedName == normalizedQuery {
+            return 0
+        }
+        if normalizedName.hasPrefix(normalizedQuery) {
+            return 1
+        }
+
+        let nameTokens = normalizedName.components(
+            separatedBy: CharacterSet.alphanumerics.inverted
+        )
+        if nameTokens.contains(where: { $0.hasPrefix(normalizedQuery) }) {
+            return 2
+        }
+        if normalizedName.contains(normalizedQuery) {
+            return 3
         }
 
         // One- and two-character queries are intended to narrow the visible
@@ -68,7 +89,7 @@ enum InstalledAppSearch {
         // query such as "m" match nearly every `com.*` bundle identifier and
         // leaves the list looking unfiltered.
         guard normalizedQuery.count >= metadataMinimumQueryLength else {
-            return false
+            return nil
         }
 
         let searchableFields = [
@@ -80,11 +101,27 @@ enum InstalledAppSearch {
 
         return searchableFields.contains {
             normalized($0).contains(normalizedQuery)
-        }
+        } ? 4 : nil
     }
 
     static func filter(_ apps: [InstalledApp], query: String) -> [InstalledApp] {
-        apps.filter { matches($0, query: query) }
+        apps.filter { matchScore(for: $0, query: query) != nil }
+    }
+
+    static func ranked(_ apps: [InstalledApp], query: String) -> [InstalledApp] {
+        apps.enumerated()
+            .compactMap { index, app in
+                matchScore(for: app, query: query).map {
+                    (index: index, score: $0, app: app)
+                }
+            }
+            .sorted {
+                if $0.score != $1.score {
+                    return $0.score < $1.score
+                }
+                return $0.index < $1.index
+            }
+            .map(\.app)
     }
 }
 
@@ -110,7 +147,12 @@ struct AppListView: View {
         let usageFiltered = base.filter {
             usageFilter.matches(lastUsedAt: $0.lastUsedAt)
         }
-        return usageFiltered.sorted(using: sortOrder)
+        let sorted = usageFiltered.sorted(using: sortOrder)
+        guard !normalizedSearchText.isEmpty,
+              sortOrder.first?.field == .appName else {
+            return sorted
+        }
+        return InstalledAppSearch.ranked(sorted, query: searchText)
     }
 
     var body: some View {
