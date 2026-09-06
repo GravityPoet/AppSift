@@ -278,6 +278,79 @@ final class LocalizationFilesTests: XCTestCase {
         }
     }
 
+    func testSystemHealthCopyHasTranslatedCatalogEntries() throws {
+        // Keep an explicit source check for Foundation strings and SwiftUI
+        // labels missed by the installed extractLocStrings tool.
+        let expression = try NSRegularExpression(
+            pattern: #"(?:String\(localized:|(?:Text|Label|Button|Toggle|sectionTitle)\()\s*"([^"\\]*)""#
+        )
+        var keys = Set<String>()
+        for relativePath in [
+            "AppSift/Services/SystemHealthRecommendations.swift",
+            "AppSift/Services/SystemAlertCenter.swift",
+            "AppSift/Views/SystemHealthView.swift",
+        ] {
+            let source = try String(
+                contentsOf: repositoryRoot().appendingPathComponent(relativePath),
+                encoding: .utf8
+            ) as NSString
+            for match in expression.matches(
+                in: source as String,
+                range: NSRange(location: 0, length: source.length)
+            ) {
+                keys.insert(source.substring(with: match.range(at: 1)))
+            }
+        }
+        XCTAssertGreaterThanOrEqual(keys.count, 56)
+        XCTAssertTrue(keys.contains("No current disk, battery, memory, device, or Trash-age alerts."))
+        XCTAssertTrue(keys.contains("No additional actions are suggested by the completed checks."))
+
+        let files = try localizableStringsFiles()
+        let english = try localizedDictionary(in: try XCTUnwrap(files["en"]))
+        let formatToken = try NSRegularExpression(pattern: #"%(?:lld|@|%)"#)
+        func placeholders(in text: String) -> [String] {
+            let value = text as NSString
+            return formatToken.matches(
+                in: text,
+                range: NSRange(location: 0, length: value.length)
+            ).map { value.substring(with: $0.range) }
+        }
+        for (language, fileURL) in files {
+            let translated = try localizedDictionary(in: fileURL)
+            for key in keys.sorted() {
+                let englishValue = try XCTUnwrap(english[key], "Missing English key: \(key)")
+                let value = try XCTUnwrap(translated[key], "\(language) is missing: \(key)")
+                XCTAssertEqual(placeholders(in: value), placeholders(in: englishValue), key)
+                if language != "en" {
+                    XCTAssertNotEqual(value, englishValue, "\(language) still shows English: \(key)")
+                }
+            }
+        }
+    }
+
+    func testSystemHealthChineseBundleResolvesRecommendationCopyAndCounts() throws {
+        let chinese = try XCTUnwrap(
+            Bundle(url: repositoryRoot().appendingPathComponent("AppSift/zh-Hans.lproj"))
+        )
+        XCTAssertEqual(
+            String(localized: "Remove broken startup items", bundle: chinese),
+            "移除损坏的启动项"
+        )
+        XCTAssertEqual(String(localized: "Review Startup Items", bundle: chinese), "检查启动项")
+        XCTAssertEqual(String(localized: "Review Updates", bundle: chinese), "检查更新")
+        XCTAssertEqual(
+            String(localized: "Background system alerts are off", bundle: chinese),
+            "后台系统告警已关闭"
+        )
+        XCTAssertEqual(
+            String(
+                format: String(localized: "%lld app updates · %lld macOS updates", bundle: chinese),
+                Int64(10), Int64(0)
+            ),
+            "10 项应用更新 · 0 项 macOS 更新"
+        )
+    }
+
     private func localizableStringsFiles() throws -> [String: URL] {
         let sourceRoot = repositoryRoot()
         let appSourceDirectory = sourceRoot.appendingPathComponent("AppSift")
