@@ -141,8 +141,11 @@ xcodebuild test \
   -scheme AppSift \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$TEST_PROJECT_ROOT/DerivedData.noindex" \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO
+  CODE_SIGN_IDENTITY="AppSift Local Code Signing" \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGNING_ALLOWED=YES \
+  CODE_SIGNING_REQUIRED=YES \
+  OTHER_CODE_SIGN_FLAGS="--timestamp=none"
 ```
 
 Remove only that exact `appsift-release-test.*` temporary root after the test.

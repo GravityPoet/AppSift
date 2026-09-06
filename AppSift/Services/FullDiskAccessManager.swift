@@ -14,6 +14,11 @@ struct FullDiskAccessManager: Sendable {
     /// fileExists — because the metadata APIs short-circuit before TCC fires
     /// and so don't register the calling app in the FDA list.
     var hasFullDiskAccess: Bool {
+        // XCTest hosts can carry the production bundle identifier while using
+        // a temporary/ad-hoc code signature. Never let a test probe create or
+        // overwrite the real application's TCC identity.
+        guard !AppLaunchPolicy.isRunningTests else { return false }
+
         let probes = [
             "/Library/Application Support/com.apple.TCC/TCC.db",
             FileManager.default.homeDirectoryForCurrentUser
@@ -68,6 +73,8 @@ struct FullDiskAccessManager: Sendable {
     /// AppSift in unrelated permission lists ("Messages", "Contacts", etc.)
     /// even though we never use them — confusing and a privacy regression.
     func triggerRegistration() {
+        guard !AppLaunchPolicy.isRunningTests else { return }
+
         DispatchQueue.global(qos: .utility).async {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             // FDA-only probes. Each path here is read-gated by
