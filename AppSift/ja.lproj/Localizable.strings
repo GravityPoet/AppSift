@@ -442,6 +442,11 @@
 "Time Machine could not be opened." = "Time Machineを開けませんでした。";
 "Delete %lld Selected (%@)" = "選択した%lld件を削除（%@）";
 "Removal History" = "アンインストール履歴";
+"Post-removal verification" = "削除後の確認";
+"No additional residual files were found." = "追加の残留ファイルは見つかりませんでした。";
+"%lld residual file(s) remain for review." = "確認が必要な残留ファイルが %lld 件あります。";
+"%lld protected group(s) remain untouched." = "%lld 個の保護グループは変更されていません。";
+"Residual scan could not complete." = "残留ファイルの再スキャンを完了できませんでした。";
 "Move selected items to Trash?" = "選択した項目をゴミ箱に移動しますか？";
 "Review & Remove" = "確認して削除";
 "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched." = "必要に応じて %@ を終了し、選択した %lld 項目（%@）をゴミ箱に移動して復元記録を保存します。保護された %lld グループには変更を加えません。";

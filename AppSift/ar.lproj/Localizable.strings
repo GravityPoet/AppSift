@@ -442,6 +442,11 @@
 "Time Machine could not be opened." = "تعذر فتح Time Machine.";
 "Delete %lld Selected (%@)" = "حذف %lld المحددة (%@)";
 "Removal History" = "سجل الإزالة";
+"Post-removal verification" = "التحقق بعد الإزالة";
+"No additional residual files were found." = "لم يتم العثور على ملفات متبقية إضافية.";
+"%lld residual file(s) remain for review." = "تبقى %lld من الملفات المتبقية للمراجعة.";
+"%lld protected group(s) remain untouched." = "ظلّت %lld من المجموعات المحمية دون تغيير.";
+"Residual scan could not complete." = "تعذر إكمال فحص الملفات المتبقية.";
 "Move selected items to Trash?" = "هل تريد نقل العناصر المحددة إلى سلة المهملات؟";
 "Review & Remove" = "مراجعة وإزالة";
 "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched." = "سيغلق AppSift التطبيق %@ عند الحاجة، وينقل %lld عنصرًا محددًا (%@) إلى سلة المهملات، ويحفظ سجلًا للاستعادة. ستظل %lld مجموعة محمية دون تغيير.";
