@@ -319,7 +319,11 @@ final class AppPathFinder: Sendable {
 
             if shouldSkipItem(normalizedName, at: itemURL, collection: collection) { continue }
 
-            if matchEvidence(candidateName: matchingName, normalizedName: normalizedName) != nil {
+            if matchEvidence(
+                candidateName: matchingName,
+                normalizedName: normalizedName,
+                isDirectory: isDirectory
+            ) != nil {
                 // Never escalate a matching child to its parent directory.
                 // A filename match inside another app's vendor folder does
                 // not prove that the selected app owns the whole folder.
@@ -375,6 +379,11 @@ final class AppPathFinder: Sendable {
         if bundleIdentifier == condition { return true }
         if bundleIdentifier.hasPrefix(condition + ".") { return true }
         if bundleIdentifier.hasSuffix("." + condition) { return true }
+        if !condition.contains(".") {
+            return bundleIdentifier.split(separator: ".").contains {
+                String($0) == condition
+            }
+        }
         return false
     }
 
@@ -383,7 +392,8 @@ final class AppPathFinder: Sendable {
     /// "my-chatgpt-client" is not evidence that the ChatGPT app owns it.
     private func matchEvidence(
         candidateName: String,
-        normalizedName: String
+        normalizedName: String,
+        isDirectory: Bool
     ) -> AppFileMatchEvidence? {
         let candidate = Self.canonicalArtifactName(candidateName)
 
@@ -394,7 +404,13 @@ final class AppPathFinder: Sendable {
             if condition.excludeTerms.contains(where: { normalizedName.contains($0) }) {
                 return nil
             }
-            if condition.includeTerms.contains(where: { normalizedName.contains($0) }) {
+            // A broad condition term is useful for an individual file name,
+            // but it must not select a vendor-level directory. For example,
+            // `google` must never make the whole Google directory a Chrome
+            // uninstall candidate. Directory roots enter through explicit
+            // forceIncludePaths or exact identity matching below.
+            if !isDirectory,
+               condition.includeTerms.contains(where: { normalizedName.contains($0) }) {
                 return .appSpecificRule
             }
         }
@@ -480,7 +496,8 @@ final class AppPathFinder: Sendable {
             : (item as NSString).deletingPathExtension
         return matchEvidence(
             candidateName: matchingName,
-            normalizedName: matchingName.normalizedForMatching()
+            normalizedName: matchingName.normalizedForMatching(),
+            isDirectory: isDirectory
         ) ?? .legacyUnknown
     }
 

@@ -65,8 +65,23 @@ struct AppFileRemovalFailure: Codable, Hashable, Sendable {
 struct PrivilegedAppRemovalFileMetadata: Equatable, Sendable {
     let ownerUserID: uid_t
     let deviceID: UInt64
+    let fileID: UInt64
     let isDirectory: Bool
     let isSymbolicLink: Bool
+
+    init(
+        ownerUserID: uid_t,
+        deviceID: UInt64,
+        fileID: UInt64 = 0,
+        isDirectory: Bool,
+        isSymbolicLink: Bool
+    ) {
+        self.ownerUserID = ownerUserID
+        self.deviceID = deviceID
+        self.fileID = fileID
+        self.isDirectory = isDirectory
+        self.isSymbolicLink = isSymbolicLink
+    }
 }
 
 struct PrivilegedAppRemovalPlan: Equatable, Sendable {
@@ -80,6 +95,24 @@ struct PrivilegedAppRemovalPlan: Equatable, Sendable {
         let sourceURL: URL
         let destinationURL: URL
         let restartLaunchdAfterRestore: Bool
+        /// Captured immediately before authorization. When present, the
+        /// privileged transaction must see the same owner/device/inode/type
+        /// at execution time; a replacement at the reviewed path is refused.
+        let sourceMetadata: PrivilegedAppRemovalFileMetadata?
+
+        init(
+            originalURL: URL,
+            sourceURL: URL,
+            destinationURL: URL,
+            restartLaunchdAfterRestore: Bool,
+            sourceMetadata: PrivilegedAppRemovalFileMetadata? = nil
+        ) {
+            self.originalURL = originalURL
+            self.sourceURL = sourceURL
+            self.destinationURL = destinationURL
+            self.restartLaunchdAfterRestore = restartLaunchdAfterRestore
+            self.sourceMetadata = sourceMetadata
+        }
     }
 
     let operation: Operation
@@ -266,7 +299,8 @@ struct PrivilegedAppRemovalService: Sendable {
                 originalURL: requestedDestination,
                 sourceURL: source,
                 destinationURL: resolvedDestination,
-                restartLaunchdAfterRestore: item.launchdWasLoaded == true
+                restartLaunchdAfterRestore: item.launchdWasLoaded == true,
+                sourceMetadata: sourceMetadata
             )
             planItems.append(planItem)
             historyItemsByDestination[resolvedDestination.path] = item
@@ -390,7 +424,8 @@ struct PrivilegedAppRemovalService: Sendable {
                     originalURL: original,
                     sourceURL: source,
                     destinationURL: destination,
-                    restartLaunchdAfterRestore: false
+                    restartLaunchdAfterRestore: false,
+                    sourceMetadata: sourceMetadata
                 )
             )
             if sourceMetadata.ownerUserID != currentUserID
@@ -631,6 +666,7 @@ struct PrivilegedAppRemovalService: Sendable {
         return PrivilegedAppRemovalFileMetadata(
             ownerUserID: information.st_uid,
             deviceID: UInt64(information.st_dev),
+            fileID: UInt64(information.st_ino),
             isDirectory: kind == S_IFDIR,
             isSymbolicLink: kind == S_IFLNK
         )
@@ -740,6 +776,20 @@ enum PrivilegedAppRemovalCommandBuilder {
             arguments.append(item.sourceURL.path)
             arguments.append(item.destinationURL.path)
             arguments.append(item.restartLaunchdAfterRestore ? "1" : "0")
+            if let metadata = item.sourceMetadata,
+               metadata.fileID > 0 {
+                arguments.append(String(metadata.ownerUserID))
+                arguments.append(String(metadata.deviceID))
+                arguments.append(String(metadata.fileID))
+                arguments.append(metadata.isDirectory ? "1" : "0")
+                arguments.append(metadata.isSymbolicLink ? "1" : "0")
+            } else {
+                // Hand-built plans used by compatibility callers and older
+                // tests can omit an identity. Production plans always carry
+                // it from preflight; -1 explicitly disables this optional
+                // check instead of guessing.
+                arguments.append(contentsOf: ["-1", "-1", "-1", "-1", "-1"])
+            }
         }
 
         let quotedScript = shellSingleQuoted(transactionScript)
@@ -770,11 +820,21 @@ shift
 sources=()
 destinations=()
 restart_flags=()
+expected_owners=()
+expected_devices=()
+expected_file_ids=()
+expected_directories=()
+expected_symlinks=()
 for ((i=0; i<item_count; i++)); do
     sources+=("$1")
     destinations+=("$2")
     restart_flags+=("$3")
-    shift 3
+    expected_owners+=("$4")
+    expected_devices+=("$5")
+    expected_file_ids+=("$6")
+    expected_directories+=("$7")
+    expected_symlinks+=("$8")
+    shift 8
 done
 
 moved_indices=()
@@ -903,6 +963,19 @@ for ((i=0; i<item_count; i++)); do
     source_device=$(/usr/bin/stat -f '%d' "$source" 2>/dev/null) || emit_failure source-device
     if [ "$source_device" != "$trash_device" ]; then
         emit_failure cross-device
+    fi
+    if [ "${expected_file_ids[$i]}" != "-1" ]; then
+        source_owner=$(/usr/bin/stat -f '%u' "$source" 2>/dev/null) || emit_failure source-identity
+        source_file_id=$(/usr/bin/stat -f '%i' "$source" 2>/dev/null) || emit_failure source-identity
+        source_is_directory=0
+        if [ -d "$source" ]; then source_is_directory=1; fi
+        if [ "$source_owner" != "${expected_owners[$i]}" ] \
+            || [ "$source_device" != "${expected_devices[$i]}" ] \
+            || [ "$source_file_id" != "${expected_file_ids[$i]}" ] \
+            || [ "$source_is_directory" != "${expected_directories[$i]}" ] \
+            || [ "${expected_symlinks[$i]}" != "0" ]; then
+            emit_failure source-changed
+        fi
     fi
 
     allowed=0

@@ -291,6 +291,55 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination), Data("literal".utf8))
     }
 
+    func testGeneratedShellCommandRejectsReplacementAtReviewedSourcePath() throws {
+        let root = canonicalTemporaryRoot(prefix: "AppSiftPrivilegedIdentity")
+        let allowed = root.appendingPathComponent("Allowed", isDirectory: true)
+        let trash = root.appendingPathComponent("Trash", isDirectory: true)
+        try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o700)],
+            ofItemAtPath: trash.path
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = allowed.appendingPathComponent("reviewed-item")
+        let replacement = allowed.appendingPathComponent("replacement-item")
+        let destination = trash.appendingPathComponent("reviewed-item")
+        try Data("reviewed".utf8).write(to: source)
+        let reviewedMetadata = try metadata(for: source)
+        try FileManager.default.moveItem(at: source, to: replacement)
+        try Data("replacement".utf8).write(to: source)
+
+        let plan = PrivilegedAppRemovalPlan(
+            operation: .trash,
+            currentUserID: getuid(),
+            trashRoot: trash,
+            allowedSourceRoots: [allowed],
+            items: [
+                PrivilegedAppRemovalPlan.Item(
+                    originalURL: source,
+                    sourceURL: source,
+                    destinationURL: destination,
+                    restartLaunchdAfterRestore: false,
+                    sourceMetadata: reviewedMetadata
+                ),
+            ]
+        )
+
+        let result = try executeCommand(
+            PrivilegedAppRemovalCommandBuilder.command(
+                for: plan,
+                requireEffectiveRoot: false
+            )
+        )
+
+        XCTAssertEqual(result.status, 0, result.output)
+        XCTAssertTrue(result.output.contains("APPSIFT_ROLLED_BACK|source-changed"), result.output)
+        XCTAssertEqual(try Data(contentsOf: source), Data("replacement".utf8))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
     func testGeneratedShellCommandRestoresToAnAllowedRoot() throws {
         let root = canonicalTemporaryRoot(prefix: "AppSiftPrivilegedRestore")
         let allowed = root.appendingPathComponent("Allowed", isDirectory: true)
@@ -445,6 +494,19 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
             encoding: .utf8
         ) ?? ""
         return (process.terminationStatus, output)
+    }
+
+    private func metadata(for url: URL) throws -> PrivilegedAppRemovalFileMetadata {
+        var information = stat()
+        XCTAssertEqual(lstat(url.path, &information), 0)
+        let kind = information.st_mode & S_IFMT
+        return PrivilegedAppRemovalFileMetadata(
+            ownerUserID: information.st_uid,
+            deviceID: UInt64(information.st_dev),
+            fileID: UInt64(information.st_ino),
+            isDirectory: kind == S_IFDIR,
+            isSymbolicLink: kind == S_IFLNK
+        )
     }
 }
 
