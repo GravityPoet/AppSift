@@ -29,7 +29,13 @@ struct AppCondition: Codable {
         forceIncludePaths: [String]? = nil,
         forceExcludePaths: [String]? = nil
     ) {
-        self.bundleID = bundleID.normalizedForMatching()
+        // Keep Bundle ID separators. AppPathFinder uses component-aware
+        // matching, so collapsing `com.example.app` into `comexampleapp`
+        // silently disables every condition at runtime.
+        self.bundleID = bundleID
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         self.includeTerms = includeTerms.map { $0.normalizedForMatching() }
         self.excludeTerms = excludeTerms.map { $0.normalizedForMatching() }
         self.forceIncludePaths = forceIncludePaths?.compactMap { path in
@@ -148,12 +154,17 @@ let appConditions: [AppCondition] = [
         excludeTerms: []
     ),
 
-    // Google Chrome: include "google" and "chrome" but exclude iTerm's chromefeaturestate
-    // and unrelated "monochrome" matches.
+    // Google Chrome: include Chrome-specific files and explicitly include its
+    // two known Google vendor subtrees. Never match the vendor-level Google
+    // directory itself, which also contains Drive and updater data.
     AppCondition(
         bundleID: "com.google.chrome",
-        includeTerms: ["google", "chrome"],
-        excludeTerms: ["iterm", "chromefeaturestate", "monochrome"]
+        includeTerms: ["chrome"],
+        excludeTerms: ["iterm", "chromefeaturestate", "monochrome"],
+        forceIncludePaths: [
+            "\(home)/Library/Application Support/Google/Chrome/",
+            "\(home)/Library/Caches/Google/Chrome/"
+        ]
     ),
 
     // Microsoft Edge: exclude other Microsoft products that share the "com.microsoft" prefix.

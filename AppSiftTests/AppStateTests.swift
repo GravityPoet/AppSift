@@ -2105,6 +2105,56 @@ final class AppPathFinderSearchPlanTests: XCTestCase {
             XCTAssertFalse(results.contains(collision), "Unexpected cross-app match: \(collision.path)")
         }
     }
+
+    func testChromeConditionDoesNotSelectVendorParentDirectory() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("AppSiftChromeVendorCollision-\(UUID().uuidString)", isDirectory: true)
+        let selectedApp = root.appendingPathComponent("Google Chrome.app", isDirectory: true)
+        let googleRoot = root.appendingPathComponent("Google", isDirectory: true)
+        let chromeData = googleRoot.appendingPathComponent("Chrome", isDirectory: true)
+        let driveData = googleRoot.appendingPathComponent("Drive", isDirectory: true)
+        try fileManager.createDirectory(at: selectedApp, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: chromeData, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: driveData, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let finder = AppPathFinder(
+            appInfo: AppPathFinder.AppInfo(
+                appName: "Google Chrome",
+                bundleIdentifier: "com.google.chrome",
+                path: selectedApp,
+                entitlements: nil
+            ),
+            searchPaths: [root.path],
+            sensitivity: .enhanced
+        )
+
+        let results = finder.findPaths()
+
+        XCTAssertTrue(results.contains(selectedApp))
+        XCTAssertFalse(
+            results.contains(googleRoot),
+            "The vendor-level Google directory must never be selected for Chrome uninstall."
+        )
+        XCTAssertFalse(results.contains(driveData))
+    }
+
+    func testPerAppConditionMatchesBundleIDWithSeparators() {
+        let finder = AppPathFinder(
+            appInfo: AppPathFinder.AppInfo(
+                appName: "Zoom",
+                bundleIdentifier: "us.zoom.xos",
+                path: URL(fileURLWithPath: "/Applications/zoom.us.app"),
+                entitlements: nil
+            ),
+            searchPaths: [],
+            sensitivity: .strict
+        )
+
+        let candidate = URL(fileURLWithPath: "/tmp/zoom-settings.json")
+        XCTAssertEqual(finder.evidence(for: candidate), .appSpecificRule)
+    }
 }
 
 final class AppRemovalSafetyPolicyTests: XCTestCase {

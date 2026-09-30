@@ -62,6 +62,7 @@ The automated suite covers:
 - disposable Safari, Chrome, and Firefox profiles;
 - Firefox SQLite history and download cleanup, private rollback backup, exact restore, sidecars, bookmark preservation, manifest failure, and stale-undo refusal;
 - moving reviewed files to an isolated Trash, undo, changed-file refusal, rollback after history-write failure, and partial failure reporting;
+- app-condition Bundle ID matching, vendor-parent collision protection (for example Google Chrome versus Google Drive), and privileged source inode/device/owner revalidation when a reviewed path is replaced;
 - simulated iPhone/iPad backups, download-source files, and similar-image suggestions through delete and undo flows;
 - PhotoKit read/write authorization, denied and revoked access, local-only thumbnail requests, iCloud-only skips, Live Photo/RAW/burst asset modeling, 20,000-asset truncation, pre-delete revalidation, transaction failure, post-delete verification, and routing to Recently Deleted instead of Finder Trash;
 - real directory fixtures for old-user residue and malformed property lists;
