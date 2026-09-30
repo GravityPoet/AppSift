@@ -805,6 +805,71 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(reconciled.isInactiveRegistration)
     }
 
+    func testUninstallRunsResidualScanAndPersistsRemainingReport() async throws {
+        var initialCompletion: ((Set<URL>) -> Void)?
+        let scanCalls = ThreadSafeCounter()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppSiftResidualReport-\(UUID().uuidString)", isDirectory: true)
+        let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
+        let leftover = root.appendingPathComponent(
+            "Library/Caches/com.example.editor.cache",
+            isDirectory: true
+        )
+        let trashURL = root.appendingPathComponent("Trash/Example.app", isDirectory: true)
+        let historyURL = root.appendingPathComponent("history.json")
+        try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let app = makeApp(
+            name: "Example",
+            bundleIdentifier: "com.example.editor",
+            path: appBundle.path
+        )
+        let appState = AppState(
+            performStartupTasks: false,
+            appFileScanner: { _, _, completion in
+                if scanCalls.increment() == 1 {
+                    initialCompletion = completion
+                } else {
+                    completion([leftover])
+                }
+                return {}
+            },
+            appFileTrashHandler: { urls in
+                XCTAssertEqual(Set(urls), Set([appBundle, leftover]))
+                return AppFileTrashResult(
+                    trashed: [TrashedAppFile(originalURL: appBundle, trashURL: trashURL)],
+                    missing: [],
+                    needsFullDiskAccess: false,
+                    failed: [leftover],
+                    failureDetails: [
+                        leftover.path: AppFileRemovalFailure(kind: .finderRejected),
+                    ]
+                )
+            },
+            trashAppSuppressor: { _ in },
+            removalHistoryStore: AppRemovalHistoryStore(fileURL: historyURL),
+            appTerminationHandler: { _, _ in .notRunning }
+        )
+
+        appState.scanForAppFiles(app)
+        try XCTUnwrap(initialCompletion)([appBundle, leftover])
+        appState.removeSelectedFiles()
+
+        try await waitUntil {
+            appState.removalResidualReport?.isComplete == true
+        }
+        let report = try XCTUnwrap(appState.removalResidualReport)
+        XCTAssertEqual(report.remainingItems.map(\.path), [leftover.path])
+        XCTAssertEqual(report.protectedItems, [])
+        XCTAssertEqual(scanCalls.value, 2)
+        XCTAssertEqual(
+            appState.removalHistory.first?.residualReport,
+            report
+        )
+    }
+
     func testRemovalRecordCapturesEveryOutcomeAndProtectedGroup() async throws {
         var completion: ((Set<URL>) -> Void)?
         let historyURL = FileManager.default.temporaryDirectory

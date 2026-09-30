@@ -442,6 +442,11 @@
 "Time Machine could not be opened." = "Time Machine could not be opened.";
 "Delete %lld Selected (%@)" = "Delete %lld Selected (%@)";
 "Removal History" = "Removal History";
+"Post-removal verification" = "Post-removal verification";
+"No additional residual files were found." = "No additional residual files were found.";
+"%lld residual file(s) remain for review." = "%lld residual file(s) remain for review.";
+"%lld protected group(s) remain untouched." = "%lld protected group(s) remain untouched.";
+"Residual scan could not complete." = "Residual scan could not complete.";
 "Move selected items to Trash?" = "Move selected items to Trash?";
 "Review & Remove" = "Review & Remove";
 "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched." = "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched.";

@@ -1577,8 +1577,58 @@ struct RemovalHistoryView: View {
                     )
                 }
             }
+            if let residualReport = record.residualReport {
+                residualReportView(residualReport)
+            }
         }
         .padding(.vertical, 3)
+    }
+
+    private func residualReportView(
+        _ report: AppRemovalResidualReport
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(
+                "Post-removal verification",
+                systemImage: report.isComplete
+                    ? "checkmark.shield.fill"
+                    : "questionmark.diamond.fill"
+            )
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(report.isComplete ? Tint.blue : .secondary)
+
+            if !report.isComplete {
+                Text("Residual scan could not complete.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            } else if report.remainingItems.isEmpty {
+                Text("No additional residual files were found.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Tint.green)
+            } else {
+                Text(
+                    String(
+                        format: String(localized: "%lld residual file(s) remain for review."),
+                        Int64(report.remainingItems.count)
+                    )
+                )
+                .font(.system(size: 10.5))
+                .foregroundStyle(Tint.orange)
+            }
+
+            if !report.protectedItems.isEmpty {
+                Text(
+                    String(
+                        format: String(localized: "%lld protected group(s) remain untouched."),
+                        Int64(report.protectedItems.count)
+                    )
+                )
+                .font(.system(size: 10.5))
+                .foregroundStyle(Tint.orange)
+            }
+        }
+        .padding(.leading, 36)
+        .padding(.top, 2)
     }
 
     private func historyItemRow(

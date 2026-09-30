@@ -442,6 +442,11 @@
 "Time Machine could not be opened." = "無法開啟 Time Machine。";
 "Delete %lld Selected (%@)" = "刪除所選 %lld 個（%@）";
 "Removal History" = "解除安裝記錄";
+"Post-removal verification" = "解除安裝後複核";
+"No additional residual files were found." = "未發現其他殘留檔案。";
+"%lld residual file(s) remain for review." = "仍有 %lld 個殘留檔案需要檢查。";
+"%lld protected group(s) remain untouched." = "%lld 個受保護群組保持不變。";
+"Residual scan could not complete." = "殘留複掃未能完成。";
 "Move selected items to Trash?" = "將所選項目移到垃圾桶？";
 "Review & Remove" = "檢查並移除";
 "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched." = "如有需要，AppSift 會先結束 %@，再將所選的 %lld 個項目（%@）移到垃圾桶，並儲存還原記錄。%lld 個受保護群組將保持不變。";

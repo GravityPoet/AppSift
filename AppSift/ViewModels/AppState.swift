@@ -399,6 +399,20 @@ struct AppRemovalProtectedItem: Codable, Hashable, Sendable {
     let matchedItemCount: Int
 }
 
+struct AppRemovalResidualItem: Codable, Hashable, Identifiable, Sendable {
+    let path: String
+    let evidence: AppFileMatchEvidence
+
+    var id: String { path }
+}
+
+struct AppRemovalResidualReport: Codable, Hashable, Sendable {
+    let scannedAt: Date
+    let isComplete: Bool
+    let remainingItems: [AppRemovalResidualItem]
+    let protectedItems: [AppRemovalProtectedItem]
+}
+
 struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
     let schemaVersion: Int
     let id: UUID
@@ -409,6 +423,7 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
     let searchSensitivity: SearchSensitivity?
     var items: [AppRemovalHistoryItem]
     let protectedItems: [AppRemovalProtectedItem]
+    var residualReport: AppRemovalResidualReport?
 
     init(
         schemaVersion: Int = 4,
@@ -419,7 +434,8 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
         operation: AppRemovalOperation = .relatedFiles,
         searchSensitivity: SearchSensitivity? = nil,
         items: [AppRemovalHistoryItem],
-        protectedItems: [AppRemovalProtectedItem] = []
+        protectedItems: [AppRemovalProtectedItem] = [],
+        residualReport: AppRemovalResidualReport? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -430,6 +446,7 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
         self.searchSensitivity = searchSensitivity
         self.items = items
         self.protectedItems = protectedItems
+        self.residualReport = residualReport
     }
 
     var restorableItemCount: Int {
@@ -472,6 +489,7 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
         case searchSensitivity
         case items
         case protectedItems
+        case residualReport
     }
 
     init(from decoder: Decoder) throws {
@@ -494,6 +512,10 @@ struct AppRemovalRecord: Codable, Identifiable, Hashable, Sendable {
             [AppRemovalProtectedItem].self,
             forKey: .protectedItems
         ) ?? []
+        residualReport = try container.decodeIfPresent(
+            AppRemovalResidualReport.self,
+            forKey: .residualReport
+        )
     }
 }
 
@@ -654,6 +676,25 @@ final class AppRemovalHistoryStore: @unchecked Sendable {
         return persistLocked()
     }
 
+    @discardableResult
+    func updateResidualReport(
+        recordID: UUID,
+        report: AppRemovalResidualReport
+    ) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let recordIndex = records.firstIndex(where: { $0.id == recordID }) else {
+            return false
+        }
+        let previous = records[recordIndex]
+        records[recordIndex].residualReport = report
+        guard persistLocked() else {
+            records[recordIndex] = previous
+            return false
+        }
+        return true
+    }
+
     private func persistLocked() -> Bool {
         guard let data = try? JSONEncoder().encode(records) else {
             Logger.shared.log("Could not encode removal history", level: .warning)
@@ -739,6 +780,20 @@ final class AppRemovalHistoryStore: @unchecked Sendable {
                             && $0.matchedItemCount > 0
                             && $0.matchedItemCount <= 1_000_000
                     }
+                    && (record.residualReport == nil || {
+                        guard let report = record.residualReport else { return true }
+                        return report.remainingItems.count <= 100_000
+                            && report.remainingItems.allSatisfy {
+                                !$0.path.isEmpty && $0.path.count <= 4_096
+                            }
+                            && report.protectedItems.count <= 100_000
+                            && report.protectedItems.allSatisfy {
+                                !$0.path.isEmpty
+                                    && $0.path.count <= 4_096
+                                    && $0.matchedItemCount > 0
+                                    && $0.matchedItemCount <= 1_000_000
+                            }
+                    }())
             }
             .prefix(maximumRecords)
             .map { $0 }
@@ -1583,6 +1638,8 @@ final class AppState: ObservableObject {
     @Published var removalHistory: [AppRemovalRecord] = []
     @Published var removalHistoryError: String?
     @Published var restoringRemovalItemIDs: Set<UUID> = []
+    @Published private(set) var removalResidualReport: AppRemovalResidualReport?
+    @Published private(set) var isScanningRemovalResiduals = false
     @Published var appFileScanLocationCount: Int = 0
     @Published private(set) var selectedAppInstallationInsights: AppInstallationInsights?
     @Published private(set) var isInspectingAppInstallation = false
@@ -1696,6 +1753,8 @@ final class AppState: ObservableObject {
         historyRecordID: UUID,
         operation: AppRemovalOperation
     )?
+    private var removalResidualScanCancellation: AppFileScanCancellation?
+    private var activeRemovalResidualScanID = UUID()
 
     // MARK: - Services
 
@@ -2452,6 +2511,11 @@ final class AppState: ObservableObject {
         _ app: InstalledApp,
         initialSelection: AppFileInitialSelection = .all
     ) {
+        removalResidualScanCancellation?()
+        removalResidualScanCancellation = nil
+        activeRemovalResidualScanID = UUID()
+        isScanningRemovalResiduals = false
+        removalResidualReport = nil
         activeAppFileScanCancellation?()
         activeAppFileScanCancellation = nil
         resetAppInstallationInspection()
@@ -4897,6 +4961,13 @@ final class AppState: ObservableObject {
             defer { self.isRemovingAppFiles = false }
 
             let result = await self.appFileTrashHandler(urls)
+            let protectedSnapshot = self.protectedAppFiles.map {
+                AppRemovalProtectedItem(
+                    path: $0.url.standardizedFileURL.path,
+                    reason: $0.reason,
+                    matchedItemCount: $0.matchedItemCount
+                )
+            }
             if operation == .uninstall {
                 let appPath = app.path.standardizedFileURL.path
                 let trashAppDestinations = result.trashed.compactMap { item -> URL? in
@@ -4931,7 +5002,113 @@ final class AppState: ObservableObject {
                 app: app,
                 operation: operation
             )
+            if operation == .uninstall {
+                self.beginRemovalResidualScan(
+                    for: app,
+                    recordID: recordID,
+                    previouslyProtected: protectedSnapshot,
+                    failedURLs: result.failed
+                )
+            }
         }
+    }
+
+    private func beginRemovalResidualScan(
+        for app: InstalledApp,
+        recordID: UUID,
+        previouslyProtected: [AppRemovalProtectedItem],
+        failedURLs: [URL]
+    ) {
+        removalResidualScanCancellation?()
+        let scanID = UUID()
+        activeRemovalResidualScanID = scanID
+        isScanningRemovalResiduals = true
+        removalResidualReport = nil
+
+        let searchPaths = locationsProvider().appSearch.paths
+        let sensitivity = currentAppSearchSensitivity.pathFinderSensitivity
+        let evidenceFinder = AppPathFinder(
+            appInfo: AppPathFinder.AppInfo(installedApp: app),
+            searchPaths: [],
+            sensitivity: sensitivity
+        )
+        let installedAppsAtRemoval = installedApps
+        let fileScanner = appFileScanner
+        let cancellation = fileScanner(app, searchPaths) { [weak self] urls in
+            guard let self,
+                  self.activeRemovalResidualScanID == scanID else { return }
+
+            var candidates = Set(urls.map { $0.standardizedFileURL })
+            candidates.formUnion(failedURLs.map { $0.standardizedFileURL })
+            candidates = Set(candidates.filter { url in
+                url.path != app.path.standardizedFileURL.path
+                    && FileManager.default.fileExists(atPath: url.path)
+            })
+
+            var remaining: [AppRemovalResidualItem] = []
+            var protections: [AppFileProtection] = []
+            let relatedApps = Dictionary(
+                (installedAppsAtRemoval + [app]).map { ($0.id, $0) },
+                uniquingKeysWith: { existing, _ in existing }
+            ).values.sorted { $0.id < $1.id }
+
+            for url in candidates {
+                let evidence = evidenceFinder.evidence(for: url)
+                if let protection = AppRemovalSafetyPolicy.protection(
+                    containing: url,
+                    selectedApp: app,
+                    installedApps: Array(relatedApps),
+                    evidence: evidence
+                ) {
+                    protections.append(protection)
+                } else {
+                    remaining.append(
+                        AppRemovalResidualItem(
+                            path: url.path,
+                            evidence: evidence
+                        )
+                    )
+                }
+            }
+
+            let grouped = Self.groupedProtectedAppFiles(
+                protections,
+                selectedApp: app,
+                installedApps: Array(relatedApps),
+                relationships: nil
+            ).map {
+                AppRemovalProtectedItem(
+                    path: $0.url.standardizedFileURL.path,
+                    reason: $0.reason,
+                    matchedItemCount: $0.matchedItemCount
+                )
+            }
+            let protectedByKey = Dictionary(
+                (previouslyProtected + grouped).map {
+                    ("\($0.reason.rawValue)|\($0.path)", $0)
+                },
+                uniquingKeysWith: { existing, _ in existing }
+            )
+            let report = AppRemovalResidualReport(
+                scannedAt: Date(),
+                isComplete: true,
+                remainingItems: remaining.sorted { $0.path < $1.path },
+                protectedItems: protectedByKey.values.sorted {
+                    if $0.path == $1.path { return $0.reason.rawValue < $1.reason.rawValue }
+                    return $0.path < $1.path
+                }
+            )
+            self.isScanningRemovalResiduals = false
+            self.removalResidualScanCancellation = nil
+            self.removalResidualReport = report
+            if self.removalHistoryStore.updateResidualReport(
+                recordID: recordID,
+                report: report
+            ) {
+                self.removalHistory = self.removalHistoryStore.snapshot()
+            }
+        }
+        removalResidualScanCancellation = cancellation
     }
 
     private func reconcileCachedStartupItemsAfterSuccessfulUninstall(
@@ -5227,7 +5404,8 @@ final class AppState: ObservableObject {
                 operation: existingRecord.operation,
                 searchSensitivity: existingRecord.searchSensitivity,
                 items: mergedItems,
-                protectedItems: existingRecord.protectedItems
+                protectedItems: existingRecord.protectedItems,
+                residualReport: existingRecord.residualReport
             )
             reportSaved = removalHistoryStore.replace(record)
         } else {
