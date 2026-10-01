@@ -1,7 +1,7 @@
 cask "appsift" do
-  # Set to the published ZIP checksum after each release. Current customer
-  # artifacts are explicitly self-signed; a future Developer ID migration
-  # rewrites this URL to the notarized artifact name.
+  # Set to the published ZIP checksum after each release. v1.0.7 keeps its
+  # historical -self-signed URL; the next release switches to the version-only
+  # asset name while the Release copy still states its signing status.
   version "1.0.7"
   sha256 "b2441a08c4c9342888a99a67532f5d9b6037c55bf1c6fbd80367e404a179121b"
 
