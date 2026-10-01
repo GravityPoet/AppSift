@@ -149,6 +149,10 @@ struct MainWindow: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             sidebarBrand
+            // Keep the permission state near the app identity. A bottom-anchored
+            // warning can disappear when the window is short or the sidebar is
+            // collapsed, even though it controls whether cleanup can succeed.
+            healthFooter
 
             List {
                 Section {
@@ -174,8 +178,6 @@ struct MainWindow: View {
             .background(Color.clear)
             .accessibilityLabel("Feature navigation")
             .accessibilityIdentifier("main.sidebar")
-
-            healthFooter
         }
         .background(AppBackdrop(sidebar: true))
         .overlay(alignment: .trailing) {
@@ -205,7 +207,7 @@ struct MainWindow: View {
                     )
                 Text("Offline & private")
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("main.brand.subtitle")
             }
             Spacer(minLength: 0)
@@ -248,36 +250,18 @@ struct MainWindow: View {
             .background {
                 if selected {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    destination.tint.opacity(
-                                        colorScheme == .dark ? 0.30 : 0.18
-                                    ),
-                                    Tint.purple.opacity(
-                                        colorScheme == .dark ? 0.18 : 0.09
-                                    ),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(destination.tint.opacity(
+                            colorScheme == .dark ? 0.24 : 0.12
+                        ))
                         .overlay {
                             RoundedRectangle(cornerRadius: 13, style: .continuous)
                                 .strokeBorder(
-                                    Color.white.opacity(
-                                        colorScheme == .dark ? 0.16 : 0.72
+                                    destination.tint.opacity(
+                                        colorScheme == .dark ? 0.28 : 0.20
                                     ),
                                     lineWidth: 0.75
                                 )
                         }
-                        .shadow(
-                            color: destination.tint.opacity(
-                                colorScheme == .dark ? 0.22 : 0.10
-                            ),
-                            radius: 12,
-                            y: 5
-                        )
                 }
             }
             .contentShape(
@@ -374,7 +358,7 @@ struct MainWindow: View {
                 )
         }
         .padding(.horizontal, 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Detail

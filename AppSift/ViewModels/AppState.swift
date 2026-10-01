@@ -1745,6 +1745,11 @@ final class AppState: ObservableObject {
     private var activeSpaceLensScanID = UUID()
     private var duplicateFilesScanTask: Task<Void, Never>?
     private var activeDuplicateFilesScanID = UUID()
+    /// Smart Scan and single-category scans share one cancellation boundary so
+    /// the dashboard can always stop an active filesystem pass. The ID also
+    /// prevents a late result from a cancelled task replacing the idle state.
+    private var cleanupScanTask: Task<Void, Never>?
+    private var activeCleanupScanID = UUID()
     private var discoveredFilesAppID: InstalledApp.ID?
     private var selectedFilesOwnerAppID: InstalledApp.ID?
     private var pendingAppRemovalRetry: (
@@ -6248,17 +6253,24 @@ final class AppState: ObservableObject {
     func startSmartScan() {
         guard !scanState.isActive else { return }
 
+        cleanupScanTask?.cancel()
+        let scanID = UUID()
+        activeCleanupScanID = scanID
         scanState = .scanning(progress: 0, currentCategory: "Preparing...")
         categoryResults = [:]
         totalJunkSize = 0
         scanProgress = 0
         clearSelectionState()
 
-        Task {
+        cleanupScanTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             let categories = CleaningCategory.scannable
             let total = categories.count
 
             for (index, category) in categories.enumerated() {
+                guard !Task.isCancelled, self.activeCleanupScanID == scanID else {
+                    return
+                }
                 let progress = Double(index) / Double(total)
                 scanProgress = progress
                 currentScanCategory = category.rawValue
@@ -6269,24 +6281,38 @@ final class AppState: ObservableObject {
                         self?.scanTicker.path = path
                     }
                 }
+                guard !Task.isCancelled, self.activeCleanupScanID == scanID else {
+                    return
+                }
                 categoryResults[category] = result
                 totalJunkSize += result.totalSize
             }
 
+            guard !Task.isCancelled, self.activeCleanupScanID == scanID else {
+                return
+            }
             scanProgress = 1.0
             scanTicker.path = ""
             scanState = .completed
             loadDiskInfo()
+            cleanupScanTask = nil
         }
     }
 
     func scanSingleCategory(_ category: CleaningCategory) {
         guard !scanState.isActive else { return }
 
+        cleanupScanTask?.cancel()
+        let scanID = UUID()
+        activeCleanupScanID = scanID
         scanState = .scanning(progress: 0, currentCategory: category.rawValue)
         scanProgress = 0
 
-        Task {
+        cleanupScanTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard !Task.isCancelled, self.activeCleanupScanID == scanID else {
+                return
+            }
             scanProgress = 0.5
             clearSelectionState(for: category)
             let result = await scanEngine.scanCategory(category) { [weak self] path in
@@ -6294,13 +6320,35 @@ final class AppState: ObservableObject {
                     self?.scanTicker.path = path
                 }
             }
+            guard !Task.isCancelled, self.activeCleanupScanID == scanID else {
+                return
+            }
             categoryResults[category] = result
 
             totalJunkSize = categoryResults.values.reduce(0) { $0 + $1.totalSize }
             scanProgress = 1.0
             scanTicker.path = ""
             scanState = .completed
+            cleanupScanTask = nil
         }
+    }
+
+    /// Stop an active Smart Scan or category scan and discard its partial
+    /// results. The scanner checks task cancellation while walking directories;
+    /// the generation guard above also ignores any late category result.
+    func cancelScan() {
+        guard case .scanning = scanState else { return }
+
+        activeCleanupScanID = UUID()
+        cleanupScanTask?.cancel()
+        cleanupScanTask = nil
+        scanTicker.path = ""
+        scanProgress = 0
+        currentScanCategory = ""
+        categoryResults = [:]
+        totalJunkSize = 0
+        clearSelectionState()
+        scanState = .idle
     }
 
     // MARK: - Cleaning

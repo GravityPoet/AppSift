@@ -56,6 +56,9 @@ actor ScanEngine {
         _ category: CleaningCategory,
         onPath: (@Sendable (String) -> Void)? = nil
     ) async -> CategoryResult {
+        guard !Task.isCancelled else {
+            return CategoryResult(category: category, items: [], totalSize: 0)
+        }
         self.onPath = onPath
         defer { self.onPath = nil }
         switch category {
@@ -354,6 +357,7 @@ actor ScanEngine {
             // checkouts) would never see anything past entry 5k — the
             // scattered 100+ MB files were always past that bound.
             for case let fileURL as URL in enumerator {
+                if Task.isCancelled { break }
                 // Prune excluded subtrees: hitting the excluded directory itself
                 // skips its whole contents; for files the call is a harmless no-op.
                 // Skip the path normalization entirely when nothing is excluded.
@@ -601,6 +605,7 @@ actor ScanEngine {
         ]
 
         for manager in managers {
+            if Task.isCancelled { break }
             var paths: [String] = []
             paths.append(manager.defaultPath)
 
@@ -615,6 +620,7 @@ actor ScanEngine {
             }
 
             for path in paths {
+                if Task.isCancelled { break }
                 guard fileManager.fileExists(atPath: path) else { continue }
                 let size = directorySize(path: path)
                 guard size > 0 else { continue }
@@ -716,6 +722,7 @@ actor ScanEngine {
         ]
 
         for path in dockerDataDirs {
+            if Task.isCancelled { break }
             guard fileManager.fileExists(atPath: path) else { continue }
             let size = directorySize(path: path)
             guard size > 0 else { continue }
@@ -823,6 +830,7 @@ actor ScanEngine {
         do {
             let contents = try fileManager.contentsOfDirectory(atPath: path)
             for item in contents {
+                guard !Task.isCancelled else { break }
                 let fullPath = (path as NSString).appendingPathComponent(item)
                 report(fullPath)
                 let normalizedFullPath = normalizePath(fullPath)
@@ -962,6 +970,7 @@ actor ScanEngine {
 
         var count = 0
         for case let fileURL as URL in enumerator {
+            if Task.isCancelled { break }
             count += 1
             if count > maximumEntries { break } // Safety limit for very large directories
 
