@@ -289,50 +289,13 @@ struct DashboardView: View {
         .padding(compact ? 22 : 28)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            AppBrand.indigo,
-                            AppBrand.deepBlue,
-                            AppBrand.midnight,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay {
-                    RadialGradient(
-                        colors: [
-                            heroTint.opacity(0.30),
-                            Tint.purple.opacity(0.12),
-                            .clear,
-                        ],
-                        center: .topLeading,
-                        startRadius: 0,
-                        endRadius: 520
-                    )
-                    .clipShape(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    )
-                }
+                .fill(AppBrand.midnight)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.24),
-                            Color.white.opacity(0.06),
-                            heroTint.opacity(0.24),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
         }
-        .shadow(color: .black.opacity(0.24), radius: 26, y: 14)
-        .shadow(color: heroTint.opacity(0.14), radius: 32, y: 8)
+        .shadow(color: .black.opacity(0.16), radius: 16, y: 8)
     }
 
     private func heroCapability(
@@ -373,7 +336,7 @@ struct DashboardView: View {
                         .fill(Color.white.opacity(0.10))
                     HStack(spacing: 0) {
                         Capsule()
-                            .fill(LinearGradient(colors: [Tint.blue, Tint.purple], startPoint: .leading, endPoint: .trailing))
+                            .fill(Tint.blue)
                             .frame(width: geo.size.width * CGFloat(usedPct))
                     }
                     if junkPct > 0 {
@@ -863,7 +826,14 @@ struct DashboardView: View {
                     ScanPathTicker(ticker: appState.scanTicker)
                 }
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: appState.currentScanCategory)
-                Spacer(minLength: 0)
+                Spacer(minLength: 16)
+
+                Button("Cancel Scan") {
+                    appState.cancelScan()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .accessibilityIdentifier("dashboard.scan.cancel")
             }
         }
     }
@@ -1207,90 +1177,22 @@ private struct AppSiftHeroArtwork: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [tint.opacity(0.42), .clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: size * 0.58
-                    )
-                )
-                .frame(width: size * 1.12, height: size * 1.12)
-                .blur(radius: size * 0.06)
+                .fill(tint.opacity(0.12))
+                .frame(width: size * 0.94, height: size * 0.94)
 
             Circle()
-                .stroke(
-                    AngularGradient(
-                        colors: [
-                            Tint.cyan.opacity(0.76),
-                            Tint.blue.opacity(0.10),
-                            Tint.purple.opacity(0.58),
-                            Tint.cyan.opacity(0.76),
-                        ],
-                        center: .center
-                    ),
-                    lineWidth: 1.5
-                )
-                .frame(width: size * 0.92, height: size * 0.92)
-                .opacity(0.72)
+                .stroke(tint.opacity(0.36), lineWidth: 2)
+                .frame(width: size * 0.90, height: size * 0.90)
 
             Image(nsImage: Self.applicationIcon)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: size * 0.76, height: size * 0.76)
-                .rotationEffect(.degrees(-5))
-                .rotation3DEffect(
-                    .degrees(7),
-                    axis: (x: 1, y: -0.35, z: 0)
-                )
-                .shadow(color: .black.opacity(0.34), radius: 18, y: 12)
-                .shadow(color: tint.opacity(0.34), radius: 22, y: 4)
-
-            floatingParticle(
-                color: Tint.cyan,
-                size: size * 0.075,
-                x: -size * 0.39,
-                y: -size * 0.22
-            )
-            floatingParticle(
-                color: Tint.purple,
-                size: size * 0.10,
-                x: size * 0.41,
-                y: size * 0.16
-            )
-            floatingParticle(
-                color: Tint.orange,
-                size: size * 0.055,
-                x: -size * 0.30,
-                y: size * 0.37
-            )
+                .frame(width: size * 0.68, height: size * 0.68)
+                .shadow(color: .black.opacity(0.24), radius: 12, y: 7)
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-
-    private func floatingParticle(
-        color: Color,
-        size: CGFloat,
-        x: CGFloat,
-        y: CGFloat
-    ) -> some View {
-        RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [color, color.opacity(0.58)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: size * 0.30, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.34), lineWidth: 0.75)
-            }
-            .frame(width: size, height: size)
-            .offset(x: x, y: y)
-            .shadow(color: color.opacity(0.40), radius: size * 0.55, y: 3)
     }
 }
 
@@ -1509,7 +1411,32 @@ private struct ScanPathTicker: View {
 
     private var display: String {
         guard !ticker.path.isEmpty else { return "" }
-        return (ticker.path as NSString).abbreviatingWithTildeInPath
+        let abbreviated = (ticker.path as NSString).abbreviatingWithTildeInPath
+        let hasLeadingSlash = abbreviated.hasPrefix("/")
+        var components = abbreviated.split(separator: "/").map(String.init)
+        var redactNextAccount = false
+
+        for index in components.indices {
+            if redactNextAccount {
+                components[index] = "…"
+                redactNextAccount = false
+                continue
+            }
+
+            if components[index].caseInsensitiveCompare("Accounts") == .orderedSame {
+                redactNextAccount = true
+                continue
+            }
+
+            // Some browser caches put the account identifier directly in the
+            // path. Keep the activity signal while avoiding an email-shaped
+            // identifier in the live dashboard.
+            if components[index].contains("@") {
+                components[index] = "…"
+            }
+        }
+
+        return (hasLeadingSlash ? "/" : "") + components.joined(separator: "/")
     }
 
     var body: some View {

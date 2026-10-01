@@ -133,18 +133,22 @@ struct CategoryDetailView: View {
                 Spacer()
 
                 Button {
-                    appState.scanSingleCategory(category)
+                    if isScanning {
+                        appState.cancelScan()
+                    } else {
+                        appState.scanSingleCategory(category)
+                    }
                 } label: {
                     Label {
                         Text(scanButtonLabel(isScanning: isScanning, hasResult: result != nil))
                     } icon: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: isScanning ? "xmark" : "arrow.clockwise")
                     }
                     .font(.system(size: 12.5, weight: .semibold))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(isScanning)
+                .accessibilityIdentifier("category.scan.cancel-or-rescan")
             }
         }
     }
@@ -158,7 +162,7 @@ struct CategoryDetailView: View {
     }
 
     private func scanButtonLabel(isScanning: Bool, hasResult: Bool) -> LocalizedStringKey {
-        if isScanning { return "Scanning…" }
+        if isScanning { return "Cancel Scan" }
         if hasResult { return "Rescan" }
         return "Scan"
     }

@@ -6,6 +6,25 @@ import XCTest
 
 @MainActor
 final class AppStateTests: XCTestCase {
+    func testCancelScanReturnsToIdleAndDiscardsPartialResults() {
+        let appState = AppState(performStartupTasks: false)
+        appState.scanState = .scanning(
+            progress: 0.4,
+            currentCategory: CleaningCategory.userCache.rawValue
+        )
+        appState.scanProgress = 0.4
+        appState.currentScanCategory = CleaningCategory.userCache.rawValue
+        appState.totalJunkSize = 4_096
+
+        appState.cancelScan()
+
+        XCTAssertEqual(appState.scanState, .idle)
+        XCTAssertEqual(appState.scanProgress, 0)
+        XCTAssertEqual(appState.currentScanCategory, "")
+        XCTAssertEqual(appState.totalJunkSize, 0)
+        XCTAssertTrue(appState.categoryResults.isEmpty)
+    }
+
     func testDashboardOverviewPreservesCompletedScanResultsButNotActiveWork() {
         let appState = AppState(performStartupTasks: false)
         let item = CleanableItem(
