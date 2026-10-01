@@ -2,8 +2,8 @@ cask "appsift" do
   # Set to the published ZIP checksum after each release. Current customer
   # artifacts are explicitly self-signed; a future Developer ID migration
   # rewrites this URL to the notarized artifact name.
-  version "1.0.6"
-  sha256 "11b66f7f105d1cbf4eda6031085f22e3d619abaa550638a6fb3fc32e93f10d1b"
+  version "1.0.7"
+  sha256 "b2441a08c4c9342888a99a67532f5d9b6037c55bf1c6fbd80367e404a179121b"
 
   url "https://github.com/GravityPoet/AppSift/releases/download/v#{version}/AppSift-#{version}-self-signed.zip"
   name "AppSift"
@@ -16,10 +16,10 @@ cask "appsift" do
 
   # Refresh LaunchServices so the Dock/Launchpad icon updates immediately on
   # (re)install instead of showing a stale cached icon (issue #111).
-  postflight do
-    lsregister = "/System/Library/Frameworks/CoreServices.framework/" \
-                 "Frameworks/LaunchServices.framework/Support/lsregister"
-    system_command lsregister, args: ["-f", "#{appdir}/AppSift.app"]
+  postflight_steps do
+    run "/System/Library/Frameworks/CoreServices.framework/" \
+        "Frameworks/LaunchServices.framework/Support/lsregister",
+        args: ["-f", "{{appdir}}/AppSift.app"]
   end
 
   zap trash: [
