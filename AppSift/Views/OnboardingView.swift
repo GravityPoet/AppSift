@@ -247,7 +247,7 @@ private struct WelcomeScene: View {
             }
             .staggered(1, baseDelay: 0.07)
 
-            Text("Free. Open source. MIT licensed.")
+            Text("AGPL-3.0")
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.tertiary)
                 .tracking(0.3)
