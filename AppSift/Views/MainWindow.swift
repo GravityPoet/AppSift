@@ -64,6 +64,8 @@ struct MainWindow: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject private var permission = PermissionCoordinator.shared
     @State private var selectedSection: AppSection? = .cleaning(.smartScan)
+    @State private var navigationHistory: [AppSection] = []
+    @State private var toolboxSearchText = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -87,9 +89,27 @@ struct MainWindow: View {
         }
         .background(AppBackdrop())
         .frame(minWidth: 980, minHeight: 600)
+        .toolbar {
+            if let previous = navigationHistory.last {
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        selectedSection = navigationHistory.popLast()
+                    } label: {
+                        Label {
+                            Text(LocalizedStringKey(previous == .tools ? "Back to Tools" : "Back"))
+                        } icon: {
+                            Image(systemName: "chevron.left")
+                        }
+                    }
+                    .keyboardShortcut("[", modifiers: .command)
+                    .accessibilityIdentifier("main.navigation.back")
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.checkFullDiskAccess()
             appState.refreshRemovalHistory()
+            appState.refreshCleanupRecoveryHistory()
             permission.refreshStatus()
         }
         .onChange(of: appState.pendingExternalApp) { app in
@@ -207,7 +227,7 @@ struct MainWindow: View {
                     )
                 Text("Offline & private")
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.72))
                     .accessibilityIdentifier("main.brand.subtitle")
             }
             Spacer(minLength: 0)
@@ -222,7 +242,7 @@ struct MainWindow: View {
             && SidebarPrimaryDestination.selection(for: selectedSection) == destination
 
         return Button {
-            navigate(to: destination.section)
+            navigate(to: destination.section, rememberingPrevious: false)
         } label: {
             HStack(spacing: 11) {
                 IconTile(
@@ -282,7 +302,12 @@ struct MainWindow: View {
         .accessibilityIdentifier("main.sidebar.item.\(destination.rawValue)")
     }
 
-    private func navigate(to section: AppSection) {
+    private func navigate(to section: AppSection, rememberingPrevious: Bool = true) {
+        if rememberingPrevious, let previous = selectedSection, previous != section {
+            navigationHistory.append(previous)
+        } else if !rememberingPrevious {
+            navigationHistory.removeAll()
+        }
         if section == .cleaning(.smartScan) {
             appState.showDashboardOverview()
         }
@@ -388,8 +413,33 @@ struct MainWindow: View {
                             : .move(edge: .top).combined(with: .opacity)
                     )
             }
+            if appState.cleanupRecoveryMessage != nil || appState.latestUndoableCleanup != nil {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.uturn.backward.circle")
+                    Text(appState.cleanupRecoveryMessage ?? String(localized: "The latest file cleanup can be restored from Trash."))
+                        .font(.subheadline)
+                    Spacer()
+                    if appState.latestUndoableCleanup != nil {
+                        Button("Undo", action: appState.undoLatestCleanup)
+                            .disabled(appState.scanState.isActive || appState.isRestoringCleanup)
+                            .accessibilityIdentifier("cleanup.recovery.undo")
+                    }
+                    if appState.cleanupRecoveryMessage != nil {
+                        Button { appState.cleanupRecoveryMessage = nil } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Dismiss")
+                    }
+                }
+                .padding(12)
+                .background(Tint.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .accessibilityIdentifier("cleanup.recovery.notice")
+            }
             detailView
                 .id(selectedSection)
+                .disabled(appState.isRestoringCleanup)
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8),
                    value: appState.fdaBannerDismissed)
@@ -408,14 +458,14 @@ struct MainWindow: View {
     private var detailView: some View {
         switch selectedSection {
         case .tools:
-            ToolboxView(navigate: navigate)
+            ToolboxView(navigate: { navigate(to: $0) }, searchText: $toolboxSearchText)
         case .systemHealth:
             SystemHealthView(
                 macOSUpdateCenter: appState.macOSUpdateCenter,
                 iosBackupCenter: appState.iosBackupCenter,
                 residueCenter: appState.systemResidueCenter
             ) { section in
-                selectedSection = section
+                navigate(to: section)
             }
         case .apps:
             AppListView()
@@ -456,7 +506,7 @@ struct MainWindow: View {
         case .cleaning(let category):
             if category == .smartScan {
                 DashboardView { section in
-                    selectedSection = section
+                    navigate(to: section)
                 }
             } else {
                 CategoryDetailView(category: category)

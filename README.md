@@ -85,7 +85,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 | Paying $40+/year for disk utilities just to click "Clean". | **100% Free & Open Source**. Keep your hard-earned budget. |
 | Creepy trackers & telemetry profiling your app usage history. | **Zero Telemetry**. Bounded, offline-first. It doesn't even know you exist. |
 | Leftovers from deleted apps (plists, containers, launchdaemons) silently rotting in `~/Library`. | **Deep Orphan Scan**. Matches bundles to trace and sweep every hidden byte. |
-| Dev caches (Xcode, Node, Docker, Ollama) eating 50GB without you knowing. | **Developer-First Purger**. Safely wipes giant compiler, package, and LLM caches in one click. |
+| Developer caches and logs taking space without a clear inventory. | **Developer-first review**. Inspect compiler, package, Docker Desktop, and AI app caches before cleanup; model libraries stay untouched. |
 | Dramatized red counters crying "Your Mac is in danger!" | **Honest Statistics**. Real paths, transparent rules, absolute control. |
 
 ---
@@ -96,7 +96,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
   Dragging an app to the Trash often leaves preferences, caches, containers, logs, and background components behind. AppSift maps application bundle identifiers and containers to trace every plist, launch agent, and log, deleting them safely via Finder-semantic recycle or letting you restore them instantly.
 
 - **⚙️ Developer-First Cache Purger**
-  Modern development stacks are storage vampires. AppSift scans and safely flushes giant cache folders from Xcode (`DerivedData`, simulators), Node (`npm`, `yarn`, `pnpm`), Docker (dangling images/containers), and local AI tools like Ollama and LM Studio.
+  Review Xcode (`DerivedData`, simulator caches), Node (`npm`, `yarn`, `pnpm`), Docker Desktop caches, and Ollama/LM Studio logs. AI conversations and Xcode archives are optional, recoverable removals; model libraries are excluded. Docker engine reclaimable space is a read-only estimate with a manual cleanup command, not an automatic image or container deletion.
 
 - **🧭 Storage Intelligence**
   Explore disks with Space Lens, find exact duplicates by content, cluster visually similar photos, review iPhone and iPad backups, and classify ordinary downloads by their local quarantine source. Scans are bounded, cancellable, skip cloud placeholders, and keep removal recoverable through the system Trash.
@@ -105,7 +105,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
   Review browser history, download records, cookies, and caches without touching passwords or autofill; check macOS updates; repair DNS, Spotlight, or Mail indexing on demand; and monitor disk, memory, network, battery, external disks, and supported device batteries. Recommendations cite explicit evidence—AppSift does not invent a numeric “health score.”
 
 - **🛡️ Bounded, Offline-First & Finder-Safe**
-  Zero analytics, zero network tracking. Destructive actions use macOS Finder-semantic recycle (`NSWorkspace.recycle`) to move files to Trash instead of permanent deletion, preventing accidental data loss. Safe paths are hardcoded to protect your system.
+  Zero analytics and zero network tracking. App removals, personal files, mail attachments, Xcode archives, and explicitly selected AI history move to the macOS Trash with recovery records. Generated caches and logs use a separate permanent-cleanup confirmation. Trash contents are never preselected or automatically emptied.
 
 ---
 
@@ -284,7 +284,7 @@ Smart Scan runs every category in parallel. Each category is its own deliberate 
 - **Xcode Junk** - DerivedData, Archives, simulator caches
 - **Brew Cache** - respects custom `HOMEBREW_CACHE`
 - **Node Cache** - npm, yarn classic, pnpm content-addressable store, and uv downloads
-- **Docker Cache** - images, containers, build cache
+- **Docker Cache** - local Docker Desktop caches and logs, plus a read-only engine reclaimable-space estimate for manual cleanup
 - **Developer Artifacts** - Cargo registry, Rust `target` directories with a nearby `Cargo.toml`, and marked `.venv-subaligner` environments (review-only by default)
 
 > **On "purgeable space":** AppSift shows your APFS purgeable space in the storage breakdown for transparency, but it deliberately does **not** list it as junk to delete. Purgeable space is reserved and reclaimed by macOS itself - no third-party app can reliably free it, and even the Finder's purgeable figure is known to be inaccurate. Cleaners that claim to "reclaim purgeable space" are overpromising. We'd rather be honest than impressive.

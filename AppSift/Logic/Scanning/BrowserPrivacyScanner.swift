@@ -199,6 +199,7 @@ actor BrowserPrivacyScanner {
         var caches: [URL] = []
         for profile in profiles {
             history.append(contentsOf: sidecarPaths(for: profile.appendingPathComponent("History")))
+            cookies.append(contentsOf: sidecarPaths(for: profile.appendingPathComponent("Cookies")))
             cookies.append(contentsOf: sidecarPaths(for: profile.appendingPathComponent("Network/Cookies")))
             caches.append(contentsOf: [
                 profile.appendingPathComponent("Cache", isDirectory: true),

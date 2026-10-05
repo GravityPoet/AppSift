@@ -198,9 +198,38 @@ final class LocalizationFilesTests: XCTestCase {
             "extractLocStrings failed:\n\(diagnosticText)"
         )
 
-        let extractedKeys = try localizedKeys(
+        var extractedKeys = try localizedKeys(
             in: outputDirectory.appendingPathComponent("Localizable.strings")
         )
+        // extractLocStrings does not recognize custom view initializers,
+        // dynamic enum labels, or all String(localized:) call sites.
+        let swiftFiles = FileManager.default.enumerator(
+            at: sourceRoot.appendingPathComponent("AppSift"),
+            includingPropertiesForKeys: nil
+        )?.allObjects.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        for sourceURL in swiftFiles {
+            let source = try String(contentsOf: sourceURL, encoding: .utf8)
+            var patterns = [
+                #"String\(\s*localized:\s*"((?:[^"\\]|\\.)*)""#,
+                #"(?:description|actionLabel|titleKey|title|buttonTitle):\s*"((?:[^"\\]|\\.)*)""#
+            ]
+            if sourceURL.path.contains("/Views/") {
+                patterns += [
+                    #"(?:Button|Label|Picker|Toggle|Section|Text|EmptyStateView|navigationTitle|accessibilityLabel|accessibilityHint|help|alert|confirmationDialog|emptyResult)\(\s*"((?:[^"\\]|\\.)*)""#,
+                    #"case \w+\s*=\s*"([A-Z][^"\n]+)""#
+                ]
+            }
+            for pattern in patterns {
+                let regex = try NSRegularExpression(pattern: pattern)
+                for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)) {
+                    guard let range = Range(match.range(at: 1), in: source) else { continue }
+                    let raw = String(source[range])
+                    guard !raw.isEmpty, !raw.contains("\\(") else { continue }
+                    let key = (try? JSONDecoder().decode(String.self, from: Data(("\"" + raw + "\"").utf8))) ?? raw
+                    extractedKeys.insert(key)
+                }
+            }
+        }
         let englishURL = try XCTUnwrap(localizableStringsFiles()["en"])
         let missingKeys = extractedKeys
             .subtracting(try localizedKeys(in: englishURL))

@@ -66,8 +66,9 @@ final class IOSBackupCenter: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 errorMessage = error.localizedDescription
-                hasScanned = true
+                hasScanned = false
             }
             isScanning = false
         }

@@ -433,6 +433,9 @@ private struct InstallationFileRow: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!item.isRemovable && !item.allowsExplicitSelection)
+                .accessibilityLabel(Text(item.name))
+                .accessibilityValue(Text(LocalizedStringKey(isSelected ? "Selected for cleanup" : "Not selected")))
+                .accessibilityHint("Select an installer to move to Trash")
                 .help(selectionHelp)
                 .confirmationDialog(
                     "Select App-Managed Installer?",

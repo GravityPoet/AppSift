@@ -220,7 +220,7 @@ final class SystemIntegrationFallbackTests: XCTestCase {
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: index.path))
         XCTAssertTrue(center.history.isEmpty)
-        XCTAssertEqual(center.errorMessage, "Mail did not quit. No index files were changed.")
+        XCTAssertEqual(center.errorMessage, String(localized: "Mail did not quit. No index files were changed."))
     }
 
     func testDeniedNotificationStillKeepsExternalDiskAlertAndHistory() throws {

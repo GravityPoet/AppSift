@@ -171,7 +171,7 @@ final class SimilarImageCenter: ObservableObject {
             } catch {
                 guard activeScanID == scanID else { return }
                 errorMessage = error.localizedDescription
-                hasScanned = true
+                hasScanned = false
             }
             guard activeScanID == scanID else { return }
             isScanning = false

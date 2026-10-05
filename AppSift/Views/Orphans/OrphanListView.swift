@@ -17,9 +17,26 @@ struct OrphanListView: View {
                         .frame(maxWidth: 300)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !appState.hasScannedOrphans {
+                EmptyStateView(
+                    "Not Scanned", systemImage: "doc.questionmark",
+                    description: "Scan installed-app evidence and Library locations before reviewing leftovers.",
+                    action: { appState.findOrphans() }, actionLabel: "Scan for Orphans"
+                )
             } else if appState.orphanedFiles.isEmpty {
-                EmptyStateView("No Orphaned Files", systemImage: "checkmark.circle", description: "No leftover files from uninstalled apps were found.", action: { appState.findOrphans() }, actionLabel: "Scan for Orphans", tint: Tint.green)
+                VStack {
+                    ScanBoundaryNotice(inaccessibleCount: appState.orphanInaccessibleLocationCount)
+                    EmptyStateView(
+                        appState.orphanInaccessibleLocationCount > 0 ? "No Verified Orphan Results" : "No Orphaned Files",
+                        systemImage: "doc.questionmark",
+                        description: appState.orphanInaccessibleLocationCount > 0
+                            ? "Some locations could not be fully checked. Review the scan warnings and try again."
+                            : "No leftover files from uninstalled apps were found.",
+                        action: { appState.findOrphans() }, actionLabel: "Scan for Orphans"
+                    )
+                }
             } else {
+                ScanBoundaryNotice(inaccessibleCount: appState.orphanInaccessibleLocationCount)
                 List {
                     // No .staggered(): List is lazy, so a delayed-reveal would
                     // blank each row as it scrolls in. The removal transition
@@ -62,9 +79,13 @@ struct OrphanListView: View {
                     }
                 }
 
-                Button("Scan for Orphans") {
-                    appState.findOrphans()
+                Button {
+                    if appState.isSearchingOrphans { appState.cancelOrphanScan() }
+                    else { appState.findOrphans() }
+                } label: {
+                    Text(LocalizedStringKey(appState.isSearchingOrphans ? "Cancel Scan" : "Scan for Orphans"))
                 }
+                .disabled(isRemoving || appState.isLoadingApps)
 
                 if !selectedOrphans.isEmpty {
                     Button(ignoreSelectedLabel) {
@@ -82,6 +103,9 @@ struct OrphanListView: View {
                     .disabled(isRemoving)
                 }
             }
+        }
+        .onChange(of: appState.orphanedFiles) { files in
+            selectedOrphans.formIntersection(Set(files))
         }
         .alert("Some files could not be moved to Trash", isPresented: Binding(
             get: { removalErrorMessage != nil },

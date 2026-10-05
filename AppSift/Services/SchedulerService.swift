@@ -9,10 +9,12 @@ class SchedulerService: ObservableObject {
 
     private var timer: Timer?
     private let configKey = "\(ProductIdentity.name).ScheduleConfig"
+    private let defaults: UserDefaults
     private var onTrigger: (() async -> Void)?
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: configKey),
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: configKey),
            var saved = try? JSONDecoder().decode(ScheduleConfig.self, from: data) {
             // Refuse to honor an already-past nextRunDate loaded from disk -
             // otherwise an attacker who can write our plist (same-UID foothold)
@@ -90,7 +92,7 @@ class SchedulerService: ObservableObject {
 
     private func saveConfig() {
         if let data = try? JSONEncoder().encode(config) {
-            UserDefaults.standard.set(data, forKey: configKey)
+            defaults.set(data, forKey: configKey)
         }
     }
 

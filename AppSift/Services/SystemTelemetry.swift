@@ -58,7 +58,7 @@ enum SystemTelemetryReader {
         let keys: Set<URLResourceKey> = [
             .volumeNameKey,
             .volumeTotalCapacityKey,
-            .volumeAvailableCapacityForImportantUsageKey,
+            .volumeAvailableCapacityKey,
             .volumeIsInternalKey,
             .volumeIsRemovableKey,
             .volumeIsReadOnlyKey,
@@ -76,7 +76,9 @@ enum SystemTelemetryReader {
                   values.volumeIsBrowsable != false,
                   let total = values.volumeTotalCapacity,
                   total > 0 else { return nil }
-            let available = values.volumeAvailableCapacityForImportantUsage ?? 0
+            let attributes = try? FileManager.default.attributesOfFileSystem(forPath: standardized.path)
+            guard let available = (attributes?[.systemFreeSize] as? Int64)
+                ?? values.volumeAvailableCapacity.map(Int64.init) else { return nil }
             return SystemVolumeSnapshot(
                 path: standardized.path,
                 name: values.volumeName?.trimmingCharacters(in: .whitespacesAndNewlines)

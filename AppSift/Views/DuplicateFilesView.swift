@@ -31,6 +31,19 @@ struct DuplicateFilesView: View {
         }
     }
 
+    private var scanHasNoReadableItems: Bool {
+        appState.duplicateScanStatistics.inaccessibleItemCount > 0
+            && appState.duplicateScanStatistics.examinedFileCount == 0
+    }
+
+    private var hasAvailableLocation: Bool {
+        appState.duplicateScanRoots.contains { root in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory)
+                && isDirectory.boolValue && FileManager.default.isReadableFile(atPath: root.path)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -316,23 +329,23 @@ struct DuplicateFilesView: View {
         CardSurface {
             HStack(spacing: 14) {
                 IconTile(
-                    systemName: appState.duplicateScanRoots.isEmpty
+                    systemName: !hasAvailableLocation
                         ? "folder.badge.plus"
                         : "checkmark.shield.fill",
-                    tint: appState.duplicateScanRoots.isEmpty
+                    tint: !hasAvailableLocation
                         ? Tint.orange
                         : Tint.green,
                     size: 40
                 )
                 VStack(alignment: .leading, spacing: 4) {
                     Text(
-                        appState.duplicateScanRoots.isEmpty
+                        !hasAvailableLocation
                             ? "Choose Where to Scan"
                             : "Ready to Scan"
                     )
                     .font(.headline)
                     Text(
-                        appState.duplicateScanRoots.isEmpty
+                        !hasAvailableLocation
                             ? "Select any folder, mounted disk, or external drive. AppSift never downloads cloud-only placeholders for this scan."
                             : "AppSift will skip unreadable files, cloud-only placeholders, package contents, and hard-link aliases."
                     )
@@ -350,18 +363,23 @@ struct DuplicateFilesView: View {
             successNotice(message)
         }
 
+        scanBoundaryNotice
+
         if appState.duplicateFileGroups.isEmpty {
             CardSurface {
                 HStack(spacing: 14) {
                     IconTile(
-                        systemName: "checkmark.circle.fill",
-                        tint: Tint.green,
+                        systemName: scanHasNoReadableItems ? "exclamationmark.triangle.fill" : "checkmark.circle.fill",
+                        tint: scanHasNoReadableItems ? Tint.orange : Tint.green,
                         size: 42
                     )
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("No Exact Duplicates Found")
+                        Text(LocalizedStringKey(scanHasNoReadableItems
+                            ? "No Scan Locations Could Be Read" : "No Exact Duplicates Found"))
                             .font(.headline)
-                        Text("No byte-for-byte duplicate groups matched the current locations, minimum size, and ignore list.")
+                        Text(LocalizedStringKey(scanHasNoReadableItems
+                            ? "Reconnect the disk or choose an available folder, then scan again."
+                            : "No byte-for-byte duplicate groups matched the current locations, minimum size, and ignore list."))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -369,7 +387,6 @@ struct DuplicateFilesView: View {
             }
         } else {
             resultsSummary
-            scanBoundaryNotice
 
             ForEach(filteredGroups) { group in
                 DuplicateFileGroupCard(group: group)

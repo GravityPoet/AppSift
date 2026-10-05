@@ -27,6 +27,12 @@ struct DownloadsBySourceView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if center.hasScanned {
+                ScanBoundaryNotice(inaccessibleCount: center.inaccessibleCount,
+                                   skippedCount: center.cloudPlaceholderCount,
+                                   wasTruncated: center.wasTruncated)
+                    .padding(.horizontal, 20)
+            }
 
             if center.isScanning && !center.hasScanned {
                 ProgressView(LocalizedStringKey("Classifying downloads by source…"))
@@ -42,9 +48,12 @@ struct DownloadsBySourceView: View {
                 )
             } else if center.items.isEmpty {
                 EmptyStateView(
-                    "No Downloads Found",
+                    center.inaccessibleCount > 0 || center.wasTruncated
+                        ? "No Verified Download Results" : "No Downloads Found",
                     systemImage: "checkmark.circle",
-                    description: "No local ordinary files are currently available in Downloads. Cloud placeholders were left untouched.",
+                    description: center.inaccessibleCount > 0 || center.wasTruncated
+                        ? "Some locations could not be fully checked. Review the scan warnings and try again."
+                        : "No local ordinary files are currently available in Downloads. Cloud placeholders were left untouched.",
                     action: { center.scan(force: true) },
                     actionLabel: "Scan Again",
                     tint: Tint.green
@@ -224,6 +233,8 @@ struct DownloadsBySourceView: View {
                     set: { _ in center.toggleSelection(item) }
                 ))
                 .labelsHidden()
+                .accessibilityLabel(Text(item.name))
+                .accessibilityHint("Select a download to move to Trash")
 
                 IconTile(systemName: "doc.fill", tint: item.source.tint, size: 30)
                 VStack(alignment: .leading, spacing: 5) {

@@ -21,7 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let keepsSystemAlerts = UserDefaults.standard.bool(
             forKey: SystemAlertCenter.settingsKey
         )
-        return !keepsMenuBarMonitor && !keepsTrashWatcher && !keepsSystemAlerts
+        let keepsScheduledScans = UserDefaults.standard.data(forKey: "\(ProductIdentity.name).ScheduleConfig")
+            .flatMap { try? JSONDecoder().decode(ScheduleConfig.self, from: $0) }?.isEnabled ?? false
+        return !keepsMenuBarMonitor && !keepsTrashWatcher && !keepsSystemAlerts && !keepsScheduledScans
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

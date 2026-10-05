@@ -9,6 +9,12 @@ struct SimilarImagesView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if center.hasScanned {
+                ScanBoundaryNotice(inaccessibleCount: center.unreadableCount,
+                                   skippedCount: center.cloudPlaceholderCount,
+                                   wasTruncated: center.wasTruncated)
+                    .padding(.horizontal, 20)
+            }
 
             if center.source == .folder && center.rootURL == nil {
                 EmptyStateView(
@@ -30,11 +36,20 @@ struct SimilarImagesView: View {
                 )
             } else if center.isScanning && !center.hasScanned {
                 scanningState
+            } else if !center.hasScanned {
+                EmptyStateView(
+                    "Not Scanned", systemImage: "photo.stack",
+                    description: "Run a scan before reviewing image groups.",
+                    action: { center.scan(force: true) }, actionLabel: "Scan Again"
+                )
             } else if center.hasScanned && center.groups.isEmpty {
                 EmptyStateView(
-                    "No Similar Image Groups",
+                    center.unreadableCount > 0 || center.wasTruncated
+                        ? "No Verified Image Results" : "No Similar Image Groups",
                     systemImage: "checkmark.circle",
-                    description: "No visually similar groups passed AppSift's local similarity thresholds in this folder.",
+                    description: center.unreadableCount > 0 || center.wasTruncated
+                        ? "Some locations could not be fully checked. Review the scan warnings and try again."
+                        : "No visually similar groups passed AppSift's local similarity thresholds in this folder.",
                     action: { center.scan(force: true) },
                     actionLabel: "Scan Again",
                     tint: Tint.green
@@ -339,6 +354,8 @@ struct SimilarImagesView: View {
                         set: { _ in center.toggle(item) }
                     ))
                     .labelsHidden()
+                    .accessibilityLabel(Text(item.name))
+                    .accessibilityHint("Select an image for removal")
                     Text(item.name)
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)

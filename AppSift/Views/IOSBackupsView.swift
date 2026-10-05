@@ -8,6 +8,14 @@ struct IOSBackupsView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if center.hasScanned {
+                ScanBoundaryNotice(
+                    inaccessibleCount: center.inaccessibleCount,
+                    skippedCount: center.skippedCount,
+                    wasTruncated: center.wasTruncated
+                )
+                .padding(.horizontal, 20)
+            }
             Group {
                 if center.isScanning && !center.hasScanned {
                     progressState
@@ -111,9 +119,12 @@ struct IOSBackupsView: View {
 
     private var emptyState: some View {
         EmptyStateView(
-            "No Local Device Backups",
+            center.inaccessibleCount > 0 || center.skippedCount > 0 || center.wasTruncated
+                ? "No Verified Backup Results" : "No Local Device Backups",
             systemImage: "checkmark.circle",
-            description: "Finder has no readable iPhone or iPad backups in MobileSync on this Mac.",
+            description: center.inaccessibleCount > 0 || center.skippedCount > 0 || center.wasTruncated
+                ? "Some locations could not be fully checked. Review the scan warnings and try again."
+                : "Finder has no readable iPhone or iPad backups in MobileSync on this Mac.",
             action: center.scan,
             actionLabel: "Scan Again",
             tint: Tint.green
@@ -206,6 +217,8 @@ struct IOSBackupsView: View {
                     }
                 ))
                 .labelsHidden()
+                .accessibilityLabel(Text(backup.deviceName))
+                .accessibilityHint("Select a device backup to move to Trash")
                 .disabled(!backup.isSafeToRemove || center.isRemoving)
 
                 IconTile(

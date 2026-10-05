@@ -22,13 +22,15 @@ final class BrowserPrivacyHighRiskTests: XCTestCase {
         try FileManager.default.createDirectory(at: chromeProfile, withIntermediateDirectories: true)
         let chromeHistory = chromeProfile.appendingPathComponent("History")
         let chromeCookies = chromeProfile.appendingPathComponent("Network/Cookies")
+        let macChromeCookies = chromeProfile.appendingPathComponent("Cookies")
+        let macChromeCookieWAL = chromeProfile.appendingPathComponent("Cookies-wal")
         let chromePasswords = chromeProfile.appendingPathComponent("Login Data")
         let chromeAutofill = chromeProfile.appendingPathComponent("Web Data")
         try FileManager.default.createDirectory(
             at: chromeCookies.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        for url in [chromeHistory, chromeCookies, chromePasswords, chromeAutofill] {
+        for url in [chromeHistory, chromeCookies, macChromeCookies, macChromeCookieWAL, chromePasswords, chromeAutofill] {
             try Data(repeating: 0x22, count: 512).write(to: url)
         }
 
@@ -53,6 +55,8 @@ final class BrowserPrivacyHighRiskTests: XCTestCase {
         XCTAssertTrue(targetPaths.contains(safariDownloads.path), scannedPaths)
         XCTAssertTrue(targetPaths.contains(chromeHistory.path), scannedPaths)
         XCTAssertTrue(targetPaths.contains(chromeCookies.path), scannedPaths)
+        XCTAssertTrue(targetPaths.contains(macChromeCookies.path), scannedPaths)
+        XCTAssertTrue(targetPaths.contains(macChromeCookieWAL.path), scannedPaths)
         XCTAssertTrue(targetPaths.contains(firefoxHistory.path), scannedPaths)
         XCTAssertTrue(targetPaths.contains(firefoxCookies.path), scannedPaths)
         XCTAssertFalse(targetPaths.contains(chromePasswords.path))

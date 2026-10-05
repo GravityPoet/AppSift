@@ -296,8 +296,9 @@ final class MacOSUpdateCenter: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 errorMessage = error.localizedDescription
-                hasChecked = true
+                hasChecked = false
             }
             isChecking = false
         }
