@@ -312,7 +312,7 @@ struct ToolboxView: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var alertCenter = SystemAlertCenter.shared
     @AppStorage private var favoriteIDsRaw: String
-    @State private var searchText = ""
+    @Binding private var searchText: String
     @Environment(\.colorScheme) private var colorScheme
 
     let navigate: (AppSection) -> Void
@@ -332,8 +332,9 @@ struct ToolboxView: View {
         GridItem(.adaptive(minimum: 210, maximum: 330), spacing: 16, alignment: .top)
     ]
 
-    init(navigate: @escaping (AppSection) -> Void) {
+    init(navigate: @escaping (AppSection) -> Void, searchText: Binding<String>) {
         self.navigate = navigate
+        _searchText = searchText
         _favoriteIDsRaw = AppStorage(
             wrappedValue: "",
             ToolboxView.favoriteStorageKey

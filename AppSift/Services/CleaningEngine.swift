@@ -1,13 +1,25 @@
 import Foundation
 
 actor CleaningEngine {
-    private let fileManager = FileManager.default
+    static let recoveryFeature = "cleanup-personal-files"
+    private let fileManager: FileManager
+    private let homePath: String
+    private let trashService: ReviewedTrashService
+
+    init(fileManager: FileManager = .default,
+         homeURL: URL = FileManager.default.homeDirectoryForCurrentUser,
+         trashService: ReviewedTrashService = ReviewedTrashService()) {
+        self.fileManager = fileManager
+        self.homePath = homeURL.standardizedFileURL.resolvingSymlinksInPath().path
+        self.trashService = trashService
+    }
 
     struct CleaningResult {
         var freedSpace: Int64 = 0
         var itemsCleaned: Int = 0
         var errors: [String] = []
         var cleanedPaths: Set<String> = []
+        var trashedSpace: Int64 = 0
         // Items that user-level FileManager.removeItem refused with EACCES /
         // EPERM. These are root-owned and need an admin-privileged second
         // pass via cleanWithAdminPrivileges(items:).
@@ -20,9 +32,62 @@ actor CleaningEngine {
         var result = CleaningResult()
         let total = items.count
 
+        let recoverableItems = items.filter(\.requiresRecoverableRemoval)
+        var candidates: [ReviewedTrashCandidate] = []
+        for item in recoverableItems {
+            let url = URL(fileURLWithPath: item.path).standardizedFileURL
+            let allowed: Bool
+            switch item.category {
+            case .largeFiles:
+                allowed = isExplicitSingleFileDeletable(resolvedPath: url.path)
+                    && item.reviewedFingerprint.map { $0.mode & UInt32(S_IFMT) == UInt32(S_IFREG) } == true
+            case .mailAttachments:
+                allowed = [
+                    "\(homePath)/Library/Mail Downloads",
+                    "\(homePath)/Library/Containers/com.apple.mail/Data/Library/Mail Downloads",
+                ].contains { url.path.hasPrefix($0 + "/") }
+            case .xcodeJunk:
+                allowed = url.path == "\(homePath)/Library/Developer/Xcode/Archives"
+            case .aiApps:
+                allowed = url.path == "\(homePath)/.ollama/history"
+                    || url.path == "\(homePath)/.lmstudio/conversations"
+            default:
+                allowed = false
+            }
+            guard allowed, let fingerprint = item.reviewedFingerprint else {
+                result.errors.append(String(format: String(localized: "Could not safely review %@. Scan again before removal."), item.name))
+                continue
+            }
+            candidates.append(ReviewedTrashCandidate(
+                id: "\(item.category.rawValue):\(item.id.uuidString)",
+                name: item.name, url: url, size: item.size, fingerprint: fingerprint,
+                allowedRoot: url.deletingLastPathComponent(), requiresDirectChild: true
+            ))
+        }
+        if !candidates.isEmpty {
+            let outcome = await trashService.moveToTrash(candidates, feature: Self.recoveryFeature)
+            if !outcome.historyPersisted {
+                result.errors.append(String(localized: "File cleanup was rolled back because undo history could not be saved."))
+            }
+            for item in outcome.record?.items ?? [] {
+                if item.status == .movedToTrash {
+                    result.cleanedPaths.insert(item.originalPath)
+                    result.itemsCleaned += 1
+                    result.trashedSpace += item.size
+                } else if item.status != .alreadyMissing {
+                    result.errors.append(String(format: String(localized: "Could not move %@ to Trash. Review the file and try again."), item.name))
+                }
+            }
+            if outcome.record == nil {
+                result.errors.append(String(localized: "The selected file batch could not be moved safely."))
+            }
+        }
+
         for (index, item) in items.enumerated() {
             let progress = Double(index + 1) / Double(total)
             progressHandler(progress)
+
+            if item.requiresRecoverableRemoval || item.isManualAction { continue }
 
             if item.category == .purgeableSpace {
                 let purged = await purgePurgeableSpace()
@@ -113,6 +178,17 @@ actor CleaningEngine {
         return await cleanItems(selectedItems, progressHandler: progressHandler)
     }
 
+    func recoveryHistory() async -> [ReviewedTrashRecord] {
+        await trashService.history(feature: Self.recoveryFeature)
+    }
+
+    func undo(_ record: ReviewedTrashRecord) async -> ReviewedTrashUndoOutcome {
+        guard record.feature == Self.recoveryFeature else {
+            return ReviewedTrashUndoOutcome(restoredCount: 0, failedCount: record.items.count, historyPersisted: true)
+        }
+        return await trashService.undo(record)
+    }
+
     /// Re-runs the deletion of the supplied items as root via NSAppleScript's
     /// "with administrator privileges" clause. Triggers exactly one auth
     /// prompt for the whole batch (macOS caches the credential for ~5 min).
@@ -129,6 +205,7 @@ actor CleaningEngine {
         // Re-validate. Don't trust the caller — anything not on the allow-list
         // refuses to escalate.
         let validated: [(item: CleanableItem, resolved: String)] = items.compactMap { item in
+            guard !item.requiresRecoverableRemoval, !item.isManualAction else { return nil }
             let resolved = URL(fileURLWithPath: item.path).resolvingSymlinksInPath().path
             let accepted: Bool = {
                 if item.category == .largeFiles {
@@ -240,7 +317,7 @@ actor CleaningEngine {
     // MARK: - Trash
 
     func emptyTrash() async -> Int64 {
-        let home = fileManager.homeDirectoryForCurrentUser.path
+        let home = homePath
         let trashPath = "\(home)/.Trash"
         var totalFreed: Int64 = 0
 
@@ -268,7 +345,7 @@ actor CleaningEngine {
     /// allow-listed - scanLargeFiles emits per-file items instead, so those
     /// deletions can still happen through the explicit per-item flow.
     func isSafeToDelete(resolvedPath: String) -> Bool {
-        let home = fileManager.homeDirectoryForCurrentUser.path
+        let home = homePath
         let allowedRoots = [
             "\(home)/Library/Caches",
             "\(home)/Library/Logs",
@@ -349,7 +426,7 @@ actor CleaningEngine {
     /// was explicitly surfaced by a scanner (e.g. scanLargeFiles). Whole-subtree
     /// deletion of those roots remains blocked.
     func isExplicitSingleFileDeletable(resolvedPath: String) -> Bool {
-        let home = fileManager.homeDirectoryForCurrentUser.path
+        let home = homePath
         let perFileRoots = [
             "\(home)/Downloads/",
             "\(home)/Documents/",

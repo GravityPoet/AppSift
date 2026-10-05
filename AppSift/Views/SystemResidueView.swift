@@ -19,6 +19,19 @@ struct SystemResidueView: View {
             Divider()
             if center.isScanning && !center.hasScanned {
                 scanningState
+            } else if !center.hasScanned {
+                VStack {
+                    if let message = center.actionMessage {
+                        Text(message).font(.subheadline).padding(.top, 16)
+                    }
+                    EmptyStateView(
+                        "Not Scanned",
+                        systemImage: "stethoscope",
+                        description: "Run a scan before drawing conclusions about system residue.",
+                        action: { center.scan(force: true) },
+                        actionLabel: "Scan Now"
+                    )
+                }
             } else {
                 content
             }

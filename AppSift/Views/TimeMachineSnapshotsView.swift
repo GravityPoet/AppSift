@@ -238,7 +238,7 @@ struct TimeMachineSnapshotsView: View {
                 .toggleStyle(.checkbox)
                 .accessibilityLabel("Local Snapshot")
                 .accessibilityValue(Text(snapshot.name))
-                .accessibilityHint("Select for Trash")
+                .accessibilityHint("Select a local recovery point for permanent deletion")
 
             IconTile(systemName: "clock.fill", tint: Tint.orange, size: 30, corner: 7)
 
@@ -389,7 +389,7 @@ struct TimeMachineSnapshotsView: View {
     }
 
     private var snapshotSizeFootnote: String {
-        knownSnapshotSize > 0
+        appState.localTimeMachineSnapshots.contains { $0.privateSize != nil }
             ? String(localized: "Size shows APFS private bytes. Actual free space is verified after deletion.")
             : String(localized: "Snapshot size is unavailable on this volume.")
     }

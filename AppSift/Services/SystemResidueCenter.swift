@@ -82,7 +82,7 @@ final class SystemResidueCenter: ObservableObject {
             } catch {
                 guard activeScanID == scanID else { return }
                 errorMessage = error.localizedDescription
-                hasScanned = true
+                hasScanned = false
             }
             guard activeScanID == scanID else { return }
             isScanning = false
@@ -95,6 +95,7 @@ final class SystemResidueCenter: ObservableObject {
         scanTask = nil
         activeScanID = UUID()
         isScanning = false
+        actionMessage = String(localized: "Scan cancelled. No new results were saved.")
     }
 
     func togglePreference(_ item: CorruptPreferenceItem) {

@@ -8,6 +8,13 @@ struct BrowserPrivacyView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if center.hasScanned {
+                ScanBoundaryNotice(
+                    inaccessibleCount: center.inaccessibleCount,
+                    wasTruncated: center.wasTruncated
+                )
+                .padding(.horizontal, 20)
+            }
             Group {
                 if center.isScanning && !center.hasScanned {
                     progressState
@@ -115,9 +122,12 @@ struct BrowserPrivacyView: View {
 
     private var emptyState: some View {
         EmptyStateView(
-            "No Supported Browser Data",
+            center.inaccessibleCount > 0 || center.wasTruncated
+                ? "No Verified Browser Results" : "No Supported Browser Data",
             systemImage: "checkmark.shield.fill",
-            description: "No readable Safari, Chrome, or Firefox history, cookie, or cache targets were found.",
+            description: center.inaccessibleCount > 0 || center.wasTruncated
+                ? "Some locations could not be fully checked. Review the scan warnings and try again."
+                : "No readable Safari, Chrome, or Firefox history, cookie, or cache targets were found.",
             action: center.scan,
             actionLabel: "Scan Again",
             tint: Tint.green
@@ -242,6 +252,8 @@ struct BrowserPrivacyView: View {
                     }
                 ))
                 .labelsHidden()
+                .accessibilityLabel(Text(verbatim: "\(group.browser.displayName) · \(group.kind.title)"))
+                .accessibilityHint("Select browser data to move to Trash")
                 .disabled(center.isCleaning)
 
                 IconTile(systemName: group.kind.icon, tint: Tint.purple, size: 30)

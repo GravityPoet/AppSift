@@ -160,7 +160,7 @@ struct AppListView: View {
             // Cap the left pane's maxWidth so dragging the splitter cannot
             // push it past half the window and break the layout (#60).
             appTable
-                .frame(minWidth: 300, idealWidth: 380, maxWidth: 600)
+                .frame(minWidth: 420, idealWidth: 480, maxWidth: 600)
 
             fileDetail
                 .frame(minWidth: 300)

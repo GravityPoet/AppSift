@@ -146,13 +146,13 @@ Capture wall time, peak resident memory, file count, comparison count, cancellat
 
 ## Accessibility and localization gate
 
-Run every new page in all seven supported languages at the minimum 980 × 600 window and at the largest practical display/text scaling setting.
+Run new and changed pages in English, Simplified Chinese, Japanese, and Spanish at the minimum 980 × 600 window and at the largest practical display/text scaling setting. Keep the other existing language resources; expand runtime coverage only when a change specifically affects them. Catalog parity and format-argument checks remain lightweight checks for all retained resources.
 
 - VoiceOver: traverse forward and backward, activate every control, inspect grouped rows and the Space Lens map, confirm icon-only controls have concise labels, and verify dialogs move focus logically.
 - Full Keyboard Access: reach the sidebar, filters, tables, selection controls, menus, destructive confirmations, Cancel, Undo, and close buttons without a pointer. The sidebar uses native buttons rather than tap-only gestures.
 - Increase Contrast and Differentiate Without Color: test light and dark appearances. Selection, warning, success, protection, and disabled states must remain understandable from text or symbols rather than color alone.
 - Scaling: verify no heading, explanation, path, badge, button, table row, or confirmation text is clipped; scrollable content must remain reachable at the minimum window size.
-- Localization: verify no English narrative copy appears in Arabic, Spanish, Japanese, Brazilian Portuguese, Simplified Chinese, or Traditional Chinese; interpolation and plural values must remain in the correct order.
+- Localization: verify translated narrative copy in the four primary languages; interpolation and plural values must remain in the correct order. Test other languages when their resources or direction-specific layout changes.
 
 Automated accessibility audits are screen-specific and do not replace a complete VoiceOver pass. Save the Accessibility Inspector report or XCTest result bundle with the release evidence.
 

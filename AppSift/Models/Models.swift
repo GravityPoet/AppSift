@@ -1,4 +1,5 @@
 import SwiftUI
+import Darwin
 
 // MARK: - Cleaning Category
 
@@ -113,6 +114,37 @@ struct CleanableItem: Identifiable, Hashable {
     let category: CleaningCategory
     var isSelected: Bool
     let lastModified: Date?
+    let reviewedFingerprint: ReviewedTrashFingerprint?
+
+    init(name: String, path: String, size: Int64, category: CleaningCategory,
+         isSelected: Bool, lastModified: Date?) {
+        self.name = name
+        self.path = path
+        self.size = size
+        self.category = category
+        self.isSelected = isSelected
+        self.lastModified = lastModified
+        self.reviewedFingerprint = Self.needsRecovery(category: category, path: path)
+            ? ReviewedTrashFingerprint.read(at: URL(fileURLWithPath: path)) : nil
+    }
+
+    var requiresRecoverableRemoval: Bool {
+        Self.needsRecovery(category: category, path: path)
+    }
+
+    var isEligibleForAutomaticCleanup: Bool {
+        !requiresRecoverableRemoval && !isManualAction
+            && category != .trashBins && category != .purgeableSpace
+            && ReviewedTrashFingerprint.read(at: URL(fileURLWithPath: path))?.owner == UInt32(getuid())
+            && FileManager.default.isWritableFile(atPath: path)
+    }
+
+    private static func needsRecovery(category: CleaningCategory, path: String) -> Bool {
+        category == .largeFiles || category == .mailAttachments
+            || (category == .xcodeJunk && path.hasSuffix("/Xcode/Archives"))
+            || (category == .aiApps && (path.hasSuffix("/.ollama/history")
+                || path.hasSuffix("/.lmstudio/conversations")))
+    }
 
     var formattedSize: String {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)

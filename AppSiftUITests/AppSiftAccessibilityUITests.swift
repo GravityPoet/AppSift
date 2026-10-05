@@ -136,6 +136,46 @@ final class AppSiftAccessibilityUITests: XCTestCase {
         assertScrollableDashboardStatsLayout()
     }
 
+    func testToolsBackPreservesSearchAndFirstUseActionsAreLocalized() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+        for language in ["en", "zh-Hans", "ja", "es"] {
+            app.terminate()
+            app = configuredApplication(appearance: "light", language: language)
+            app.launch()
+            let catalogURL = repositoryRoot.appendingPathComponent("AppSift/\(language).lproj/Localizable.strings")
+            let catalog = try XCTUnwrap(PropertyListSerialization.propertyList(
+                from: Data(contentsOf: catalogURL), options: [], format: nil
+            ) as? [String: String])
+            let tools = app.descendants(matching: .any).matching(identifier: "main.sidebar.item.tools").firstMatch
+            XCTAssertTrue(tools.waitForExistence(timeout: 10), language)
+            tools.click()
+
+            for (query, identifier, actionKey) in [
+                ("Browser Privacy", "browser-privacy", "Scan Browser Data"),
+                ("iPhone", "ios-backups", "Scan Backups")
+            ] {
+                let search = app.descendants(matching: .any).matching(identifier: "toolbox.search").firstMatch
+                XCTAssertTrue(search.waitForExistence(timeout: 5), language)
+                search.click()
+                search.typeKey("a", modifierFlags: .command)
+                search.typeKey(.delete, modifierFlags: [])
+                search.typeText(query)
+                let tool = app.buttons["toolbox.tool.\(identifier)"].firstMatch
+                XCTAssertTrue(tool.waitForExistence(timeout: 5), language)
+                tool.click()
+                let translatedAction = try XCTUnwrap(catalog[actionKey])
+                XCTAssertTrue(app.buttons[translatedAction].firstMatch.waitForExistence(timeout: 5), "\(language): \(actionKey)")
+                if language != "en" { XCTAssertFalse(app.buttons[actionKey].exists, language) }
+                let back = app.buttons["main.navigation.back"].firstMatch
+                XCTAssertTrue(back.waitForExistence(timeout: 5), language)
+                back.click()
+                XCTAssertTrue(search.waitForExistence(timeout: 5), language)
+                XCTAssertEqual(search.value as? String, query, language)
+            }
+        }
+    }
+
     func testDashboardStatCardsExposeNativeNavigationActions() throws {
         let identifiers = [
             "dashboard.stat.free-space.button",
@@ -388,6 +428,17 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             return false
         }
         let identifier = element.identifier
+        // Xcode 27.0/macOS 27.2 also misreports this white-on-brown badge.
+        // The exported element crop on 2026-10-05 measured 14.54:1.
+        // Limit this exception to that OS, text, identifier, and compact frame.
+        if identifier == "dashboard.hero.low-space" {
+            return ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 27
+                && element.elementType == .staticText
+                && element.value as? String == "Low space"
+                && element.frame.height <= 16
+                && element.frame.width <= 60
+                && element.isHittable
+        }
         return identifier == "dashboard.hero.free-total"
             || identifier == "dashboard.storage.percent"
             || identifier.hasPrefix("dashboard.storage.legend.")
@@ -444,7 +495,8 @@ final class AppSiftAccessibilityUITests: XCTestCase {
 
     private func configuredApplication(
         appearance: String,
-        fullDiskAccess: Bool = true
+        fullDiskAccess: Bool = true,
+        language: String = "en"
     ) -> XCUIApplication {
         let application = XCUIApplication()
         application.launchArguments = [
@@ -453,8 +505,8 @@ final class AppSiftAccessibilityUITests: XCTestCase {
             "-AppSift.UITest.FullDiskAccess",
             fullDiskAccess ? "granted" : "denied",
             "-AppSift.Appearance", appearance,
-            "-AppleLanguages", "(en)",
-            "-AppleLocale", "en_US",
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", language.replacingOccurrences(of: "-", with: "_"),
             "-NSQuitAlwaysKeepsWindows", "NO"
         ]
         application.launchEnvironment[
@@ -499,7 +551,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
 
         let firstRow: [(String, String)] = [
             ("dashboard.stat.free-space.button", "Free Space"),
-            ("dashboard.stat.junk-found.button", "Junk Found"),
+            ("dashboard.stat.junk-found.button", "Files to Review"),
         ]
         let buttons = firstRow.compactMap { identifier, label -> XCUIElement? in
             let button = app.buttons[identifier].firstMatch
@@ -544,7 +596,7 @@ final class AppSiftAccessibilityUITests: XCTestCase {
     ) {
         let summaries: [(String, String)] = [
             ("dashboard.stat.apps.button", "Apps"),
-            ("dashboard.stat.purgeable.button", "Purgeable"),
+            ("dashboard.stat.purgeable.button", "macOS Managed"),
         ]
         let appsButton = app.buttons[summaries[0].0].firstMatch
         let mainDetail = app.descendants(matching: .any)

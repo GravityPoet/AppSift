@@ -1628,6 +1628,9 @@ final class AppState: ObservableObject {
     }
     @Published var orphanedFiles: [URL] = []
     @Published var isSearchingOrphans: Bool = false
+    @Published private(set) var hasScannedOrphans = false
+    @Published private(set) var orphanInaccessibleLocationCount = 0
+    private var orphanScanTask: Task<Void, Never>?
     @Published var isLoadingApps: Bool = false
     @Published var isCalculatingAppSizes: Bool = false
     @Published var appSizeCalculationProgress: Double = 0
@@ -1766,6 +1769,9 @@ final class AppState: ObservableObject {
     var scheduler = SchedulerService()
     private let scanEngine = ScanEngine()
     private let cleaningEngine = CleaningEngine()
+    @Published private(set) var cleanupRecoveryHistory = ReviewedTrashHistoryStore.shared.snapshot(feature: CleaningEngine.recoveryFeature)
+    @Published var cleanupRecoveryMessage: String?
+    @Published private(set) var isRestoringCleanup = false
     private let timeMachineSnapshotService = TimeMachineSnapshotService()
     private let locationsProvider: () -> Locations
     private let searchSensitivityProvider: () -> SearchSensitivity
@@ -5794,24 +5800,39 @@ final class AppState: ObservableObject {
     }
 
     func findOrphans() {
+        guard !isSearchingOrphans, !isLoadingApps else { return }
         isSearchingOrphans = true
+        hasScannedOrphans = false
         orphanedFiles = []
-        Task.detached(priority: .userInitiated) {
+        orphanInaccessibleLocationCount = 0
+        let knownIDs = Set(installedApps.map { $0.bundleIdentifier.normalizedForMatching() })
+        let knownNames = Set(installedApps.map { $0.appName.normalizedForMatching() })
+        orphanScanTask = Task.detached(priority: .userInitiated) { [weak self] in
             let locations = Locations()
-            let knownApps = await MainActor.run { self.installedApps }
-            let knownIDs = Set(knownApps.map { $0.bundleIdentifier.normalizedForMatching() })
-            let knownNames = Set(knownApps.map { $0.appName.normalizedForMatching() })
             // Paths the user marked "Always Ignore" (issue #114). These were
             // false positives for them, so they stay hidden from every scan
             // until the user forgets the list in Settings.
             let ignored = Set(UserDefaults.standard.stringArray(forKey: Self.ignoredOrphansKey) ?? [])
 
             var orphans: [URL] = []
+            var inaccessibleLocations = 0
             let fm = FileManager.default
 
             for path in locations.reverseSearch.paths {
-                guard let contents = try? fm.contentsOfDirectory(atPath: path) else { continue }
+                guard !Task.isCancelled else { return }
+                let contents: [String]
+                do {
+                    contents = try fm.contentsOfDirectory(atPath: path)
+                } catch {
+                    let error = error as NSError
+                    if !(error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError)
+                        && !(error.domain == NSPOSIXErrorDomain && error.code == Int(ENOENT)) {
+                        inaccessibleLocations += 1
+                    }
+                    continue
+                }
                 for item in contents {
+                    guard !Task.isCancelled else { return }
                     let normalized = item.normalizedForMatching()
 
                     // Skip known system items
@@ -5832,11 +5853,22 @@ final class AppState: ObservableObject {
             }
 
             let sorted = orphans.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            let unavailableCount = inaccessibleLocations
             await MainActor.run { [weak self] in
+                guard !Task.isCancelled else { return }
                 self?.orphanedFiles = sorted
+                self?.orphanInaccessibleLocationCount = unavailableCount
+                self?.hasScannedOrphans = true
                 self?.isSearchingOrphans = false
+                self?.orphanScanTask = nil
             }
         }
+    }
+
+    func cancelOrphanScan() {
+        orphanScanTask?.cancel()
+        orphanScanTask = nil
+        isSearchingOrphans = false
     }
 
     // MARK: - Orphan ignore list (#114)
@@ -6090,6 +6122,7 @@ final class AppState: ObservableObject {
         }
 
         totalFreedSpace = result.freedSpace
+        await updateCleanupRecovery(result)
         lastCleanedDate = Date()
 
         for (cat, catResult) in categoryResults {
@@ -6100,7 +6133,7 @@ final class AppState: ObservableObject {
                 deselectedItems.remove(item.id)
             }
             if remaining.isEmpty {
-                categoryResults.removeValue(forKey: cat)
+                categoryResults[cat] = CategoryResult(category: cat, items: [], totalSize: 0)
             } else {
                 categoryResults[cat] = CategoryResult(
                     category: cat,
@@ -6120,6 +6153,7 @@ final class AppState: ObservableObject {
         scanState = .cleaned
         loadDiskInfo()
         try? await Task.sleep(nanoseconds: 3_000_000_000)
+        guard scanState == .cleaned else { return }
         scanState = .idle
         totalFreedSpace = 0
     }
@@ -6251,7 +6285,11 @@ final class AppState: ObservableObject {
     }
 
     func startSmartScan() {
-        guard !scanState.isActive else { return }
+        startCleanupScan(categories: CleaningCategory.scannable, scheduled: false)
+    }
+
+    private func startCleanupScan(categories: [CleaningCategory], scheduled: Bool) {
+        guard !scanState.isActive, !isRestoringCleanup, !categories.isEmpty else { return }
 
         cleanupScanTask?.cancel()
         let scanID = UUID()
@@ -6264,7 +6302,6 @@ final class AppState: ObservableObject {
 
         cleanupScanTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let categories = CleaningCategory.scannable
             let total = categories.count
 
             for (index, category) in categories.enumerated() {
@@ -6296,11 +6333,24 @@ final class AppState: ObservableObject {
             scanState = .completed
             loadDiskInfo()
             cleanupScanTask = nil
+            if scheduled && scheduler.config.isEnabled {
+                if scheduler.config.autoClean && totalJunkSize >= scheduler.config.minimumCleanSize {
+                    for category in Array(categoryResults.keys) {
+                        guard var result = categoryResults[category] else { continue }
+                        for index in result.items.indices where !result.items[index].isEligibleForAutomaticCleanup {
+                            result.items[index].isSelected = false
+                        }
+                        categoryResults[category] = result
+                    }
+                    cleanAll()
+                }
+                if scheduler.config.notifyOnCompletion { sendNotification(freed: totalJunkSize) }
+            }
         }
     }
 
     func scanSingleCategory(_ category: CleaningCategory) {
-        guard !scanState.isActive else { return }
+        guard !scanState.isActive, !isRestoringCleanup else { return }
 
         cleanupScanTask?.cancel()
         let scanID = UUID()
@@ -6353,8 +6403,77 @@ final class AppState: ObservableObject {
 
     // MARK: - Cleaning
 
+    var latestUndoableCleanup: ReviewedTrashRecord? {
+        cleanupRecoveryHistory.first { record in
+            record.items.contains {
+                $0.status == .movedToTrash && $0.restoredAt == nil
+                    && $0.trashPath.map(FileManager.default.fileExists(atPath:)) == true
+            }
+        }
+    }
+
+    func refreshCleanupRecoveryHistory() {
+        Task { cleanupRecoveryHistory = await cleaningEngine.recoveryHistory() }
+    }
+
+    private func updateCleanupRecovery(_ result: CleaningEngine.CleaningResult) async {
+        cleanupRecoveryHistory = await cleaningEngine.recoveryHistory()
+        if result.trashedSpace > 0 {
+            cleanupRecoveryMessage = String(
+                format: String(localized: "%@ moved to Trash. Space is released when Trash is emptied."),
+                ByteCountFormatter.string(fromByteCount: result.trashedSpace, countStyle: .file)
+            )
+        }
+    }
+
+    func cleanupConfirmationMessage(for items: [CleanableItem]) -> String {
+        let hasRecoverable = items.contains(where: \.requiresRecoverableRemoval)
+        let hasPermanent = items.contains { !$0.requiresRecoverableRemoval && !$0.isManualAction }
+        if hasRecoverable && !hasPermanent {
+            return String(localized: "These files will move to Trash with recovery history. You can undo the removal; disk space is released when Trash is emptied.")
+        }
+        if hasRecoverable {
+            return String(localized: "Personal files, archives, and selected conversations will move to Trash with recovery history. Selected caches, logs, and existing Trash items will be permanently deleted.")
+        }
+        return String(localized: "This will permanently delete the selected files. This cannot be undone.")
+    }
+
+    func undoLatestCleanup() {
+        guard !scanState.isActive, !isRestoringCleanup,
+              let record = latestUndoableCleanup else { return }
+        isRestoringCleanup = true
+        Task {
+            let outcome = await cleaningEngine.undo(record)
+            cleanupRecoveryHistory = await cleaningEngine.recoveryHistory()
+            if outcome.restoredCount > 0 {
+                for item in record.items where item.restoredAt == nil {
+                    let url = URL(fileURLWithPath: item.originalPath)
+                    guard ReviewedTrashFingerprint.read(at: url) == item.fingerprint,
+                          let categoryName = item.candidateID.split(separator: ":", maxSplits: 1).first,
+                          let category = CleaningCategory(rawValue: String(categoryName)) else { continue }
+                    var result = categoryResults[category] ?? CategoryResult(category: category, items: [], totalSize: 0)
+                    guard !result.items.contains(where: { $0.path == item.originalPath }) else { continue }
+                    result.items.append(CleanableItem(
+                        name: item.name, path: item.originalPath, size: item.size,
+                        category: category, isSelected: false,
+                        lastModified: Date(timeIntervalSince1970: Double(item.fingerprint.modificationSeconds))
+                    ))
+                    result.totalSize = result.items.reduce(0) { $0 + $1.size }
+                    categoryResults[category] = result
+                }
+                totalJunkSize = categoryResults.values.reduce(0) { $0 + $1.totalSize }
+                scanState = .completed
+            }
+            cleanupRecoveryMessage = outcome.failedCount > 0 || !outcome.historyPersisted
+                ? String(localized: "Some files could not be restored. Existing files were left unchanged.")
+                : String(format: String(localized: "%lld files restored to their original locations."), Int64(outcome.restoredCount))
+            isRestoringCleanup = false
+            loadDiskInfo()
+        }
+    }
+
     func cleanAll() {
-        guard !scanState.isActive else { return }
+        guard !scanState.isActive, !isRestoringCleanup else { return }
 
         let itemsToClean = allResults.flatMap { $0.items }.filter { isItemSelected($0) }
         guard !itemsToClean.isEmpty else { return }
@@ -6381,6 +6500,7 @@ final class AppState: ObservableObject {
             }
 
             totalFreedSpace = result.freedSpace
+            await updateCleanupRecovery(result)
             lastCleanedDate = Date()
             if result.itemsCleaned > 0 { Haptics.successWithSound() }
 
@@ -6394,7 +6514,7 @@ final class AppState: ObservableObject {
                     deselectedItems.remove(item.id)
                 }
                 if remaining.isEmpty {
-                    categoryResults.removeValue(forKey: cat)
+                    categoryResults[cat] = CategoryResult(category: cat, items: [], totalSize: 0)
                 } else {
                     categoryResults[cat] = CategoryResult(
                         category: cat,
@@ -6411,13 +6531,14 @@ final class AppState: ObservableObject {
             loadDiskInfo()
 
             try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard scanState == .cleaned else { return }
             scanState = .idle
             totalFreedSpace = 0
         }
     }
 
     func cleanCategory(_ category: CleaningCategory) {
-        guard let result = categoryResults[category], !scanState.isActive else { return }
+        guard let result = categoryResults[category], !scanState.isActive, !isRestoringCleanup else { return }
 
         let selectedItems = result.items.filter { isItemSelected($0) }
         guard !selectedItems.isEmpty else { return }
@@ -6442,6 +6563,7 @@ final class AppState: ObservableObject {
             }
 
             totalFreedSpace = cleanResult.freedSpace
+            await updateCleanupRecovery(cleanResult)
             lastCleanedDate = Date()
 
             if let existing = categoryResults[category] {
@@ -6452,7 +6574,7 @@ final class AppState: ObservableObject {
                     deselectedItems.remove(item.id)
                 }
                 if remaining.isEmpty {
-                    categoryResults.removeValue(forKey: category)
+                    categoryResults[category] = CategoryResult(category: category, items: [], totalSize: 0)
                 } else {
                     categoryResults[category] = CategoryResult(
                         category: category,
@@ -6470,6 +6592,7 @@ final class AppState: ObservableObject {
             loadDiskInfo()
 
             try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard scanState == .cleaned else { return }
             scanState = .idle
             totalFreedSpace = 0
         }
@@ -6533,30 +6656,10 @@ final class AppState: ObservableObject {
     // MARK: - Scheduled Scan
 
     private func runScheduledScan() async {
-        let categories = scheduler.config.categoriesToScan
-        var totalFound: Int64 = 0
-        clearSelectionState()
-        categoryResults = [:]
-
-        for category in categories {
-            let result = await scanEngine.scanCategory(category)
-            categoryResults[category] = result
-            totalFound += result.totalSize
-        }
-
-        totalJunkSize = totalFound
-
-        if scheduler.config.autoClean && totalFound >= scheduler.config.minimumCleanSize {
-            cleanAll()
-        }
-
-        // Purgeable space is intentionally NOT auto-purged: macOS reserves and
-        // reclaims it on its own and AppSift does not claim to free it. See
-        // CleaningCategory.scannable.
-
-        if scheduler.config.notifyOnCompletion {
-            sendNotification(freed: totalFound)
-        }
+        startCleanupScan(
+            categories: scheduler.config.categoriesToScan.filter { CleaningCategory.scannable.contains($0) },
+            scheduled: true
+        )
     }
 
     private func sendNotification(freed: Int64) {

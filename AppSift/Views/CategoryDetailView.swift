@@ -87,7 +87,7 @@ struct CategoryDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently delete the selected files. This cannot be undone.")
+            Text(appState.cleanupConfirmationMessage(for: result?.items.filter { appState.isItemSelected($0) } ?? []))
         }
     }
 
@@ -107,7 +107,10 @@ struct CategoryDetailView: View {
     private var heroCard: some View {
         let totalSize = result?.totalSize ?? 0
         let itemCount = result?.itemCount ?? 0
-        let isScanning = appState.scanState.isActive
+        let isScanning: Bool = {
+            if case .scanning = appState.scanState { return true }
+            return false
+        }()
 
         return CardSurface(padding: 18) {
             HStack(alignment: .center, spacing: 16) {
@@ -148,6 +151,7 @@ struct CategoryDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .disabled(appState.scanState.isActive && !isScanning)
                 .accessibilityIdentifier("category.scan.cancel-or-rescan")
             }
         }

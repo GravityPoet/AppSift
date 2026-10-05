@@ -273,9 +273,20 @@ actor ScanEngine {
     }
 
     private func scanAIApps() -> CategoryResult {
-        // Deep AI model & LLM cache scanning (Ollama, LM Studio) is reserved for AppSift Pro.
-        // Public Community Edition provides a baseline clean pass.
-        return CategoryResult(category: .aiApps, items: [], totalSize: 0)
+        let targets = [
+            CleanupTarget(name: String(localized: "Ollama Logs"), path: "\(home)/.ollama/logs"),
+            CleanupTarget(name: String(localized: "Ollama Cache"), path: "\(home)/Library/Caches/ollama"),
+            CleanupTarget(name: String(localized: "Ollama Electron Cache"), path: "\(home)/Library/Caches/com.electron.ollama"),
+            CleanupTarget(name: String(localized: "Ollama CLI Prompt History (Optional)"), path: "\(home)/.ollama/history", isSelected: false, minimumSize: 0),
+            CleanupTarget(name: String(localized: "LM Studio Server Logs"), path: "\(home)/.lmstudio/server-logs"),
+            CleanupTarget(name: String(localized: "LM Studio Conversations (Optional)"), path: "\(home)/.lmstudio/conversations", isSelected: false, minimumSize: 0),
+        ]
+        let items = deduplicatedItems(targets.compactMap { target in
+            makeCleanupItem(name: target.name, path: target.path, category: .aiApps,
+                            isSelected: target.isSelected, minimumSize: target.minimumSize)
+        })
+        return CategoryResult(category: .aiApps, items: items.sorted { $0.size > $1.size },
+                              totalSize: items.reduce(0) { $0 + $1.size })
     }
 
     private func scanMailAttachments() -> CategoryResult {
@@ -455,7 +466,7 @@ actor ScanEngine {
                         path: path,
                         size: size,
                         category: .xcodeJunk,
-                        isSelected: true,
+                        isSelected: !path.hasSuffix("/Xcode/Archives"),
                         lastModified: nil
                     ))
                 }
@@ -859,7 +870,7 @@ actor ScanEngine {
                             path: fullPath,
                             size: size,
                             category: category,
-                            isSelected: true,
+                            isSelected: category != .mailAttachments && category != .trashBins,
                             lastModified: fileModDate(path: fullPath)
                         ))
                     }
@@ -871,7 +882,7 @@ actor ScanEngine {
                             path: fullPath,
                             size: size,
                             category: category,
-                            isSelected: true,
+                            isSelected: category != .mailAttachments && category != .trashBins,
                             lastModified: attrs[.modificationDate] as? Date
                         ))
                     }

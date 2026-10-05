@@ -3,13 +3,15 @@ import SwiftUI
 import ServiceManagement
 
 struct SettingsView: View {
+    @EnvironmentObject private var appState: AppState
+
     var body: some View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gear") }
             CleaningSettingsView()
                 .tabItem { Label("Cleaning", systemImage: "trash") }
-            ScheduleSettingsView()
+            ScheduleSettingsView(scheduler: appState.scheduler)
                 .tabItem { Label("Schedule", systemImage: "clock") }
             AboutSettingsView()
                 .tabItem { Label("About", systemImage: "info.circle") }
@@ -339,29 +341,41 @@ struct CleaningSettingsView: View {
 // MARK: - Schedule
 
 struct ScheduleSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @ObservedObject var scheduler: SchedulerService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Form {
             Section("Automatic Scanning") {
-                Toggle("Enable scheduled scanning", isOn: $appState.scheduler.config.isEnabled)
+                Toggle("Enable scheduled scanning", isOn: Binding(
+                    get: { scheduler.config.isEnabled },
+                    set: { scheduler.toggleEnabled($0) }
+                ))
 
-                if appState.scheduler.config.isEnabled {
+                if scheduler.config.isEnabled {
                     Group {
-                        Picker("Scan interval", selection: $appState.scheduler.config.interval) {
+                        Picker("Scan interval", selection: Binding(
+                            get: { scheduler.config.interval },
+                            set: { scheduler.updateSchedule(interval: $0) }
+                        )) {
                             ForEach(ScheduleInterval.allCases) { interval in
                                 Text(LocalizedStringKey(interval.rawValue)).tag(interval)
                             }
                         }
 
-                        Toggle("Auto-clean after scan", isOn: $appState.scheduler.config.autoClean)
-                        Toggle("Notify on completion", isOn: $appState.scheduler.config.notifyOnCompletion)
+                        Toggle("Auto-clean after scan", isOn: $scheduler.config.autoClean)
+                        Text("Automatic cleanup handles only selected, writable caches and logs. Personal files, archives, conversations, and Trash are excluded.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Toggle("Notify on completion", isOn: $scheduler.config.notifyOnCompletion)
+                        Text("AppSift keeps running while scheduled scans are enabled. Quit AppSift to pause them.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
                         HStack {
                             Text("Last run")
                             Spacer()
-                            Text(appState.scheduler.config.formattedLastRun)
+                            Text(scheduler.config.formattedLastRun)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -371,7 +385,7 @@ struct ScheduleSettingsView: View {
         }
         .formStyle(.grouped)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85),
-                   value: appState.scheduler.config.isEnabled)
+                   value: scheduler.config.isEnabled)
     }
 }
 
@@ -413,7 +427,7 @@ struct AboutSettingsView: View {
             }
 
             Section {
-                Text("MIT License")
+                Text("AGPL-3.0")
                     .foregroundStyle(.secondary)
             }
         }

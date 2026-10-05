@@ -166,7 +166,7 @@ struct DashboardView: View {
             Button("Clean", role: .destructive) { appState.cleanAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently delete the selected files. This cannot be undone.")
+            Text(appState.cleanupConfirmationMessage(for: appState.allResults.flatMap(\.items).filter { appState.isItemSelected($0) }))
         }
     }
 
@@ -185,7 +185,7 @@ struct DashboardView: View {
                 .accessibilityIdentifier("dashboard.title")
             Text("See what matters, review every result, and reclaim space safely.")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .foregroundStyle(Color.primary.opacity(0.72))
                 .accessibilityIdentifier("dashboard.subtitle")
         }
         .padding(.bottom, 2)
