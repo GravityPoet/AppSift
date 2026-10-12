@@ -1560,6 +1560,39 @@ final class AppRemovalRecoveryTests: XCTestCase {
         XCTAssertEqual(result.failure(for: app)?.kind, .administratorAccessRequired)
     }
 
+    func testManagedContainerRootClassificationKeepsNestedDataOnNormalPath() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let containers = home.appendingPathComponent(
+            "Library/Containers",
+            isDirectory: true
+        )
+        let groupContainers = home.appendingPathComponent(
+            "Library/Group Containers",
+            isDirectory: true
+        )
+
+        XCTAssertTrue(
+            AppFileTrashService.isManagedContainerRoot(
+                containers.appendingPathComponent("com.example.app")
+            )
+        )
+        XCTAssertTrue(
+            AppFileTrashService.isManagedContainerRoot(
+                groupContainers.appendingPathComponent("group.com.example")
+            )
+        )
+        XCTAssertFalse(
+            AppFileTrashService.isManagedContainerRoot(
+                containers.appendingPathComponent("com.example.app/Data")
+            )
+        )
+        XCTAssertFalse(
+            AppFileTrashService.isManagedContainerRoot(
+                URL(fileURLWithPath: "/Applications/Example.app")
+            )
+        )
+    }
+
     func testRemovalHistoryStorePersistsReceipt() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AppSiftHistoryStore-\(UUID().uuidString)", isDirectory: true)

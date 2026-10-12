@@ -168,10 +168,125 @@ enum AppFileTrashService {
         }
 
         let privilegedService = PrivilegedAppRemovalService()
-        if privilegedService.shouldHandleTrash(urls) {
-            return await privilegedService.trash(urls)
+        // macOS owns the directories below `~/Library/Containers` and
+        // `~/Library/Group Containers`. A root process can have permission to
+        // mutate their parent but still cannot move the managed container
+        // itself with NSFileManager; containermanagerd rejects that direct
+        // move. Send those roots through Finder's recycle API first, while
+        // keeping the existing single administrator transaction for ordinary
+        // root-owned files in the same batch.
+        let managedContainerURLs = urls.filter(isManagedContainerRoot)
+        let ordinaryURLs = urls.filter { !isManagedContainerRoot($0) }
+
+        var results: [AppFileTrashResult] = []
+        if !ordinaryURLs.isEmpty {
+            if privilegedService.shouldHandleTrash(ordinaryURLs) {
+                results.append(await privilegedService.trash(ordinaryURLs))
+            } else {
+                results.append(
+                    await workspaceRecycle(
+                        ordinaryURLs,
+                        allowAdministratorFallback: true
+                    )
+                )
+            }
         }
 
+        // Preserve the pre-existing all-or-nothing authorization boundary:
+        // if the administrator sheet was cancelled or failed, do not move a
+        // second class of items after that decision. Successful ordinary
+        // items may remain in Trash under the partial-removal contract.
+        let batchBoundaryWasRejected = results.contains { result in
+            result.failureDetails.values.contains { failure in
+                switch failure.kind {
+                case .unsafePath,
+                     .destinationConflict,
+                     .batchTooLarge,
+                     .itemChanged,
+                     .fullDiskAccessRequired,
+                     .administratorAuthorizationCancelled,
+                     .administratorAuthorizationFailed,
+                     .transactionRolledBack,
+                     .rollbackFailed,
+                     .verificationFailed:
+                    return true
+                default:
+                    return false
+                }
+            }
+        }
+        if !managedContainerURLs.isEmpty && !batchBoundaryWasRejected {
+            results.append(
+                await workspaceRecycle(
+                    managedContainerURLs,
+                    allowAdministratorFallback: false
+                )
+            )
+        } else if !managedContainerURLs.isEmpty {
+            // The ordinary privileged branch may have been cancelled or
+            // rejected during preflight. Keep those managed roots in the same
+            // untouched batch and preserve the concrete reason in the report;
+            // do not silently turn them into verification failures.
+            let failure = results
+                .flatMap { $0.failureDetails.values }
+                .first(where: { failure in
+                    switch failure.kind {
+                    case .unsafePath,
+                         .destinationConflict,
+                         .batchTooLarge,
+                         .itemChanged,
+                         .fullDiskAccessRequired,
+                         .administratorAuthorizationCancelled,
+                         .administratorAuthorizationFailed,
+                         .transactionRolledBack,
+                         .rollbackFailed,
+                         .verificationFailed:
+                        return true
+                    default:
+                        return false
+                    }
+                })
+                ?? AppFileRemovalFailure(kind: .verificationFailed)
+            results.append(
+                AppFileTrashResult(
+                    trashed: [],
+                    missing: [],
+                    needsFullDiskAccess: failure.kind == .fullDiskAccessRequired,
+                    failed: managedContainerURLs,
+                    failureDetails: Dictionary(
+                        uniqueKeysWithValues: managedContainerURLs.map {
+                            ($0.standardizedFileURL.path, failure)
+                        }
+                    )
+                )
+            )
+        }
+
+        return merge(results)
+    }
+
+    /// True for a direct app container root whose lifecycle is coordinated by
+    /// containermanagerd. Nested files and unrelated Library directories stay
+    /// on the normal privileged/Finder path.
+    nonisolated static func isManagedContainerRoot(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        let homePath = FileManager.default.homeDirectoryForCurrentUser
+            .standardizedFileURL
+            .path
+        return [
+            "\(homePath)/Library/Containers",
+            "\(homePath)/Library/Group Containers",
+        ].contains { root in
+            guard path.hasPrefix(root + "/") else { return false }
+            let remainder = String(path.dropFirst(root.count + 1))
+            return !remainder.isEmpty && !remainder.contains("/")
+        }
+    }
+
+    private static func workspaceRecycle(
+        _ urls: [URL],
+        allowAdministratorFallback: Bool
+    ) async -> AppFileTrashResult {
         let hasFullDiskAccess = FullDiskAccessManager.shared.hasFullDiskAccess
         return await withCheckedContinuation { continuation in
             NSWorkspace.shared.recycle(urls) { recycled, error in
@@ -181,13 +296,15 @@ enum AppFileTrashService {
                     error: error as NSError?,
                     hasFullDiskAccess: hasFullDiskAccess
                 )
-                guard hasFullDiskAccess,
+                guard allowAdministratorFallback,
+                      hasFullDiskAccess,
                       !finderResult.failed.isEmpty,
                       containsPermissionDenied(error as NSError?) else {
                     continuation.resume(returning: finderResult)
                     return
                 }
 
+                let privilegedService = PrivilegedAppRemovalService()
                 Task { @MainActor in
                     let adminResult = await privilegedService.trash(finderResult.failed)
                     var failureDetails = finderResult.failureDetails
@@ -207,6 +324,18 @@ enum AppFileTrashService {
                 }
             }
         }
+    }
+
+    private static func merge(_ results: [AppFileTrashResult]) -> AppFileTrashResult {
+        AppFileTrashResult(
+            trashed: results.flatMap(\.trashed),
+            missing: results.flatMap(\.missing),
+            needsFullDiskAccess: results.contains { $0.needsFullDiskAccess },
+            failed: results.flatMap(\.failed),
+            failureDetails: results.reduce(into: [:]) { partial, result in
+                partial.merge(result.failureDetails) { _, latest in latest }
+            }
+        )
     }
 
     nonisolated static func classify(
