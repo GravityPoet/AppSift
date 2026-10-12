@@ -1771,3 +1771,4 @@
 "Local traffic available" = "本地流量可用";
 "Local mode available" = "本地模式可用";
 "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning." = "本地签名模式只读取流量统计，不会拦截网络；拦截需要 Network Extension provisioning。";
+"AppSift could not move this item to Trash." = "AppSift 无法将此项目移入废纸篓。";

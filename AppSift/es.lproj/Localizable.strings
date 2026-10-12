@@ -1771,3 +1771,4 @@
 "Local traffic available" = "Local traffic available";
 "Local mode available" = "Local mode available";
 "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning." = "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning.";
+"AppSift could not move this item to Trash." = "AppSift could not move this item to Trash.";

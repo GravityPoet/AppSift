@@ -114,6 +114,46 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         )
     }
 
+    func testPartialExecutionMapsSuccessfulAndFailedItemsIndividually() async throws {
+        let root = try makeQATemporaryDirectory(prefix: "AppSiftPartialExecution")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
+        let trashRoot = root.appendingPathComponent("Trash", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: trashRoot, withIntermediateDirectories: true)
+        let first = sourceRoot.appendingPathComponent("first")
+        let second = sourceRoot.appendingPathComponent("second")
+        try Data("first".utf8).write(to: first)
+        try Data("second".utf8).write(to: second)
+
+        let service = PrivilegedAppRemovalService(
+            trashRoot: trashRoot,
+            allowedSourceRoots: [sourceRoot],
+            parentIsWritable: { _ in false },
+            authorizationRunner: { plan in
+                XCTAssertEqual(plan.items.count, 2)
+                try? FileManager.default.moveItem(
+                    at: plan.items[0].sourceURL,
+                    to: plan.items[0].destinationURL
+                )
+                return .partiallySucceeded(
+                    movedItemIndexes: [0],
+                    failedItemDetails: [1: "permission denied by test fixture"],
+                    loadedLaunchdItemIndexes: []
+                )
+            }
+        )
+
+        let result = await service.trash([first, second])
+
+        XCTAssertEqual(result.trashed.map(\.originalURL), [first])
+        XCTAssertEqual(result.failed, [second])
+        XCTAssertEqual(result.failure(for: second)?.kind, .itemMoveFailed)
+        XCTAssertEqual(result.failure(for: second)?.detail, "permission denied by test fixture")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+    }
+
     func testPreflightRejectsSymlinkedAndOverlappingSourcesBeforeAuthorization() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AppSiftPrivilegedPreflight-\(UUID().uuidString)", isDirectory: true)
@@ -383,7 +423,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination), Data("restore".utf8))
     }
 
-    func testGeneratedShellCommandRollsBackEarlierMoveWhenLaterMoveFails() throws {
+    func testGeneratedShellCommandKeepsSuccessfulMoveWhenLaterMoveFails() throws {
         let root = canonicalTemporaryRoot(prefix: "AppSiftPrivilegedRollback")
         let allowed = root.appendingPathComponent("Allowed", isDirectory: true)
         let trash = root.appendingPathComponent("Trash", isDirectory: true)
@@ -445,11 +485,15 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         )
 
         XCTAssertEqual(result.status, 0, result.output)
-        XCTAssertTrue(result.output.contains("APPSIFT_ROLLED_BACK|move"), result.output)
-        XCTAssertEqual(try Data(contentsOf: firstSource), Data("first".utf8))
+        XCTAssertTrue(result.output.contains("APPSIFT_PARTIAL|"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstSource.path))
+        XCTAssertEqual(try Data(contentsOf: firstDestination), Data("first".utf8))
         XCTAssertEqual(try Data(contentsOf: secondSource), Data("second".utf8))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: firstDestination.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: secondDestination.path))
+        XCTAssertTrue(
+            result.output.contains("bW92ZSBmYWlsZWQ="),
+            result.output
+        )
     }
 
     func testOversizedBatchIsRejectedBeforeAuthorization() async {

@@ -13,6 +13,7 @@ enum AppFileRemovalFailureKind: String, Codable, Hashable, Sendable {
     case launchdControlFailed
     case transactionRolledBack
     case rollbackFailed
+    case itemMoveFailed
     case itemChanged
     case finderRejected
     case verificationFailed
@@ -52,6 +53,8 @@ struct AppFileRemovalFailure: Codable, Hashable, Sendable {
             return String(localized: "The operation failed and AppSift restored every item to its starting location.")
         case .rollbackFailed:
             return String(localized: "The operation failed and at least one item could not be rolled back automatically.")
+        case .itemMoveFailed:
+            return detail ?? String(localized: "AppSift could not move this item to Trash.")
         case .itemChanged:
             return String(localized: "The item changed after review, so AppSift left the batch untouched.")
         case .finderRejected:
@@ -124,6 +127,11 @@ struct PrivilegedAppRemovalPlan: Equatable, Sendable {
 
 enum PrivilegedAppRemovalExecution: Equatable, Sendable {
     case succeeded(loadedLaunchdItemIndexes: Set<Int>)
+    case partiallySucceeded(
+        movedItemIndexes: Set<Int>,
+        failedItemDetails: [Int: String],
+        loadedLaunchdItemIndexes: Set<Int>
+    )
     case authorizationCancelled
     case failed(String)
     case rolledBack(String)
@@ -334,6 +342,10 @@ struct PrivilegedAppRemovalService: Sendable {
                 continue
             }
             switch execution {
+            case .partiallySucceeded:
+                outcomes[historyItem.id] = .failed(
+                    AppFileRemovalFailure(kind: .itemMoveFailed).localizedDescription
+                )
             case .authorizationCancelled:
                 outcomes[historyItem.id] = .authorizationCancelled
             case .rolledBack(let detail):
@@ -491,31 +503,50 @@ struct PrivilegedAppRemovalService: Sendable {
         var failed: [URL] = []
         var failureDetails = preflightFailures
         let loadedIndexes: Set<Int>
+        let movedIndexes: Set<Int>?
+        let itemFailures: [Int: AppFileRemovalFailure]
         let executionFailure: AppFileRemovalFailure?
 
         switch execution {
         case .succeeded(let indexes):
             loadedIndexes = indexes
+            movedIndexes = nil
+            itemFailures = [:]
+            executionFailure = nil
+        case .partiallySucceeded(let moved, let details, let indexes):
+            loadedIndexes = indexes
+            movedIndexes = moved
+            itemFailures = details.mapValues {
+                AppFileRemovalFailure(kind: .itemMoveFailed, detail: $0)
+            }
             executionFailure = nil
         case .authorizationCancelled:
             loadedIndexes = []
+            movedIndexes = nil
+            itemFailures = [:]
             executionFailure = AppFileRemovalFailure(
                 kind: .administratorAuthorizationCancelled
             )
         case .failed(let detail):
             loadedIndexes = []
+            movedIndexes = nil
+            itemFailures = [:]
             executionFailure = AppFileRemovalFailure(
                 kind: .administratorAuthorizationFailed,
                 detail: detail
             )
         case .rolledBack(let detail):
             loadedIndexes = []
+            movedIndexes = nil
+            itemFailures = [:]
             executionFailure = AppFileRemovalFailure(
                 kind: .transactionRolledBack,
                 detail: detail
             )
         case .rollbackFailed(let detail):
             loadedIndexes = []
+            movedIndexes = nil
+            itemFailures = [:]
             executionFailure = AppFileRemovalFailure(
                 kind: .rollbackFailed,
                 detail: detail
@@ -523,7 +554,10 @@ struct PrivilegedAppRemovalService: Sendable {
         }
 
         for (index, item) in plan.items.enumerated() {
-            if fileExists(item.destinationURL.path), !fileExists(item.sourceURL.path) {
+            let isMoved = fileExists(item.destinationURL.path)
+                && !fileExists(item.sourceURL.path)
+                && (movedIndexes == nil || movedIndexes?.contains(index) == true)
+            if isMoved {
                 trashed.append(
                     TrashedAppFile(
                         originalURL: item.originalURL,
@@ -535,7 +569,8 @@ struct PrivilegedAppRemovalService: Sendable {
                 )
             } else {
                 failed.append(item.originalURL)
-                failureDetails[item.originalURL.path] = executionFailure
+                failureDetails[item.originalURL.path] = itemFailures[index]
+                    ?? executionFailure
                     ?? AppFileRemovalFailure(kind: .verificationFailed)
             }
         }
@@ -739,6 +774,31 @@ enum PrivilegedAppRemovalAuthorizationRunner {
             let indexes = Set(rawIndexes.split(separator: ",").compactMap { Int($0) })
             return .succeeded(loadedLaunchdItemIndexes: indexes)
         }
+        if output.hasPrefix("APPSIFT_PARTIAL|") {
+            let fields = output
+                .dropFirst("APPSIFT_PARTIAL|".count)
+                .split(separator: "|", omittingEmptySubsequences: false)
+            guard fields.count == 3 else {
+                return .failed("The administrator operation returned an invalid partial result.")
+            }
+            let moved = Set(fields[0].split(separator: ",").compactMap { Int($0) })
+            let failures = Dictionary(uniqueKeysWithValues: fields[1]
+                .split(separator: ",")
+                .compactMap { entry -> (Int, String)? in
+                    let parts = entry.split(separator: "~", maxSplits: 1, omittingEmptySubsequences: false)
+                    guard parts.count == 2, let index = Int(parts[0]) else { return nil }
+                    let detail = Data(base64Encoded: String(parts[1]))
+                        .flatMap { String(data: $0, encoding: .utf8) }
+                        ?? "item move failed"
+                    return (index, detail)
+                })
+            let loaded = Set(fields[2].split(separator: ",").compactMap { Int($0) })
+            return .partiallySucceeded(
+                movedItemIndexes: moved,
+                failedItemDetails: failures,
+                loadedLaunchdItemIndexes: loaded
+            )
+        }
         if output.hasPrefix("APPSIFT_ROLLED_BACK|") {
             return .rolledBack(String(output.dropFirst("APPSIFT_ROLLED_BACK|".count)))
         }
@@ -842,6 +902,9 @@ stopped_indices=()
 started_indices=()
 job_domains=()
 job_labels=()
+failed_flags=()
+failed_indices=()
+failed_details=()
 rollback_failed=0
 
 emit_failure() {
@@ -856,7 +919,57 @@ emit_failure() {
 }
 
 exact_move() {
-    /usr/bin/osascript -l JavaScript -e 'ObjC.import("Foundation"); function run(argv) { var error = Ref(); var ok = $.NSFileManager.defaultManager.moveItemAtPathToPathError($(argv[0]), $(argv[1]), error); if (!ok) { throw new Error("move failed"); } }' "$1" "$2" >/dev/null 2>&1
+    /usr/bin/osascript -l JavaScript -e 'ObjC.import("Foundation"); function run(argv) { var error = Ref(); var ok = $.NSFileManager.defaultManager.moveItemAtPathToPathError($(argv[0]), $(argv[1]), error); if (!ok) { var message = error[0] ? ObjC.unwrap(error[0].localizedDescription) : "move failed"; throw new Error(message); } }' "$1" "$2"
+}
+
+restart_single_job() {
+	    local index=$1
+	    local domain=${job_domains[$index]}
+	    local source=${sources[$index]}
+	    local label=${job_labels[$index]}
+	    [ -n "$domain" ] || return 0
+	    if /bin/launchctl print "$domain/$label" >/dev/null 2>&1; then
+	        return 0
+	    fi
+	    /bin/launchctl bootstrap "$domain" "$source" >/dev/null 2>&1
+}
+
+append_item_failure() {
+	    local index=$1
+	    local detail=$2
+	    failed_flags[$index]=1
+	    failed_indices+=("$index")
+	    failed_details+=("${detail:-item move failed}")
+}
+
+emit_partial() {
+	    local moved=""
+	    local failed=""
+	    local loaded=""
+	    local index position encoded
+	    for index in "${moved_indices[@]}"; do
+	        if [ -n "$moved" ]; then moved+=","; fi
+	        moved+="$index"
+	    done
+	    for position in "${!failed_indices[@]}"; do
+	        index=${failed_indices[$position]}
+	        encoded=$(printf '%s' "${failed_details[$position]}" | /usr/bin/base64 | /usr/bin/tr -d '\n')
+	        if [ -n "$failed" ]; then failed+=","; fi
+	        failed+="$index~$encoded"
+	    done
+    if [ "${#stopped_indices[@]}" -gt 0 ]; then
+        for index in "${stopped_indices[@]}"; do
+            case ",${moved}," in
+                *,"$index",*)
+                    if [ -n "$loaded" ]; then loaded+=","; fi
+                    loaded+="$index"
+                    ;;
+            esac
+        done
+    fi
+	    trap - EXIT HUP INT TERM
+	    /usr/bin/printf 'APPSIFT_PARTIAL|%s|%s|%s\n' "$moved" "$failed" "$loaded"
+	    exit 0
 }
 
 bootout_started_jobs() {
@@ -1049,8 +1162,8 @@ if [ "$operation" = "trash" ]; then
         label=${job_labels[$i]}
         if [ -n "$domain" ] && /bin/launchctl print "$domain/$label" >/dev/null 2>&1; then
             if ! /bin/launchctl bootout "$domain" "${sources[$i]}" >/dev/null 2>&1; then
-                rollback_all
-                emit_failure launchd-stop
+	                append_item_failure "$i" "background service could not be stopped"
+	                continue
             fi
             stopped_indices+=("$i")
             for attempt in 1 2 3 4 5 6 7 8 9 10; do
@@ -1058,24 +1171,45 @@ if [ "$operation" = "trash" ]; then
                 /bin/sleep 0.1
             done
             if /bin/launchctl print "$domain/$label" >/dev/null 2>&1; then
-                rollback_all
-                emit_failure launchd-stop
+	                restart_single_job "$i" || true
+	                append_item_failure "$i" "background service remained running"
             fi
         fi
     done
 fi
 
 for ((i=0; i<item_count; i++)); do
-    if ! exact_move "${sources[$i]}" "${destinations[$i]}"; then
-        rollback_all
-        emit_failure move
+	    if [ -n "${failed_flags[$i]+set}" ]; then
+	        continue
     fi
-    moved_indices+=("$i")
+
+	    move_error=""
+	    move_status=0
+	    move_error=$(exact_move "${sources[$i]}" "${destinations[$i]}" 2>&1) || move_status=$?
+	    if [ "$move_status" -ne 0 ]; then
+	        restart_single_job "$i" || move_error="$move_error; background service restore failed"
+	        append_item_failure "$i" "${move_error:-move failed}"
+	        continue
+	    fi
     if [ -e "${sources[$i]}" ] || [ ! -e "${destinations[$i]}" ]; then
-        rollback_all
-        emit_failure verify-move
+	        if exact_move "${destinations[$i]}" "${sources[$i]}" >/dev/null 2>&1; then
+	            restart_single_job "$i" || true
+	            append_item_failure "$i" "move verification failed; item restored"
+        else
+            moved_indices+=("$i")
+	            append_item_failure "$i" "move verification failed and rollback failed"
+	        fi
+    else
+        moved_indices+=("$i")
     fi
 done
+
+if [ "$operation" = "trash" ] && [ "${#failed_indices[@]}" -gt 0 ]; then
+	    emit_partial
+elif [ "$operation" = "restore" ] && [ "${#failed_indices[@]}" -gt 0 ]; then
+    rollback_all
+    emit_failure restore-move
+	fi
 
 if [ "$operation" = "restore" ]; then
     for ((i=0; i<item_count; i++)); do
