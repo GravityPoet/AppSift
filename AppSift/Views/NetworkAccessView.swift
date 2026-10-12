@@ -90,7 +90,9 @@ struct NetworkAccessView: View {
                 HStack(alignment: .top, spacing: 12) {
                     sectionHeader(
                         title: "Applications",
-                        subtitle: "Block only the bundle IDs you explicitly choose."
+                        subtitle: controller.extensionState.supportsLocalTrafficView
+                            ? "本地签名可查看流量；拦截需要正式签名。"
+                            : "Block only the bundle IDs you explicitly choose."
                     )
                     Spacer(minLength: 8)
                     Text("\(apps.count)")
@@ -189,19 +191,20 @@ struct NetworkAccessView: View {
 
             Spacer(minLength: 6)
 
-            Toggle(
-                "Block",
-                isOn: Binding(
-                    get: { blocked },
-                    set: { controller.setBlocked($0, bundleIdentifier: app.bundleIdentifier) }
+            if controller.extensionState.isOperational {
+                Toggle(
+                    "Block",
+                    isOn: Binding(
+                        get: { blocked },
+                        set: { controller.setBlocked($0, bundleIdentifier: app.bundleIdentifier) }
+                    )
                 )
-            )
-            .toggleStyle(.switch)
-            .labelsHidden()
-            .disabled(!controller.extensionState.isOperational)
-            .help(blocked ? "Allow network access" : "Block network access")
-            .accessibilityLabel(blocked ? "Allow network access" : "Block network access")
-            .accessibilityIdentifier("network-access.block.\(app.bundleIdentifier)")
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .help(blocked ? "Allow network access" : "Block network access")
+                .accessibilityLabel(blocked ? "Allow network access" : "Block network access")
+                .accessibilityIdentifier("network-access.block.\(app.bundleIdentifier)")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -237,8 +240,12 @@ struct NetworkAccessView: View {
                     IconTile(
                         systemName: controller.extensionState.isOperational
                             ? "network"
-                            : "network.slash",
-                        tint: controller.extensionState.isOperational ? Tint.green : Tint.orange,
+                            : controller.extensionState.supportsLocalTrafficView
+                                ? "chart.line.uptrend.xyaxis"
+                                : "network.slash",
+                        tint: controller.extensionState.isOperational || controller.extensionState.supportsLocalTrafficView
+                            ? Tint.green
+                            : Tint.orange,
                         size: 38,
                         corner: 11,
                         glow: controller.extensionState.isOperational
@@ -249,7 +256,11 @@ struct NetworkAccessView: View {
                         Text(LocalizedStringKey(
                             controller.extensionState.isOperational
                                 ? "Local analysis"
-                                : "Ready to review"
+                                : controller.extensionState.isLocalOnly
+                                    ? "Read-only local mode"
+                                    : controller.extensionState.supportsLocalTrafficView
+                                        ? "Local mode available"
+                                    : "Ready to review"
                         ))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -274,7 +285,9 @@ struct NetworkAccessView: View {
                     Text(LocalizedStringKey(
                         controller.isEnabled
                             ? "Disable Network Monitor"
-                            : "Enable Network Monitor"
+                            : controller.extensionState.supportsLocalTrafficView
+                                ? "Start Local Traffic View"
+                                : "Enable Network Monitor"
                     ))
                     .frame(maxWidth: .infinity)
                 }
@@ -313,15 +326,23 @@ struct NetworkAccessView: View {
                     }
                 }
 
-                Toggle(
-                    "Internet Access",
-                    isOn: Binding(
-                        get: { controller.extensionState.isOperational && !blocked },
-                        set: { controller.setBlocked(!$0, bundleIdentifier: app.bundleIdentifier) }
+                if controller.extensionState.isOperational {
+                    Toggle(
+                        "Internet Access",
+                        isOn: Binding(
+                            get: { !blocked },
+                            set: { controller.setBlocked(!$0, bundleIdentifier: app.bundleIdentifier) }
+                        )
                     )
-                )
-                .toggleStyle(.switch)
-                .disabled(!controller.extensionState.isOperational)
+                    .toggleStyle(.switch)
+                }
+
+                if controller.extensionState.isLocalOnly {
+                    Text(LocalizedStringKey("Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 HStack(spacing: 8) {
                     metric(title: "Incoming", value: formattedBytes(received))

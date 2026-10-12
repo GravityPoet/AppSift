@@ -1,12 +1,16 @@
 import Combine
 import Foundation
+import AppKit
 @preconcurrency import NetworkExtension
 import Security
 import SystemExtensions
+import Darwin
 
 enum NetworkAccessExtensionState: Equatable {
     case unavailable
     case inactive
+    case localReady
+    case localMonitoring
     case activating
     case awaitingUserApproval
     case active
@@ -16,6 +20,8 @@ enum NetworkAccessExtensionState: Equatable {
         switch self {
         case .unavailable: return "Unavailable"
         case .inactive: return "Not enabled"
+        case .localReady: return "Local traffic available"
+        case .localMonitoring: return "Local traffic view"
         case .activating: return "Starting…"
         case .awaitingUserApproval: return "Approval required"
         case .active: return "Monitoring active"
@@ -26,9 +32,13 @@ enum NetworkAccessExtensionState: Equatable {
     var detailKey: String {
         switch self {
         case .unavailable:
-            return "Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt."
+            return "Network monitoring is unavailable in this build."
         case .inactive:
             return "Enable monitoring to inspect socket traffic by app."
+        case .localReady:
+            return "This local build can view per-app byte totals without a system extension. Start local traffic view here; blocking apps requires a Network Extension provisioning profile."
+        case .localMonitoring:
+            return "Local traffic view is running through macOS process counters. App blocking requires a provisioned Network Extension build."
         case .activating:
             return "macOS is preparing the local filter."
         case .awaitingUserApproval:
@@ -49,6 +59,20 @@ enum NetworkAccessExtensionState: Equatable {
         if case .active = self { return true }
         return false
     }
+
+    var isLocalOnly: Bool {
+        if case .localMonitoring = self { return true }
+        return false
+    }
+
+    var supportsLocalTrafficView: Bool {
+        switch self {
+        case .localReady, .localMonitoring:
+            return true
+        case .unavailable, .inactive, .activating, .awaitingUserApproval, .active, .failed:
+            return false
+        }
+    }
 }
 
 /// Host-side coordinator for the optional Network Extension. The UI remains
@@ -66,14 +90,17 @@ final class NetworkAccessController: NSObject, ObservableObject {
 
     private var pollTimer: Timer?
     private var activationDelegate: NetworkAccessExtensionRequestDelegate?
+    private var localSampleInFlight = false
 
     override init() {
         policy = AppSiftNetworkAccessStore.readPolicy()
         flows = AppSiftNetworkAccessStore.readFlows()
         super.init()
-        extensionState = Self.hasSystemExtensionInstallEntitlement
-            ? .inactive
-            : .unavailable
+        if Self.hasSystemExtensionInstallEntitlement {
+            extensionState = .inactive
+        } else {
+            extensionState = policy.enabled ? .localMonitoring : .localReady
+        }
         startPolling()
     }
 
@@ -86,7 +113,9 @@ final class NetworkAccessController: NSObject, ObservableObject {
         switch extensionState {
         case .activating, .awaitingUserApproval, .active:
             return true
-        case .unavailable, .inactive, .failed:
+        case .localMonitoring:
+            return true
+        case .localReady, .unavailable, .inactive, .failed:
             return false
         }
     }
@@ -126,17 +155,23 @@ final class NetworkAccessController: NSObject, ObservableObject {
             updated.enabled = false
             policy = updated.normalized()
             AppSiftNetworkAccessStore.writePolicy(policy)
-            disableFilter()
+            if Self.hasSystemExtensionInstallEntitlement {
+                disableFilter()
+            } else {
+                extensionState = .localReady
+            }
             return
         }
 
         guard Self.hasSystemExtensionInstallEntitlement else {
-            extensionState = .unavailable
             var updated = policy
-            updated.enabled = false
+            updated.enabled = true
             policy = updated.normalized()
             AppSiftNetworkAccessStore.writePolicy(policy)
-            actionMessage = String(localized: "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it.")
+            extensionState = .localMonitoring
+            Task { @MainActor [weak self] in
+                await self?.sampleLocalTrafficIfNeeded()
+            }
             return
         }
 
@@ -164,9 +199,95 @@ final class NetworkAccessController: NSObject, ObservableObject {
     private func startPolling() {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refresh()
+                guard let self else { return }
+                self.refresh()
+                await self.sampleLocalTrafficIfNeeded()
             }
         }
+    }
+
+    private func sampleLocalTrafficIfNeeded() async {
+        guard extensionState.isLocalOnly, policy.enabled, !localSampleInFlight else { return }
+        localSampleInFlight = true
+        let samples = await AppSiftLocalNetworkTrafficSampler.sample()
+        localSampleInFlight = false
+        applyLocalTrafficSamples(samples)
+    }
+
+    private func applyLocalTrafficSamples(_ samples: [AppSiftLocalNetworkTrafficSample]) {
+        var aggregates: [String: (bytesReceived: UInt64, bytesSent: UInt64, processPath: String?)] = [:]
+        for sample in samples {
+            guard let identity = applicationIdentity(for: sample.processID) else {
+                continue
+            }
+
+            let current = aggregates[identity.bundleIdentifier] ?? (0, 0, nil)
+            aggregates[identity.bundleIdentifier] = (
+                current.bytesReceived &+ sample.bytesReceived,
+                current.bytesSent &+ sample.bytesSent,
+                current.processPath ?? identity.processPath
+            )
+        }
+
+        let existingLocal = Dictionary(
+            uniqueKeysWithValues: flows
+                .filter { $0.id.hasPrefix("local:") }
+                .map { ($0.id, $0) }
+        )
+        var updatedFlows = flows.filter { !$0.id.hasPrefix("local:") }
+        let now = Date()
+        for (bundleIdentifier, aggregate) in aggregates {
+            let flowID = "local:\(bundleIdentifier)"
+            let previous = existingLocal[flowID]
+            updatedFlows.append(
+                AppSiftNetworkFlowRecord(
+                    id: flowID,
+                    bundleIdentifier: bundleIdentifier,
+                    processPath: aggregate.processPath,
+                    startedAt: previous?.startedAt ?? now,
+                    lastSeenAt: now,
+                    bytesReceived: aggregate.bytesReceived,
+                    bytesSent: aggregate.bytesSent,
+                    isBlocked: false
+                )
+            )
+        }
+
+        AppSiftNetworkAccessStore.writeFlows(updatedFlows)
+        flows = AppSiftNetworkAccessStore.readFlows()
+    }
+
+    private func applicationIdentity(for processID: Int32) -> (bundleIdentifier: String, processPath: String?)? {
+        let runningApplication = NSRunningApplication(processIdentifier: processID)
+        let executablePath = runningApplication?.executableURL?.path ?? processPath(for: processID)
+        if let executablePath,
+           let outerBundle = outermostApplicationBundle(forExecutablePath: executablePath),
+           let bundleIdentifier = Bundle(url: outerBundle)?.bundleIdentifier {
+            return (bundleIdentifier, executablePath)
+        }
+        if let bundleIdentifier = runningApplication?.bundleIdentifier {
+            return (bundleIdentifier, executablePath)
+        }
+        return nil
+    }
+
+    private func processPath(for processID: Int32) -> String? {
+        var buffer = [CChar](repeating: 0, count: 4096)
+        let length = proc_pidpath(processID, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        return String(cString: buffer)
+    }
+
+    private func outermostApplicationBundle(forExecutablePath path: String) -> URL? {
+        var current = URL(fileURLWithPath: path).standardizedFileURL
+        var applicationBundles: [URL] = []
+        while current.path != "/" {
+            if current.pathExtension == "app" {
+                applicationBundles.append(current)
+            }
+            current.deleteLastPathComponent()
+        }
+        return applicationBundles.last
     }
 
     private func activateAndConfigure() {

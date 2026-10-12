@@ -120,6 +120,7 @@
 		B249519DC984EAE025BE5881 /* AppUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A905D3959A584CF5D4BA0EB /* AppUpdatesView.swift */; };
 		B30C7370EB9672CAD482AD74 /* DuplicateFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B720319B50F2CD67E4AA8B94 /* DuplicateFilesView.swift */; };
 		B4C04C93B3FF3A7C026BC438 /* SystemAlertCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F34EA292F44B66909DF568E /* SystemAlertCenter.swift */; };
+		B50870A9B5F03936D180F2FC /* LocalNetworkTrafficSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97621E2DD87F5A09D84EDDA8 /* LocalNetworkTrafficSampler.swift */; };
 		B831575CE30F5F11556702D6 /* NetworkAccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED351CB03CA5A3803DFCF08 /* NetworkAccessView.swift */; };
 		B9B9B7AB3084228CED07E4FC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC667EF43EFA3AD4BA4503DB /* Models.swift */; };
 		BD982D8694E734930BECCCD3 /* DefaultApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8DE53601622C861DC080542 /* DefaultApplicationsView.swift */; };
@@ -292,6 +293,7 @@
 		9348CE7E3B33CBFBF768F0A4 /* SpaceLensScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensScannerTests.swift; sourceTree = "<group>"; };
 		9473BF91E0F111DA0B5AEE62 /* IOSBackupScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSBackupScanner.swift; sourceTree = "<group>"; };
 		95AEBB7C1C7EE6CDEF49584E /* AppearancePill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePill.swift; sourceTree = "<group>"; };
+		97621E2DD87F5A09D84EDDA8 /* LocalNetworkTrafficSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkTrafficSampler.swift; sourceTree = "<group>"; };
 		97BEF8D725BEC6F2049C2D2A /* ScanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanEngine.swift; sourceTree = "<group>"; };
 		989315BFDDDAD9C9E201C40E /* AppSiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSiftApp.swift; sourceTree = "<group>"; };
 		98BFF5BA42BFBB50EC0DE90E /* SpaceLensTreemapLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensTreemapLayout.swift; sourceTree = "<group>"; };
@@ -626,6 +628,7 @@
 				F37F6D4B7079C69EDD46A114 /* Haptics.swift */,
 				B09FADA2D715A584AA73C73F /* InstallationFileController.swift */,
 				2892A7AFD5110A86180A3100 /* IOSBackupCenter.swift */,
+				97621E2DD87F5A09D84EDDA8 /* LocalNetworkTrafficSampler.swift */,
 				4E510AA6C9C8D3623089EBA2 /* MacOSUpdateCenter.swift */,
 				AD7CEB35BCFD702BD6AFB320 /* MenuBarController.swift */,
 				6D0D3BD3DAC2BB1C7B66670D /* NetworkAccessController.swift */,
@@ -879,6 +882,7 @@
 				18AEE9AEE13AD123DF20EBC8 /* InstallationFileController.swift in Sources */,
 				0F622438B52EF8983B0D9DFF /* InstallationFileScanner.swift in Sources */,
 				35BCB10ACA4776B549596181 /* InstallationFilesView.swift in Sources */,
+				B50870A9B5F03936D180F2FC /* LocalNetworkTrafficSampler.swift in Sources */,
 				359146FC3791DB735092061B /* Locations.swift in Sources */,
 				540D3FC01A4FB42DB09A5599 /* Logger.swift in Sources */,
 				C4BB0C3BD7C3435670E3382D /* MacOSUpdateCenter.swift in Sources */,

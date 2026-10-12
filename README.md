@@ -105,7 +105,7 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
   Review browser history, download records, cookies, and caches without touching passwords or autofill; check macOS updates; repair DNS, Spotlight, or Mail indexing on demand; and monitor disk, memory, network, battery, external disks, and supported device batteries. Recommendations cite explicit evidence—AppSift does not invent a numeric “health score.”
 
 - **🌐 Network Access Control**
-  Optionally install the local macOS Network Extension to see socket flows by application, inspect inbound and outbound byte totals, and block selected bundle IDs. AppSift stores only flow metadata in the local App Group; it never captures payloads or sends traffic data to a server. The monitor stays read-only until you explicitly enable it and approve the system extension.
+  A unified local-signed build can start a read-only view of per-process inbound and outbound byte totals through macOS counters, with no payload capture or network upload. A Developer ID/provisioned Network Extension build adds socket-flow details and selected bundle-ID blocking after the normal macOS approval. AppSift stores only flow metadata in the local App Group.
 
 - **🛡️ Bounded, Offline-First & Finder-Safe**
   Zero analytics and zero network tracking. App removals, personal files, mail attachments, Xcode archives, and explicitly selected AI history move to the macOS Trash with recovery records. Generated caches and logs use a separate permanent-cleanup confirmation. Trash contents are never preselected or automatically emptied.

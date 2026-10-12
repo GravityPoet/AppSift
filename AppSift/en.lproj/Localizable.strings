@@ -1762,3 +1762,12 @@
 "Traffic analysis stays on this Mac." = "Traffic analysis stays on this Mac.";
 "Unable to enable network monitoring" = "Unable to enable network monitoring";
 "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it." = "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it.";
+"Local traffic view" = "Local traffic view";
+"Read-only local mode" = "Read-only local mode";
+"Start Local Traffic View" = "Start Local Traffic View";
+"This local build can view per-app byte totals without a system extension. Start local traffic view here; blocking apps requires a Network Extension provisioning profile." = "This local build can view per-app byte totals without a system extension. Start local traffic view here; blocking apps requires a Network Extension provisioning profile.";
+"Local traffic view is running through macOS process counters. App blocking requires a provisioned Network Extension build." = "Local traffic view is running through macOS process counters. App blocking requires a provisioned Network Extension build.";
+"Network monitoring is unavailable in this build." = "Network monitoring is unavailable in this build.";
+"Local traffic available" = "Local traffic available";
+"Local mode available" = "Local mode available";
+"Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning." = "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning.";

@@ -1762,3 +1762,12 @@
 "Traffic analysis stays on this Mac." = "流量分析只在本机完成。";
 "Unable to enable network monitoring" = "无法开启网络监控";
 "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it." = "当前本地签名的 AppSift 缺少系统扩展安装权限，因此 macOS 不会弹出授权窗口。请使用带 Network Extension provisioning 的签名构建后再启用。";
+"Local traffic view" = "本地流量查看";
+"Read-only local mode" = "本地只读模式";
+"Start Local Traffic View" = "开启本地流量查看";
+"This local build can view per-app byte totals without a system extension. Start local traffic view here; blocking apps requires a Network Extension provisioning profile." = "本地签名可以查看每个 App 的收发字节，不需要系统扩展。点击开启本地流量查看；拦截 App 需要 Network Extension provisioning 签名。";
+"Local traffic view is running through macOS process counters. App blocking requires a provisioned Network Extension build." = "本地流量查看正在读取 macOS 进程计数器。拦截 App 需要带 provisioning 的 Network Extension 构建。";
+"Network monitoring is unavailable in this build." = "此构建无法使用网络监控。";
+"Local traffic available" = "本地流量可用";
+"Local mode available" = "本地模式可用";
+"Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning." = "本地签名模式只读取流量统计，不会拦截网络；拦截需要 Network Extension provisioning。";

@@ -39,7 +39,7 @@
 	<key>NSSystemAdministrationUsageDescription</key>
 	<string>AppSift needs system administration access to clean caches and uninstall apps completely.</string>
 	<key>OSSystemExtensionUsageDescription</key>
-	<string>AppSift uses an optional local Network Extension to show and control app network access. Payloads are never collected.</string>
+	<string>AppSift shows local app network usage and optionally controls access through a provisioned Network Extension. Payloads are never collected.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>AppSift uses Apple Events to interact with Finder when revealing files.</string>
 	<key>NSServices</key>

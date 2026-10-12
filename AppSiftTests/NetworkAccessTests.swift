@@ -40,4 +40,30 @@ final class NetworkAccessPolicyTests: XCTestCase {
         )
         XCTAssertEqual(flow.totalBytes, 42)
     }
+
+    func testNettopParserReadsPerProcessCounters() {
+        let output = """
+        time,,interface,state,bytes_in,bytes_out
+        10:00:00.000000,Example App.123,,,1024,2048
+        10:00:00.000001,\"Quoted, App.456\",,,3,5
+        """
+
+        XCTAssertEqual(
+            AppSiftLocalNetworkTrafficSampler.parse(output),
+            [
+                AppSiftLocalNetworkTrafficSample(
+                    processID: 123,
+                    processName: "Example App.123",
+                    bytesReceived: 1024,
+                    bytesSent: 2048
+                ),
+                AppSiftLocalNetworkTrafficSample(
+                    processID: 456,
+                    processName: "Quoted, App.456",
+                    bytesReceived: 3,
+                    bytesSent: 5
+                ),
+            ]
+        )
+    }
 }
