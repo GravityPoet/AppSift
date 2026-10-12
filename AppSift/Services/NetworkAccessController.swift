@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 @preconcurrency import NetworkExtension
+import Security
 import SystemExtensions
 
 enum NetworkAccessExtensionState: Equatable {
@@ -11,7 +12,7 @@ enum NetworkAccessExtensionState: Equatable {
     case active
     case failed(String)
 
-    var title: String {
+    var titleKey: String {
         switch self {
         case .unavailable: return "Unavailable"
         case .inactive: return "Not enabled"
@@ -22,10 +23,10 @@ enum NetworkAccessExtensionState: Equatable {
         }
     }
 
-    var detail: String {
+    var detailKey: String {
         switch self {
         case .unavailable:
-            return "Build and install the AppSift Network Extension to see app flows."
+            return "Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt."
         case .inactive:
             return "Enable monitoring to inspect socket traffic by app."
         case .activating:
@@ -37,6 +38,11 @@ enum NetworkAccessExtensionState: Equatable {
         case let .failed(message):
             return message
         }
+    }
+
+    var failureMessage: String? {
+        if case let .failed(message) = self { return message }
+        return nil
     }
 
     var isOperational: Bool {
@@ -64,6 +70,9 @@ final class NetworkAccessController: NSObject, ObservableObject {
         policy = AppSiftNetworkAccessStore.readPolicy()
         flows = AppSiftNetworkAccessStore.readFlows()
         super.init()
+        extensionState = Self.hasSystemExtensionInstallEntitlement
+            ? .inactive
+            : .unavailable
         startPolling()
     }
 
@@ -72,7 +81,13 @@ final class NetworkAccessController: NSObject, ObservableObject {
     }
 
     var isEnabled: Bool {
-        policy.enabled
+        guard policy.enabled else { return false }
+        switch extensionState {
+        case .activating, .awaitingUserApproval, .active:
+            return true
+        case .unavailable, .inactive, .failed:
+            return false
+        }
     }
 
     var totalFlowCount: Int {
@@ -105,16 +120,29 @@ final class NetworkAccessController: NSObject, ObservableObject {
     }
 
     func setMonitoringEnabled(_ enabled: Bool) {
+        guard enabled else {
+            var updated = policy
+            updated.enabled = false
+            policy = updated.normalized()
+            AppSiftNetworkAccessStore.writePolicy(policy)
+            disableFilter()
+            return
+        }
+
+        guard Self.hasSystemExtensionInstallEntitlement else {
+            extensionState = .unavailable
+            var updated = policy
+            updated.enabled = false
+            policy = updated.normalized()
+            AppSiftNetworkAccessStore.writePolicy(policy)
+            return
+        }
+
         var updated = policy
         updated.enabled = enabled
         policy = updated.normalized()
         AppSiftNetworkAccessStore.writePolicy(policy)
-
-        if enabled {
-            activateAndConfigure()
-        } else {
-            disableFilter()
-        }
+        activateAndConfigure()
     }
 
     func refresh() {
@@ -150,7 +178,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
             },
             onFailed: { [weak self] error in
                 Task { @MainActor in
-                    self?.extensionState = .failed(error.localizedDescription)
+                    self?.markActivationFailed(error)
                 }
             }
         )
@@ -169,7 +197,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
             guard let self else { return }
             if let error {
                 Task { @MainActor in
-                    self.extensionState = .failed(error.localizedDescription)
+                    self.markActivationFailed(error)
                 }
                 return
             }
@@ -190,7 +218,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     if let error {
-                        self.extensionState = .failed(error.localizedDescription)
+                        self.markActivationFailed(error)
                     } else {
                         self.extensionState = enabled ? .active : .inactive
                     }
@@ -205,7 +233,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
             guard let self else { return }
             if let error {
                 Task { @MainActor in
-                    self.extensionState = .failed(error.localizedDescription)
+                    self.markActivationFailed(error)
                 }
                 return
             }
@@ -219,6 +247,26 @@ final class NetworkAccessController: NSObject, ObservableObject {
                 }
             }
         }
+    }
+
+    private func markActivationFailed(_ error: Error) {
+        var updated = policy
+        updated.enabled = false
+        policy = updated.normalized()
+        AppSiftNetworkAccessStore.writePolicy(policy)
+        extensionState = .failed(error.localizedDescription)
+    }
+
+    private static var hasSystemExtensionInstallEntitlement: Bool {
+        guard let task = SecTaskCreateFromSelf(nil),
+              let value = SecTaskCopyValueForEntitlement(
+                task,
+                "com.apple.developer.system-extension.install" as CFString,
+                nil
+              ) as? Bool else {
+            return false
+        }
+        return value
     }
 }
 

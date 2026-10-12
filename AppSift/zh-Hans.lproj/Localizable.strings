@@ -1734,3 +1734,29 @@
 "No network flows recorded yet." = "还没有记录网络流。";
 "Unknown endpoint" = "未知端点";
 "Clear" = "清除";
+
+/* Network access layout */
+"Not enabled" = "未启用";
+"Starting…" = "正在启动……";
+"Approval required" = "需要批准";
+"Monitoring active" = "监控已启用";
+"Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt." = "网络监控需要带有系统扩展签名权限的构建。本地签名版本不会触发 macOS 授权弹窗。";
+"Enable monitoring to inspect socket traffic by app." = "开启监控后可按 App 查看网络流量。";
+"macOS is preparing the local filter." = "macOS 正在准备本机过滤器。";
+"Approve AppSift in System Settings, then return here." = "请在系统设置中批准 AppSift，然后返回此处。";
+"Traffic stays on this Mac and is stored only in the App Group." = "流量只留在本机，并仅存储在 App Group 中。";
+"Ready to review" = "可以查看";
+"Local analysis" = "本机分析";
+"No matching applications." = "没有匹配的应用。";
+"No traffic yet" = "暂无流量";
+"Internet Access" = "网络访问";
+"Incoming" = "流入";
+"Outgoing" = "流出";
+"Last activity" = "最近活动";
+"Only app identity and byte totals are recorded; payloads are never inspected." = "仅记录 App 身份和字节总量，不检查流量内容。";
+"Network monitoring" = "网络监控";
+"Block any app" = "阻止任意 App";
+"Decide which apps may connect to the internet." = "决定哪些 App 可以连接互联网。";
+"Inspect traffic" = "查看流量";
+"See incoming and outgoing bytes for each app." = "查看每个 App 的流入和流出字节数。";
+"Traffic analysis stays on this Mac." = "流量分析只在本机完成。";

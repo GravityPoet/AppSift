@@ -1734,3 +1734,29 @@
 "No network flows recorded yet." = "Aún no se han registrado flujos de red.";
 "Unknown endpoint" = "Punto final desconocido";
 "Clear" = "Borrar";
+
+/* Network access layout */
+"Not enabled" = "Not enabled";
+"Starting…" = "Starting…";
+"Approval required" = "Approval required";
+"Monitoring active" = "Monitoring active";
+"Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt." = "Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt.";
+"Enable monitoring to inspect socket traffic by app." = "Enable monitoring to inspect socket traffic by app.";
+"macOS is preparing the local filter." = "macOS is preparing the local filter.";
+"Approve AppSift in System Settings, then return here." = "Approve AppSift in System Settings, then return here.";
+"Traffic stays on this Mac and is stored only in the App Group." = "Traffic stays on this Mac and is stored only in the App Group.";
+"Ready to review" = "Ready to review";
+"Local analysis" = "Local analysis";
+"No matching applications." = "No matching applications.";
+"No traffic yet" = "No traffic yet";
+"Internet Access" = "Internet Access";
+"Incoming" = "Incoming";
+"Outgoing" = "Outgoing";
+"Last activity" = "Last activity";
+"Only app identity and byte totals are recorded; payloads are never inspected." = "Only app identity and byte totals are recorded; payloads are never inspected.";
+"Network monitoring" = "Network monitoring";
+"Block any app" = "Block any app";
+"Decide which apps may connect to the internet." = "Decide which apps may connect to the internet.";
+"Inspect traffic" = "Inspect traffic";
+"See incoming and outgoing bytes for each app." = "See incoming and outgoing bytes for each app.";
+"Traffic analysis stays on this Mac." = "Traffic analysis stays on this Mac.";

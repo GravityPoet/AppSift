@@ -1734,3 +1734,29 @@
 "No network flows recorded yet." = "尚未記錄網路流量。";
 "Unknown endpoint" = "未知端點";
 "Clear" = "清除";
+
+/* Network access layout */
+"Not enabled" = "未啟用";
+"Starting…" = "正在啟動……";
+"Approval required" = "需要批准";
+"Monitoring active" = "監控已啟用";
+"Network monitoring requires a signed System Extension entitlement. This local build will not trigger a macOS approval prompt." = "網路監控需要具備系統延伸功能簽名權限的建置。本機簽名版本不會觸發 macOS 授權視窗。";
+"Enable monitoring to inspect socket traffic by app." = "開啟監控後可依 App 檢視網路流量。";
+"macOS is preparing the local filter." = "macOS 正在準備本機過濾器。";
+"Approve AppSift in System Settings, then return here." = "請在系統設定中批准 AppSift，然後返回此處。";
+"Traffic stays on this Mac and is stored only in the App Group." = "流量只留在本機，並僅儲存在 App Group 中。";
+"Ready to review" = "可以檢視";
+"Local analysis" = "本機分析";
+"No matching applications." = "沒有符合的應用程式。";
+"No traffic yet" = "尚無流量";
+"Internet Access" = "網路存取";
+"Incoming" = "流入";
+"Outgoing" = "流出";
+"Last activity" = "最近活動";
+"Only app identity and byte totals are recorded; payloads are never inspected." = "僅記錄 App 身份與位元組總量，不檢查流量內容。";
+"Network monitoring" = "網路監控";
+"Block any app" = "封鎖任意 App";
+"Decide which apps may connect to the internet." = "決定哪些 App 可以連線網際網路。";
+"Inspect traffic" = "檢視流量";
+"See incoming and outgoing bytes for each app." = "檢視每個 App 的流入與流出位元組數。";
+"Traffic analysis stays on this Mac." = "流量分析只在本機完成。";
