@@ -36,6 +36,8 @@ struct AppTool: Identifiable {
             return "Review installed apps and all related files."
         case .appUpdates:
             return "Check supported apps for trusted updates."
+        case .networkAccess:
+            return "See and control which apps can access the network."
         case .installationFiles:
             return "Find old DMG, PKG, XIP, and app archives."
         case .startupItems:
@@ -95,6 +97,14 @@ enum AppToolCatalog {
                 titleKey: "App Updates",
                 systemImage: "arrow.triangle.2.circlepath.circle.fill",
                 tint: Tint.blue,
+                category: .applications
+            ),
+            AppTool(
+                id: "network-access",
+                section: .networkAccess,
+                titleKey: "Network Access",
+                systemImage: "network",
+                tint: Tint.cyan,
                 category: .applications
             ),
             AppTool(
@@ -561,6 +571,9 @@ struct ToolboxView: View {
             return appState.availableUpdateCount == 0
                 ? nil
                 : "\(appState.availableUpdateCount)"
+        case .networkAccess:
+            let count = NetworkAccessController.shared.totalFlowCount
+            return count == 0 ? nil : "\(count)"
         case .startupItems:
             guard appState.hasScannedStartupItems else { return nil }
             let count = appState.startupItems.count(where: \.requiresUserAttention)

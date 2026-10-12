@@ -46,11 +46,29 @@ targets:
     dependencies:
       - package: Sparkle
         product: Sparkle
+      - target: AppSiftNetworkExtension
     settings:
       base:
         PRODUCT_NAME: AppSift
         SWIFT_EMIT_LOC_STRINGS: "YES"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        OTHER_CODE_SIGN_FLAGS: "--timestamp=none"
+  AppSiftNetworkExtension:
+    type: system-extension
+    platform: macOS
+    sources:
+      - AppSiftNetworkExtension
+      - AppSift/Services/NetworkAccessShared.swift
+    settings:
+      base:
+        PRODUCT_NAME: AppSiftNetworkExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.gravitypoet.appsift.network-extension
+        INFOPLIST_FILE: AppSiftNetworkExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AppSiftNetworkExtension/AppSiftNetworkExtension.entitlements
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_VERSION: "5.9"
+        OTHER_LDFLAGS: "$(inherited) -lbsm"
+        REGISTER_WITH_LAUNCH_SERVICES: "NO"
   AppSiftTests:
     type: bundle.unit-test
     platform: macOS
@@ -79,6 +97,7 @@ schemes:
     build:
       targets:
         AppSift: all
+        AppSiftNetworkExtension: all
         AppSiftTests: [test]
     test:
       targets:

@@ -12,6 +12,7 @@ enum AppSection: Hashable {
     case systemHealth
     case apps
     case appUpdates
+    case networkAccess
     case installationFiles
     case duplicateFiles
     case spaceLens

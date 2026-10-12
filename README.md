@@ -104,6 +104,9 @@ AppSift is the antidote. It is **100% free & open source**, completely **offline
 - **🩺 Privacy, Maintenance & Explainable Health**
   Review browser history, download records, cookies, and caches without touching passwords or autofill; check macOS updates; repair DNS, Spotlight, or Mail indexing on demand; and monitor disk, memory, network, battery, external disks, and supported device batteries. Recommendations cite explicit evidence—AppSift does not invent a numeric “health score.”
 
+- **🌐 Network Access Control**
+  Optionally install the local macOS Network Extension to see socket flows by application, inspect inbound and outbound byte totals, and block selected bundle IDs. AppSift stores only flow metadata in the local App Group; it never captures payloads or sends traffic data to a server. The monitor stays read-only until you explicitly enable it and approve the system extension.
+
 - **🛡️ Bounded, Offline-First & Finder-Safe**
   Zero analytics and zero network tracking. App removals, personal files, mail attachments, Xcode archives, and explicitly selected AI history move to the macOS Trash with recovery records. Generated caches and logs use a separate permanent-cleanup confirmation. Trash contents are never preselected or automatically emptied.
 
@@ -302,7 +305,7 @@ The first-launch onboarding walks you through granting it with an animated previ
 
 What AppSift does *not* do:
 - It does not collect telemetry, crash reports, or usage analytics.
-- Core cleaning, uninstall, reset, storage analysis, browser cleanup, startup-item inspection, local monitoring, and local history work without a network connection. App Updates contacts only a verified Apple or vendor source after you request a check; the separate macOS update check invokes Apple's system updater only on request.
+- Core cleaning, uninstall, reset, storage analysis, browser cleanup, startup-item inspection, local monitoring, network-access inspection, and local history work without an external network connection. App Updates contacts only a verified Apple or vendor source after you request a check; the separate macOS update check invokes Apple's system updater only on request.
 - It does not upload data or move it outside your Mac. Recoverable removals go only to the macOS Trash.
 
 ---

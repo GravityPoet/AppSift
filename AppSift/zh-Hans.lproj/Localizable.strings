@@ -1719,3 +1719,18 @@
 "macOS could not check for system updates." = "macOS 无法检查系统更新。";
 "macOS did not finish checking for updates in time." = "macOS 检查更新超时。";
 "macOS returned an update format AppSift could not verify safely." = "macOS 返回的更新格式无法安全验证。";
+
+/* Network access */
+"Network Access" = "网络访问";
+"See and control which apps can access the network." = "查看并控制哪些 App 可以访问网络。";
+"Enable Network Monitor" = "开启网络监控";
+"Disable Network Monitor" = "关闭网络监控";
+"Block only the bundle IDs you explicitly choose." = "只阻止你明确选择的 Bundle ID。";
+"Loading installed applications…" = "正在加载已安装的应用……";
+"Block" = "阻止";
+"Allow network access" = "允许网络访问";
+"Recent Traffic" = "最近流量";
+"Only metadata and byte totals are retained." = "仅保留元数据和字节总量。";
+"No network flows recorded yet." = "还没有记录网络流。";
+"Unknown endpoint" = "未知端点";
+"Clear" = "清除";

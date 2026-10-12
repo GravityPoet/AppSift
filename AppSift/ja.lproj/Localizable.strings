@@ -1719,3 +1719,18 @@
 "macOS could not check for system updates." = "macOS のシステム更新を確認できませんでした。";
 "macOS did not finish checking for updates in time." = "macOS の更新確認がタイムアウトしました。";
 "macOS returned an update format AppSift could not verify safely." = "macOS が返した更新形式を安全に検証できませんでした。";
+
+/* Network access */
+"Network Access" = "ネットワークアクセス";
+"See and control which apps can access the network." = "ネットワークにアクセスできるアプリを確認・制御します。";
+"Enable Network Monitor" = "ネットワークモニターを有効にする";
+"Disable Network Monitor" = "ネットワークモニターを無効にする";
+"Block only the bundle IDs you explicitly choose." = "明示的に選択した Bundle ID のみをブロックします。";
+"Loading installed applications…" = "インストール済みアプリを読み込み中…";
+"Block" = "ブロック";
+"Allow network access" = "ネットワークアクセスを許可";
+"Recent Traffic" = "最近の通信";
+"Only metadata and byte totals are retained." = "メタデータとバイト合計のみを保持します。";
+"No network flows recorded yet." = "ネットワークフローはまだ記録されていません。";
+"Unknown endpoint" = "不明なエンドポイント";
+"Clear" = "消去";

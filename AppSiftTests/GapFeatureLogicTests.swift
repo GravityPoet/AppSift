@@ -87,6 +87,7 @@ final class AppToolCatalogTests: XCTestCase {
         var expectedSections: Set<AppSection> = [
             .apps,
             .appUpdates,
+            .networkAccess,
             .installationFiles,
             .startupItems,
             .extensions,

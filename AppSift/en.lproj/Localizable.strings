@@ -1719,3 +1719,18 @@
 "macOS could not check for system updates." = "macOS could not check for system updates.";
 "macOS did not finish checking for updates in time." = "macOS did not finish checking for updates in time.";
 "macOS returned an update format AppSift could not verify safely." = "macOS returned an update format AppSift could not verify safely.";
+
+/* Network access */
+"Network Access" = "Network Access";
+"See and control which apps can access the network." = "See and control which apps can access the network.";
+"Enable Network Monitor" = "Enable Network Monitor";
+"Disable Network Monitor" = "Disable Network Monitor";
+"Block only the bundle IDs you explicitly choose." = "Block only the bundle IDs you explicitly choose.";
+"Loading installed applications…" = "Loading installed applications…";
+"Block" = "Block";
+"Allow network access" = "Allow network access";
+"Recent Traffic" = "Recent Traffic";
+"Only metadata and byte totals are retained." = "Only metadata and byte totals are retained.";
+"No network flows recorded yet." = "No network flows recorded yet.";
+"Unknown endpoint" = "Unknown endpoint";
+"Clear" = "Clear";

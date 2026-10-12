@@ -1719,3 +1719,18 @@
 "macOS could not check for system updates." = "تعذر على macOS فحص تحديثات النظام.";
 "macOS did not finish checking for updates in time." = "انتهت مهلة فحص تحديثات macOS.";
 "macOS returned an update format AppSift could not verify safely." = "تعذر التحقق بأمان من تنسيق تحديثات macOS المُعاد.";
+
+/* Network access */
+"Network Access" = "الوصول إلى الشبكة";
+"See and control which apps can access the network." = "اعرض التطبيقات التي يمكنها الوصول إلى الشبكة وتحكم بها.";
+"Enable Network Monitor" = "تفعيل مراقب الشبكة";
+"Disable Network Monitor" = "تعطيل مراقب الشبكة";
+"Block only the bundle IDs you explicitly choose." = "احظر فقط معرّفات الحزم التي تختارها صراحةً.";
+"Loading installed applications…" = "جارٍ تحميل التطبيقات المثبتة…";
+"Block" = "حظر";
+"Allow network access" = "السماح بالوصول إلى الشبكة";
+"Recent Traffic" = "حركة المرور الأخيرة";
+"Only metadata and byte totals are retained." = "يتم الاحتفاظ بالبيانات الوصفية وإجمالي وحدات البايت فقط.";
+"No network flows recorded yet." = "لم يتم تسجيل أي تدفقات شبكة بعد.";
+"Unknown endpoint" = "نقطة نهاية غير معروفة";
+"Clear" = "مسح";

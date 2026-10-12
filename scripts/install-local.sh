@@ -78,6 +78,36 @@ verify_app() {
   done
 }
 
+manual_sign_local_system_extension_bundle() {
+  local app_bundle="$1"
+  local extension_bundle
+  local host_entitlements="$TEMP_ROOT/AppSift-local-host.entitlements"
+
+  # A local self-signed identity has no Apple provisioning profile for the
+  # Network/System Extension capabilities. Build unsigned in this local path,
+  # then sign each embedded target with its own entitlements before signing
+  # the host app. This script is the repository's local-signing installer.
+  while IFS= read -r -d '' extension_bundle; do
+    codesign --force --timestamp=none \
+      --sign "$SIGN_IDENTITY" \
+      --entitlements "$ROOT_DIR/AppSiftNetworkExtension/AppSiftNetworkExtension.entitlements" \
+      "$extension_bundle"
+  done < <(find "$app_bundle/Contents/Library/SystemExtensions" \
+    -type d -name '*.systemextension' -prune -print0 2>/dev/null)
+
+  # The local certificate cannot launch a host carrying the system-extension
+  # install entitlement. Keep the App Group for shared state, but remove only
+  # that Apple-provisioned capability from the host's local runtime signature.
+  cp "$ROOT_DIR/AppSift/AppSift.entitlements" "$host_entitlements"
+  /usr/libexec/PlistBuddy -c \
+    'Delete :com.apple.developer.system-extension.install' \
+    "$host_entitlements"
+  codesign --force --deep --timestamp=none \
+    --sign "$SIGN_IDENTITY" \
+    --entitlements "$host_entitlements" \
+    "$app_bundle"
+}
+
 stop_installed_app() {
   /usr/bin/swift -e '
     import AppKit
@@ -163,6 +193,19 @@ esac
 
 SIGN_IDENTITY="$("$SIGNING_SCRIPT")"
 
+MANUAL_LOCAL_CODESIGN=0
+if [[ -d "$ROOT_DIR/AppSiftNetworkExtension" ]]; then
+  MANUAL_LOCAL_CODESIGN=1
+fi
+
+if [[ "$MANUAL_LOCAL_CODESIGN" -eq 1 ]]; then
+  BUILD_SIGNING_ALLOWED=NO
+  BUILD_SIGNING_REQUIRED=NO
+else
+  BUILD_SIGNING_ALLOWED=YES
+  BUILD_SIGNING_REQUIRED=YES
+fi
+
 xcodebuild \
   -quiet \
   -project "$ROOT_DIR/AppSift.xcodeproj" \
@@ -172,13 +215,17 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA" \
   ARCHS="$ARCHS" \
   ONLY_ACTIVE_ARCH=NO \
-  CODE_SIGNING_ALLOWED=YES \
-  CODE_SIGNING_REQUIRED=YES \
+  CODE_SIGNING_ALLOWED="$BUILD_SIGNING_ALLOWED" \
+  CODE_SIGNING_REQUIRED="$BUILD_SIGNING_REQUIRED" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
   DEVELOPMENT_TEAM="" \
   OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
   build
+
+if [[ "$MANUAL_LOCAL_CODESIGN" -eq 1 ]]; then
+  manual_sign_local_system_extension_bundle "$BUILT_APP"
+fi
 
 verify_app "$BUILT_APP" "$SIGN_IDENTITY"
 NEW_REQUIREMENT="$(designated_requirement "$BUILT_APP")"

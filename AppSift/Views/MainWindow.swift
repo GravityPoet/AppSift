@@ -471,6 +471,8 @@ struct MainWindow: View {
             AppListView()
         case .appUpdates:
             AppUpdatesView()
+        case .networkAccess:
+            NetworkAccessView()
         case .installationFiles:
             InstallationFilesView()
         case .spaceLens:

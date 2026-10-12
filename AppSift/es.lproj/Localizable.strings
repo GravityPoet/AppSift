@@ -1719,3 +1719,18 @@
 "macOS could not check for system updates." = "macOS no pudo comprobar las actualizaciones.";
 "macOS did not finish checking for updates in time." = "La comprobación de macOS agotó el tiempo.";
 "macOS returned an update format AppSift could not verify safely." = "No se pudo verificar de forma segura el formato de actualización de macOS.";
+
+/* Network access */
+"Network Access" = "Acceso a la red";
+"See and control which apps can access the network." = "Consulta y controla qué apps pueden acceder a la red.";
+"Enable Network Monitor" = "Activar monitor de red";
+"Disable Network Monitor" = "Desactivar monitor de red";
+"Block only the bundle IDs you explicitly choose." = "Bloquea solo los Bundle ID que elijas explícitamente.";
+"Loading installed applications…" = "Cargando aplicaciones instaladas…";
+"Block" = "Bloquear";
+"Allow network access" = "Permitir acceso a la red";
+"Recent Traffic" = "Tráfico reciente";
+"Only metadata and byte totals are retained." = "Solo se conservan los metadatos y los totales de bytes.";
+"No network flows recorded yet." = "Aún no se han registrado flujos de red.";
+"Unknown endpoint" = "Punto final desconocido";
+"Clear" = "Borrar";
