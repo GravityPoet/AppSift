@@ -62,6 +62,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
     @Published private(set) var policy: AppSiftNetworkPolicy
     @Published private(set) var flows: [AppSiftNetworkFlowRecord]
     @Published private(set) var extensionState: NetworkAccessExtensionState = .inactive
+    @Published var actionMessage: String?
 
     private var pollTimer: Timer?
     private var activationDelegate: NetworkAccessExtensionRequestDelegate?
@@ -135,6 +136,7 @@ final class NetworkAccessController: NSObject, ObservableObject {
             updated.enabled = false
             policy = updated.normalized()
             AppSiftNetworkAccessStore.writePolicy(policy)
+            actionMessage = String(localized: "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it.")
             return
         }
 

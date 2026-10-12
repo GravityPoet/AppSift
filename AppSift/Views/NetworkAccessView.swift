@@ -59,6 +59,19 @@ struct NetworkAccessView: View {
                 selectedBundleIdentifier = apps.first?.bundleIdentifier
             }
         }
+        .alert(
+            "Unable to enable network monitoring",
+            isPresented: Binding(
+                get: { controller.actionMessage != nil },
+                set: { if !$0 { controller.actionMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                controller.actionMessage = nil
+            }
+        } message: {
+            Text(controller.actionMessage ?? "")
+        }
     }
 
     private var header: some View {

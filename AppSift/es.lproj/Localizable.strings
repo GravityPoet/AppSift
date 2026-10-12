@@ -1760,3 +1760,5 @@
 "Inspect traffic" = "Inspect traffic";
 "See incoming and outgoing bytes for each app." = "See incoming and outgoing bytes for each app.";
 "Traffic analysis stays on this Mac." = "Traffic analysis stays on this Mac.";
+"Unable to enable network monitoring" = "Unable to enable network monitoring";
+"This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it." = "This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it.";

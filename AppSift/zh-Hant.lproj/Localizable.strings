@@ -1760,3 +1760,5 @@
 "Inspect traffic" = "檢視流量";
 "See incoming and outgoing bytes for each app." = "檢視每個 App 的流入與流出位元組數。";
 "Traffic analysis stays on this Mac." = "流量分析只在本機完成。";
+"Unable to enable network monitoring" = "無法開啟網路監控";
+"This local-signed AppSift build is missing the System Extension install entitlement, so macOS will not show an approval prompt. Use a build signed with Network Extension provisioning to enable it." = "目前本機簽名的 AppSift 缺少系統延伸功能安裝權限，因此 macOS 不會顯示授權視窗。請使用具備 Network Extension provisioning 的簽名建置後再啟用。";
