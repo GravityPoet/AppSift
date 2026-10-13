@@ -46,11 +46,13 @@ struct CategoryDetailView: View {
 
             ToolbarItemGroup(placement: .automatic) {
                 if let result = result, !result.items.isEmpty {
-                    Button("Select All") {
-                        appState.selectAllInCategory(category)
-                    }
-                    Button("Deselect All") {
-                        appState.deselectAllInCategory(category)
+                    if result.items.contains(where: { !$0.isManualAction }) {
+                        Button("Select All") {
+                            appState.selectAllInCategory(category)
+                        }
+                        Button("Deselect All") {
+                            appState.deselectAllInCategory(category)
+                        }
                     }
                     Button(action: { sortDescending.toggle() }) {
                         Label {
@@ -190,13 +192,13 @@ struct CategoryDetailView: View {
             } header: {
                 let selectedCount = appState.selectedCountInCategory(category)
                 let totalCount = result.itemCount
-                Text(
-                    String(
+                Text(result.items.allSatisfy(\.isManualAction)
+                     ? String(localized: category == .trashBins ? "Already in Trash" : "Manual action")
+                     : String(
                         format: String(localized: "%lld of %lld selected"),
                         Int64(selectedCount),
                         Int64(totalCount)
-                    )
-                )
+                     ))
                 .monospacedDigit()
                 .contentTransition(reduceMotion ? .identity : .numericText())
                 .animation(reduceMotion ? nil : MotionTokens.gentle, value: selectedCount)
@@ -227,45 +229,19 @@ private struct FileRowView: View {
     }
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { isSelected },
-            set: { _ in appState.toggleItem(item) }
-        )) {
-            HStack {
-                Image(systemName: fileIcon)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    if !item.path.isEmpty {
-                        Text(item.path)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
+        Group {
+            if item.isManualAction {
+                fileLabel
+            } else {
+                Toggle(isOn: Binding(
+                    get: { isSelected },
+                    set: { _ in appState.toggleItem(item) }
+                )) {
+                    fileLabel
                 }
-
-                Spacer()
-
-                if let date = item.lastModified {
-                    Text(date, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Text(item.formattedSize)
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .monospacedDigit()
-                    .frame(width: 80, alignment: .trailing)
+                .toggleStyle(AnimatedCheckboxStyle(tint: item.category.color))
             }
         }
-        .toggleStyle(AnimatedCheckboxStyle(tint: item.category.color))
         .padding(.vertical, 2)
         .padding(.horizontal, 4)
         .background(
@@ -285,6 +261,47 @@ private struct FileRowView: View {
                     NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                 }
             }
+        }
+    }
+
+    private var fileLabel: some View {
+        HStack {
+            Image(systemName: item.isManualAction ? "info.circle" : fileIcon)
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                if !item.path.isEmpty {
+                    Text(item.path)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                if item.isManualAction {
+                    Text(item.category == .trashBins ? "Already in Trash" : "Manual action")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if let date = item.lastModified {
+                Text(date, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(item.formattedSize)
+                .font(.callout)
+                .fontWeight(.medium)
+                .monospacedDigit()
+                .frame(width: 80, alignment: .trailing)
         }
     }
 
