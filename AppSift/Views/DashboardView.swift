@@ -1134,12 +1134,17 @@ struct DashboardView: View {
                     )
 
                 VStack(alignment: .leading, spacing: 6) {
-                    CountUpBytes(bytes: appState.totalFreedSpace)
+                    CountUpBytes(bytes: appState.totalTrashedSpace > 0 ? appState.totalTrashedSpace : appState.totalFreedSpace)
                         .font(.system(size: 40, weight: .semibold))
                         .foregroundStyle(Tint.green)
-                    Text("freed")
+                    Text(appState.totalTrashedSpace > 0 ? "Moved to Trash" : "freed")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
+                    if let message = appState.cleanupRecoveryMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Done") { appState.showDashboardOverview() }
                         .buttonStyle(GlowProminentButtonStyle(tint: Tint.green, gradient: TintGradient.of(Tint.green)))
                         .padding(.top, 4)
@@ -1889,6 +1894,8 @@ private struct CleanupItemRow: View {
     }
 
     private var itemGuidance: String {
+        if item.category == .trashBins { return String(localized: "Already in Trash") }
+        if item.category == .purgeableSpace { return String(localized: "Managed by macOS") }
         if isManualOnly {
             return String(localized: "Review in Docker before pruning")
         }

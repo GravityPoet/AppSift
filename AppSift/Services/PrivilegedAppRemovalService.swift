@@ -276,14 +276,14 @@ struct PrivilegedAppRemovalService: Sendable {
                 continue
             }
 
-            let source = URL(fileURLWithPath: trashPath).standardizedFileURL
+            let requestedSource = URL(fileURLWithPath: trashPath).standardizedFileURL
             let requestedDestination = URL(fileURLWithPath: item.originalPath).standardizedFileURL
-            guard isSupportedPath(source.path),
+            guard isSupportedPath(requestedSource.path),
                   isSupportedPath(requestedDestination.path) else {
                 outcomes[item.id] = .blocked
                 continue
             }
-            guard fileExists(source.path) else {
+            guard fileExists(requestedSource.path) else {
                 outcomes[item.id] = .sourceMissing
                 continue
             }
@@ -291,6 +291,14 @@ struct PrivilegedAppRemovalService: Sendable {
                 outcomes[item.id] = .destinationExists
                 continue
             }
+            // Match the canonical Trash root used by trash(). Standardizing an
+            // existing /private/var path can turn it back into /var on macOS.
+            // Check the original leaf before realpath so symlinks stay blocked.
+            guard metadataProvider(requestedSource)?.isSymbolicLink == false else {
+                outcomes[item.id] = .blocked
+                continue
+            }
+            let source = Self.canonicalExistingURL(requestedSource) ?? requestedSource
             guard let sourceMetadata = metadataProvider(source),
                   !sourceMetadata.isSymbolicLink,
                   isDirectChild(source, of: trashRoot),

@@ -1772,3 +1772,11 @@
 "Local mode available" = "Local mode available";
 "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning." = "Local signing mode only reads traffic stats; it does not block network. Blocking requires Network Extension provisioning.";
 "AppSift could not move this item to Trash." = "AppSift could not move this item to Trash.";
+
+"Could not safely review this item. Scan again before removal." = "No se pudo verificar este elemento de forma segura. Vuelve a analizar antes de eliminarlo.";
+
+"Recovery history could not be saved. Check each item's result before trying again." = "No se pudo guardar el historial de recuperación. Revisa el resultado de cada elemento antes de volver a intentarlo.";
+
+"Could not move this item to Trash. Scan again before removal." = "No se pudo mover este elemento a la Papelera. Vuelve a analizar antes de eliminarlo.";
+
+"Moved to Trash" = "Movido a la Papelera";

@@ -4,8 +4,8 @@ import XCTest
 
 final class ProductReviewRegressionTests: XCTestCase {
     func testPersonalCleanupMovesToIsolatedTrashAndUndoRestoresContents() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "ReviewRecovery")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewRecovery")
+        defer { try? recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home")
         let file = home.appendingPathComponent("Documents/review.dat")
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -30,8 +30,8 @@ final class ProductReviewRegressionTests: XCTestCase {
     }
 
     func testChangedPersonalFileIsRejectedWithoutRemovingReplacement() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "ReviewReplacement")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewReplacement")
+        defer { try? recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home")
         let file = home.appendingPathComponent("Downloads/review.dat")
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -50,8 +50,8 @@ final class ProductReviewRegressionTests: XCTestCase {
     }
 
     func testPersonalCleanupRollsBackWhenHistoryCannotBeSaved() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "ReviewHistoryFailure")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewHistoryFailure")
+        defer { try? recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home")
         let file = home.appendingPathComponent("Documents/review.dat")
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -71,8 +71,8 @@ final class ProductReviewRegressionTests: XCTestCase {
     }
 
     func testLargeFileCategoryCannotRemoveAnEntireDirectory() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "ReviewDirectory")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewDirectory")
+        defer { try? recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home")
         let folder = home.appendingPathComponent("Documents/Keep")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -86,8 +86,8 @@ final class ProductReviewRegressionTests: XCTestCase {
     }
 
     func testAIInventoryIncludesLogsAndOptionalHistoryButNeverModels() async throws {
-        let home = try makeQATemporaryDirectory(prefix: "ReviewAI")
-        defer { try? FileManager.default.removeItem(at: home) }
+        let home = try makeTrashQATemporaryDirectory(prefix: "ReviewAI")
+        defer { try? recycleQAFixture(home) }
         let paths = [".ollama/logs/server.log", "Library/Caches/ollama/cache.dat",
                      ".ollama/history", ".lmstudio/server-logs/server.log",
                      ".lmstudio/conversations/review.json", ".ollama/models/keep.gguf",
@@ -108,8 +108,8 @@ final class ProductReviewRegressionTests: XCTestCase {
     }
 
     func testArchivesMailAndTrashAreNeverPreselected() async throws {
-        let home = try makeQATemporaryDirectory(prefix: "ReviewDefaults")
-        defer { try? FileManager.default.removeItem(at: home) }
+        let home = try makeTrashQATemporaryDirectory(prefix: "ReviewDefaults")
+        defer { try? recycleQAFixture(home) }
         for path in ["Library/Developer/Xcode/Archives/review.xcarchive/file", "Library/Mail Downloads/attachment.dat", ".Trash/review.dat"] {
             let url = home.appendingPathComponent(path)
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

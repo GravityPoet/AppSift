@@ -1,4 +1,5 @@
 import CoreGraphics
+import Darwin
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -28,6 +29,44 @@ func makeQATemporaryDirectory(prefix: String) throws -> URL {
         attributes: [.posixPermissions: NSNumber(value: 0o700)]
     )
     return url.standardizedFileURL
+}
+
+
+func makeTrashQATemporaryDirectory(prefix: String) throws -> URL {
+    // Destructive-operation fixtures use their own temporary namespace.
+    // Keep the existing SQLite fixture helper independent of path aliases.
+    let temporary = FileManager.default.temporaryDirectory.path
+    guard let resolved = realpath(temporary, nil) else { throw CocoaError(.fileReadUnknown) }
+    defer { free(resolved) }
+    let url = URL(fileURLWithPath: String(cString: resolved), isDirectory: true)
+        .appendingPathComponent("AppSift-QA-\(prefix)-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: url,
+        withIntermediateDirectories: false,
+        attributes: [.posixPermissions: NSNumber(value: 0o700)]
+    )
+    return url.standardizedFileURL
+}
+
+/// Recycle only a single independently created temporary fixture root.
+/// A rejected cleanup leaves the fixture intact for inspection.
+func recycleQAFixture(_ root: URL, file: StaticString = #filePath, line: UInt = #line) throws {
+    let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().standardizedFileURL
+    let resolved = root.resolvingSymlinksInPath().standardizedFileURL
+    guard resolved.path.hasPrefix(temporary.path + "/"),
+          resolved.pathComponents.count == temporary.pathComponents.count + 1,
+          resolved.lastPathComponent.hasPrefix("AppSift"),
+          let before = ReviewedTrashFingerprint.read(at: temporary) else {
+        XCTFail("Refusing cleanup outside an independent AppSift temporary fixture: \(root.path)", file: file, line: line)
+        return
+    }
+    var destination: NSURL?
+    try FileManager.default.trashItem(at: root, resultingItemURL: &destination)
+    let after = ReviewedTrashFingerprint.read(at: temporary)
+    XCTAssertEqual(before.device, after?.device, file: file, line: line)
+    XCTAssertEqual(before.inode, after?.inode, file: file, line: line)
+    let receipt = try XCTUnwrap(destination, file: file, line: line)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: receipt.path!), file: file, line: line)
 }
 
 func writeQAPlist(_ value: [String: Any], to url: URL) throws {

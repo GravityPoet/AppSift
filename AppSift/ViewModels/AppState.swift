@@ -153,8 +153,7 @@ struct AppFileTrashResult: Sendable {
     }
 }
 
-/// Finder-semantic Trash boundary for app removal. Unlike the general junk
-/// cleaner, this service never falls back to `removeItem` or `/bin/rm`.
+/// Finder-semantic Trash boundary for app removal, with no permanent-delete fallback.
 @MainActor
 enum AppFileTrashService {
     static func trash(_ urls: [URL]) async -> AppFileTrashResult {
@@ -1664,6 +1663,7 @@ final class AppState: ObservableObject {
     @Published var diskInfo = DiskInfo()
     @Published var totalJunkSize: Int64 = 0
     @Published var totalFreedSpace: Int64 = 0
+    @Published var totalTrashedSpace: Int64 = 0
     @Published var scanProgress: Double = 0
     @Published var cleanProgress: Double = 0
     @Published var currentScanCategory: String = ""
@@ -6248,6 +6248,7 @@ final class AppState: ObservableObject {
             result.cleanedPaths.formUnion(admin.cleanedPaths)
             result.itemsCleaned += admin.itemsCleaned
             result.freedSpace += admin.freedSpace
+            result.trashedSpace += admin.trashedSpace
             result.errors.append(contentsOf: admin.errors)
         }
 
@@ -6280,12 +6281,13 @@ final class AppState: ObservableObject {
         let survivors = items.filter { !result.cleanedPaths.contains($0.path) }
         handleCleanOutcome(errors: result.errors, survivors: survivors)
 
-        scanState = .cleaned
+        scanState = result.itemsCleaned > 0 ? .cleaned : .completed
         loadDiskInfo()
         try? await Task.sleep(nanoseconds: 3_000_000_000)
         guard scanState == .cleaned else { return }
         scanState = .idle
         totalFreedSpace = 0
+        totalTrashedSpace = 0
     }
 
     // MARK: - Disk Info
@@ -6412,6 +6414,7 @@ final class AppState: ObservableObject {
         guard !scanState.isActive else { return }
         scanState = .idle
         totalFreedSpace = 0
+        totalTrashedSpace = 0
     }
 
     func startSmartScan() {
@@ -6548,6 +6551,8 @@ final class AppState: ObservableObject {
 
     private func updateCleanupRecovery(_ result: CleaningEngine.CleaningResult) async {
         cleanupRecoveryHistory = await cleaningEngine.recoveryHistory()
+        totalTrashedSpace = result.trashedSpace
+        cleanupRecoveryMessage = nil
         if result.trashedSpace > 0 {
             cleanupRecoveryMessage = String(
                 format: String(localized: "%@ moved to Trash. Space is released when Trash is emptied."),
@@ -6557,15 +6562,7 @@ final class AppState: ObservableObject {
     }
 
     func cleanupConfirmationMessage(for items: [CleanableItem]) -> String {
-        let hasRecoverable = items.contains(where: \.requiresRecoverableRemoval)
-        let hasPermanent = items.contains { !$0.requiresRecoverableRemoval && !$0.isManualAction }
-        if hasRecoverable && !hasPermanent {
-            return String(localized: "These files will move to Trash with recovery history. You can undo the removal; disk space is released when Trash is emptied.")
-        }
-        if hasRecoverable {
-            return String(localized: "Personal files, archives, and selected conversations will move to Trash with recovery history. Selected caches, logs, and existing Trash items will be permanently deleted.")
-        }
-        return String(localized: "This will permanently delete the selected files. This cannot be undone.")
+        String(localized: "These files will move to Trash with recovery history. You can undo the removal; disk space is released when Trash is emptied.")
     }
 
     func undoLatestCleanup() {
@@ -6626,6 +6623,7 @@ final class AppState: ObservableObject {
                 result.cleanedPaths.formUnion(admin.cleanedPaths)
                 result.itemsCleaned += admin.itemsCleaned
                 result.freedSpace += admin.freedSpace
+                result.trashedSpace += admin.trashedSpace
                 result.errors.append(contentsOf: admin.errors)
             }
 
@@ -6657,13 +6655,14 @@ final class AppState: ObservableObject {
 
             handleCleanOutcome(errors: result.errors, survivors: survivors)
 
-            scanState = .cleaned
+            scanState = result.itemsCleaned > 0 ? .cleaned : .completed
             loadDiskInfo()
 
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard scanState == .cleaned else { return }
             scanState = .idle
             totalFreedSpace = 0
+            totalTrashedSpace = 0
         }
     }
 
@@ -6689,6 +6688,7 @@ final class AppState: ObservableObject {
                 cleanResult.cleanedPaths.formUnion(admin.cleanedPaths)
                 cleanResult.itemsCleaned += admin.itemsCleaned
                 cleanResult.freedSpace += admin.freedSpace
+                cleanResult.trashedSpace += admin.trashedSpace
                 cleanResult.errors.append(contentsOf: admin.errors)
             }
 
@@ -6718,13 +6718,14 @@ final class AppState: ObservableObject {
             let survivors = selectedItems.filter { !cleanResult.cleanedPaths.contains($0.path) }
             handleCleanOutcome(errors: cleanResult.errors, survivors: survivors)
 
-            scanState = .cleaned
+            scanState = cleanResult.itemsCleaned > 0 ? .cleaned : .completed
             loadDiskInfo()
 
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard scanState == .cleaned else { return }
             scanState = .idle
             totalFreedSpace = 0
+            totalTrashedSpace = 0
         }
     }
 
@@ -6761,6 +6762,10 @@ final class AppState: ObservableObject {
         } else if let first = errors.first {
             cleanError = first
         }
+        if !survivors.isEmpty, !errors.isEmpty {
+            cleanError = ([cleanError].compactMap { $0 } + Array(errors.prefix(3)))
+                .joined(separator: "\n")
+        }
     }
 
     // MARK: - Purgeable
@@ -6780,6 +6785,7 @@ final class AppState: ObservableObject {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             scanState = .idle
             totalFreedSpace = 0
+            totalTrashedSpace = 0
         }
     }
 

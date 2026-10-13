@@ -124,8 +124,7 @@ struct CleanableItem: Identifiable, Hashable {
         self.category = category
         self.isSelected = isSelected
         self.lastModified = lastModified
-        self.reviewedFingerprint = Self.needsRecovery(category: category, path: path)
-            ? ReviewedTrashFingerprint.read(at: URL(fileURLWithPath: path)) : nil
+        self.reviewedFingerprint = ReviewedTrashFingerprint.read(at: URL(fileURLWithPath: path))
     }
 
     var requiresRecoverableRemoval: Bool {
@@ -154,8 +153,9 @@ struct CleanableItem: Identifiable, Hashable {
     /// filesystem path AppSift may delete. Keep them visible in the review
     /// list, but never include them in selection actions or cleanup batches.
     var isManualAction: Bool {
-        category == .dockerCache
-            && name.localizedCaseInsensitiveContains("docker system prune")
+        category == .trashBins || category == .purgeableSpace
+            || (category == .dockerCache
+                && name.localizedCaseInsensitiveContains("docker system prune"))
     }
 
     func hash(into hasher: inout Hasher) {

@@ -36,6 +36,48 @@ NEW_REQUIREMENT=""
 REPLACEMENT_STARTED=0
 HAD_PREVIOUS=0
 
+# Generated bundles and the displaced installation remain recoverable. The
+# callers below restrict every path to this install's exact staging/root paths.
+recycle_install_path() {
+  local target="$1"
+  [[ -e "$target" || -L "$target" ]] || return 0
+  /usr/bin/swift - "$target" <<'SWIFT'
+import Foundation
+let source = URL(fileURLWithPath: CommandLine.arguments[1])
+var destination: NSURL?
+do {
+    try FileManager.default.trashItem(at: source, resultingItemURL: &destination)
+    guard let destination, FileManager.default.fileExists(atPath: destination.path!) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    print("RECYCLED_PATH=\(destination.path!)")
+} catch {
+    fputs("Could not recycle \(source.path): \(error)\n", stderr)
+    exit(1)
+}
+SWIFT
+}
+
+retain_two_verified_backups() {
+  local backup_root="$HOME/Library/Application Support/Codex/Backups/AppSift"
+  local archive
+  local retained=0
+  while IFS= read -r archive; do
+    [[ -f "$archive" ]] || continue
+    if unzip -tq "$archive" >/dev/null 2>&1; then
+      retained=$((retained + 1))
+      if [[ "$retained" -gt 2 ]]; then recycle_install_path "$archive"; fi
+    fi
+  done < <(printf '%s\n' "$backup_root"/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]/AppSift.app.zip | sort -r)
+  local count=0
+  for archive in "$backup_root"/*/AppSift.app.zip; do
+    [[ -f "$archive" ]] || continue
+    if unzip -tq "$archive" >/dev/null 2>&1; then count=$((count + 1)); fi
+  done
+  [[ "$count" -le 2 ]] || { echo "Error: AppSift rollback archive retention failed." >&2; return 1; }
+  printf 'VERIFIED_BACKUPS=%s\n' "$count"
+}
+
 unregister_app_bundle() {
   local app_bundle="$1"
   if [[ -d "$app_bundle/Contents" ]]; then
@@ -163,7 +205,7 @@ cleanup_or_rollback() {
     stop_installed_app >/dev/null 2>&1 || true
     unregister_app_bundle "$INSTALL_APP"
     case "$INSTALL_APP" in
-      /Applications/AppSift.app) /bin/rm -rf -- "$INSTALL_APP" ;;
+      /Applications/AppSift.app) recycle_install_path "$INSTALL_APP" ;;
     esac
     if [[ "$HAD_PREVIOUS" -eq 1 ]] && restore_displaced_app; then
       echo "Restored the previous AppSift installation after failure." >&2
@@ -172,10 +214,10 @@ cleanup_or_rollback() {
     fi
   fi
   case "$INSTALL_STAGING" in
-    /Applications/.appsift-staging-*) /bin/rm -rf -- "$INSTALL_STAGING" ;;
+    /Applications/.appsift-staging-*) recycle_install_path "$INSTALL_STAGING" ;;
   esac
   case "$TEMP_ROOT" in
-    "${TMPDIR:-/tmp}"/appsift-install.*) /bin/rm -rf -- "$TEMP_ROOT" ;;
+    "${TMPDIR:-/tmp}"/appsift-install.*) recycle_install_path "$TEMP_ROOT" ;;
   esac
   exit "$status"
 }
@@ -185,10 +227,10 @@ trap 'exit 143' TERM
 
 : >"$TEMP_ROOT/.metadata_never_index"
 case "$INSTALL_STAGING" in
-  /Applications/.appsift-staging-*) /bin/rm -rf -- "$INSTALL_STAGING" ;;
+  /Applications/.appsift-staging-*) recycle_install_path "$INSTALL_STAGING" ;;
 esac
 case "$DISPLACED_APP" in
-  /Applications/.appsift-displaced-*) /bin/rm -rf -- "$DISPLACED_APP" ;;
+  /Applications/.appsift-displaced-*) recycle_install_path "$DISPLACED_APP" ;;
 esac
 
 SIGN_IDENTITY="$("$SIGNING_SCRIPT")"
@@ -267,7 +309,7 @@ fi
 
 unregister_app_bundle "$BUILT_APP"
 case "$TEMP_ROOT" in
-  "${TMPDIR:-/tmp}"/appsift-install.*) /bin/rm -rf -- "$TEMP_ROOT" ;;
+  "${TMPDIR:-/tmp}"/appsift-install.*) recycle_install_path "$TEMP_ROOT" ;;
 esac
 
 if [[ -e "$TEMP_ROOT" || -e "$INSTALL_STAGING" ]]; then
@@ -372,9 +414,10 @@ fi
 
 unregister_app_bundle "$DISPLACED_APP"
 case "$DISPLACED_APP" in
-  /Applications/.appsift-displaced-*) /bin/rm -rf -- "$DISPLACED_APP" ;;
+  /Applications/.appsift-displaced-*) recycle_install_path "$DISPLACED_APP" ;;
 esac
 REPLACEMENT_STARTED=0
+retain_two_verified_backups
 
 if [[ "$FDA_REAUTH_REQUIRED" -eq 1 ]]; then
   /usr/bin/tccutil reset SystemPolicyAllFiles "$BUNDLE_ID"

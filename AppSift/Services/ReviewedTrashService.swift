@@ -57,6 +57,8 @@ struct ReviewedTrashHistoryItem: Codable, Identifiable, Hashable, Sendable {
     var status: ReviewedTrashItemStatus
     var detail: String?
     var restoredAt: Date?
+    var failure: AppFileRemovalFailure? = nil
+    var usedAdministrator: Bool? = nil
 }
 
 struct ReviewedTrashRecord: Codable, Identifiable, Hashable, Sendable {
@@ -265,13 +267,15 @@ actor ReviewedTrashService {
 
     private let historyStore: ReviewedTrashHistoryStore
     private let currentUserID: uid_t
-    private let recycler: Recycler
+    private let recycler: @Sendable ([URL]) async -> AppFileTrashResult
     private let additionalTrashRoots: [URL]
+    private let privilegedService: PrivilegedAppRemovalService?
 
     init(
         historyStore: ReviewedTrashHistoryStore = .shared,
         currentUserID: uid_t = getuid(),
         additionalTrashRoots: [URL] = [],
+        privilegedService: PrivilegedAppRemovalService? = nil,
         recycler: Recycler? = nil
     ) {
         self.historyStore = historyStore
@@ -279,8 +283,17 @@ actor ReviewedTrashService {
         self.additionalTrashRoots = additionalTrashRoots.map {
             $0.standardizedFileURL.resolvingSymlinksInPath()
         }
-        self.recycler = recycler ?? { urls in
-            await Self.defaultRecycle(urls)
+        self.privilegedService = privilegedService
+        self.recycler = { urls in
+            if let recycler {
+                let mapping = await recycler(urls)
+                return AppFileTrashResult(
+                    trashed: mapping.map { TrashedAppFile(originalURL: $0.key, trashURL: $0.value) },
+                    missing: [], needsFullDiskAccess: false,
+                    failed: urls.filter { mapping[$0] == nil }
+                )
+            }
+            return await Self.defaultRecycle(urls)
         }
     }
 
@@ -290,7 +303,9 @@ actor ReviewedTrashService {
 
     func moveToTrash(
         _ candidates: [ReviewedTrashCandidate],
-        feature: String
+        feature: String,
+        usingAdministrator: Bool = false,
+        progressHandler: @Sendable (Double) -> Void = { _ in }
     ) async -> ReviewedTrashOutcome {
         guard !candidates.isEmpty,
               candidates.count <= 5_000,
@@ -301,24 +316,52 @@ actor ReviewedTrashService {
         var historyItems: [ReviewedTrashHistoryItem] = []
         var accepted: [(ReviewedTrashCandidate, URL)] = []
         for candidate in candidates {
-            guard let standardized = validate(candidate) else {
-                historyItems.append(historyItem(for: candidate, status: .rejected))
+            guard let standardized = validate(candidate, usingAdministrator: usingAdministrator) else {
+                historyItems.append(historyItem(for: candidate, status: .rejected,
+                                                failure: AppFileRemovalFailure(kind: .unsafePath)))
                 continue
             }
             accepted.append((candidate, standardized))
         }
 
         if !accepted.isEmpty {
-            let recycleResult = await recycler(accepted.map(\.1))
+            let recycleResult: AppFileTrashResult
+            if usingAdministrator, let privilegedService {
+                recycleResult = await privilegedService.trash(accepted.map(\.1))
+            } else {
+                var trashed: [TrashedAppFile] = []
+                var failures: [String: AppFileRemovalFailure] = [:]
+                for (index, entry) in accepted.enumerated() {
+                    // Earlier Finder operations can suspend this actor. Recheck
+                    // each reviewed object immediately before its own move.
+                    if validate(entry.0, usingAdministrator: false) != nil {
+                        let result = await recycler([entry.1])
+                        trashed.append(contentsOf: result.trashed)
+                        if result.trashed.isEmpty {
+                            failures[entry.1.path] = result.failure(for: entry.1)
+                                ?? AppFileRemovalFailure(kind: .finderRejected)
+                        }
+                    } else {
+                        failures[entry.1.path] = AppFileRemovalFailure(kind: .unsafePath)
+                    }
+                    progressHandler(Double(index + 1) / Double(accepted.count))
+                }
+                recycleResult = AppFileTrashResult(
+                    trashed: trashed, missing: [], needsFullDiskAccess: false,
+                    failed: accepted.map(\.1).filter { failures[$0.path] != nil }, failureDetails: failures
+                )
+            }
             for (candidate, url) in accepted {
-                if !FileManager.default.fileExists(atPath: url.path) {
-                    let trashURL = recycleResult[url]
+                let trashURL = recycleResult.trashed.first { $0.originalURL == url }?.trashURL
+                if !FileManager.default.fileExists(atPath: url.path),
+                   let trashURL, isRecognizedTrashPath(trashURL),
+                   ReviewedTrashFingerprint.read(at: trashURL) == candidate.fingerprint {
                     historyItems.append(
                         historyItem(
                             for: candidate,
-                            status: trashURL == nil ? .trashFailed : .movedToTrash,
+                            status: .movedToTrash,
                             trashURL: trashURL,
-                            detail: trashURL == nil ? "Finder did not return a recoverable Trash path." : nil
+                            usedAdministrator: usingAdministrator
                         )
                     )
                 } else {
@@ -326,7 +369,9 @@ actor ReviewedTrashService {
                         historyItem(
                             for: candidate,
                             status: .trashFailed,
-                            detail: "The item remained at its original path."
+                            trashURL: trashURL,
+                            failure: recycleResult.failure(for: url)
+                                ?? AppFileRemovalFailure(kind: .verificationFailed)
                         )
                     )
                 }
@@ -335,49 +380,26 @@ actor ReviewedTrashService {
 
         let record = ReviewedTrashRecord(feature: feature, items: historyItems)
         guard historyStore.append(record) else {
-            let rolledBack = rollback(record)
+            let rolledBack = await rollback(record)
             return ReviewedTrashOutcome(record: rolledBack, historyPersisted: false)
         }
         return ReviewedTrashOutcome(record: record, historyPersisted: true)
     }
 
-    func undo(_ record: ReviewedTrashRecord) -> ReviewedTrashUndoOutcome {
-        var restoredIDs: Set<UUID> = []
-        var failures = 0
-
-        for item in record.items where item.status == .movedToTrash && item.restoredAt == nil {
-            guard let trashPath = item.trashPath else {
-                failures += 1
-                continue
-            }
-            let trashURL = URL(fileURLWithPath: trashPath)
-            let destination = URL(fileURLWithPath: item.originalPath)
-            guard isRecognizedTrashPath(trashURL),
-                  FileManager.default.fileExists(atPath: trashURL.path),
-                  ReviewedTrashFingerprint.read(at: trashURL) == item.fingerprint,
-                  !FileManager.default.fileExists(atPath: destination.path),
-                  isSafeRestoreDestination(destination) else {
-                failures += 1
-                continue
-            }
-            do {
-                try FileManager.default.moveItem(at: trashURL, to: destination)
-                restoredIDs.insert(item.id)
-            } catch {
-                failures += 1
-            }
-        }
+    func undo(_ record: ReviewedTrashRecord) async -> ReviewedTrashUndoOutcome {
+        let items = record.items.filter { $0.status == .movedToTrash && $0.restoredAt == nil }
+        let restoredIDs = await restore(items)
 
         let persisted = restoredIDs.isEmpty
             || historyStore.markRestored(recordID: record.id, itemIDs: restoredIDs, at: Date())
         return ReviewedTrashUndoOutcome(
             restoredCount: restoredIDs.count,
-            failedCount: failures,
+            failedCount: items.count - restoredIDs.count,
             historyPersisted: persisted
         )
     }
 
-    private func validate(_ candidate: ReviewedTrashCandidate) -> URL? {
+    private func validate(_ candidate: ReviewedTrashCandidate, usingAdministrator: Bool) -> URL? {
         let root = candidate.allowedRoot.standardizedFileURL.resolvingSymlinksInPath()
         let candidateURL = candidate.url.standardizedFileURL
         guard candidateURL.path.hasPrefix("/"),
@@ -385,7 +407,9 @@ actor ReviewedTrashService {
               !isProtectedRoot(candidateURL),
               let current = ReviewedTrashFingerprint.read(at: candidateURL),
               current == candidate.fingerprint,
-              current.owner == UInt32(currentUserID) else { return nil }
+              (!usingAdministrator || privilegedService != nil),
+              current.owner == UInt32(currentUserID)
+                || (usingAdministrator && current.owner == 0) else { return nil }
         let resolved = candidateURL.resolvingSymlinksInPath()
         guard resolved.path == candidateURL.path || resolved.standardizedFileURL.path == candidateURL.path,
               isDescendant(resolved, of: root) else { return nil }
@@ -396,38 +420,60 @@ actor ReviewedTrashService {
         return resolved
     }
 
-    private func rollback(_ record: ReviewedTrashRecord) -> ReviewedTrashRecord {
+    private func rollback(_ record: ReviewedTrashRecord) async -> ReviewedTrashRecord {
         var updated = record
+        let restored = await restore(record.items.filter { $0.status == .movedToTrash })
         for index in updated.items.indices where updated.items[index].status == .movedToTrash {
-            guard let trashPath = updated.items[index].trashPath else {
-                updated.items[index].status = .rollbackFailedAfterHistoryFailure
-                continue
-            }
-            let trashURL = URL(fileURLWithPath: trashPath)
-            let destination = URL(fileURLWithPath: updated.items[index].originalPath)
-            guard isRecognizedTrashPath(trashURL),
-                  ReviewedTrashFingerprint.read(at: trashURL) == updated.items[index].fingerprint,
-                  !FileManager.default.fileExists(atPath: destination.path),
-                  isSafeRestoreDestination(destination) else {
-                updated.items[index].status = .rollbackFailedAfterHistoryFailure
-                continue
-            }
-            do {
-                try FileManager.default.moveItem(at: trashURL, to: destination)
+            if restored.contains(updated.items[index].id) {
                 updated.items[index].status = .rolledBackAfterHistoryFailure
                 updated.items[index].trashPath = nil
-            } catch {
+                updated.items[index].detail = AppFileRemovalFailure(kind: .transactionRolledBack).localizedDescription
+            } else {
                 updated.items[index].status = .rollbackFailedAfterHistoryFailure
+                updated.items[index].detail = String(localized: "Undo history could not be saved and at least one file could not be restored automatically. Open Trash before doing anything else.")
             }
         }
         return updated
+    }
+
+    private func restore(_ items: [ReviewedTrashHistoryItem]) async -> Set<UUID> {
+        var restored: Set<UUID> = []
+        var administratorItems: [AppRemovalHistoryItem] = []
+        for item in items {
+            guard let trashPath = item.trashPath else { continue }
+            let source = URL(fileURLWithPath: trashPath)
+            let destination = URL(fileURLWithPath: item.originalPath)
+            let usesAdministrator = item.usedAdministrator == true && privilegedService != nil
+            guard isRecognizedTrashPath(source),
+                  ReviewedTrashFingerprint.read(at: source) == item.fingerprint,
+                  !FileManager.default.fileExists(atPath: destination.path),
+                  isSafeRestoreDestination(destination, usingAdministrator: usesAdministrator) else { continue }
+            if usesAdministrator {
+                administratorItems.append(AppRemovalHistoryItem(
+                    id: item.id, originalPath: item.originalPath, trashPath: trashPath
+                ))
+            } else {
+                do {
+                    try FileManager.default.moveItem(at: source, to: destination)
+                    restored.insert(item.id)
+                } catch {
+                    Logger.shared.log("Restore failed at \(item.originalPath): \(error)", level: .warning)
+                }
+            }
+        }
+        if !administratorItems.isEmpty, let privilegedService {
+            let outcomes = await privilegedService.restore(administratorItems)
+            for (id, outcome) in outcomes where outcome == .restored { restored.insert(id) }
+        }
+        return restored
     }
 
     private func historyItem(
         for candidate: ReviewedTrashCandidate,
         status: ReviewedTrashItemStatus,
         trashURL: URL? = nil,
-        detail: String? = nil
+        failure: AppFileRemovalFailure? = nil,
+        usedAdministrator: Bool = false
     ) -> ReviewedTrashHistoryItem {
         ReviewedTrashHistoryItem(
             id: UUID(),
@@ -438,19 +484,44 @@ actor ReviewedTrashService {
             size: candidate.size,
             fingerprint: candidate.fingerprint,
             status: status,
-            detail: detail,
-            restoredAt: nil
+            detail: failure?.detail ?? failure?.localizedDescription,
+            restoredAt: nil,
+            failure: failure,
+            usedAdministrator: usedAdministrator ? true : nil
         )
     }
 
-    private static func defaultRecycle(_ urls: [URL]) async -> [URL: URL] {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.async {
-                NSWorkspace.shared.recycle(urls) { mapping, _ in
-                    continuation.resume(returning: mapping)
+    private static func defaultRecycle(_ urls: [URL]) async -> AppFileTrashResult {
+        var trashed: [TrashedAppFile] = []
+        var failures: [String: AppFileRemovalFailure] = [:]
+        // Keep Finder's path-specific error instead of losing it in a bulk mapping.
+        for url in urls {
+            let result: (URL?, AppFileRemovalFailure?) = await withCheckedContinuation { continuation in
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.recycle([url]) { mapping, error in
+                        let failure = error.map { error -> AppFileRemovalFailure in
+                            let nsError = error as NSError
+                            let denied = (nsError.domain == NSCocoaErrorDomain
+                                && [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(nsError.code))
+                                || (nsError.domain == NSPOSIXErrorDomain
+                                    && [Int(EACCES), Int(EPERM)].contains(nsError.code))
+                            return AppFileRemovalFailure(
+                                kind: denied ? .administratorAccessRequired : .finderRejected,
+                                detail: "\(nsError.domain) (\(nsError.code)): \(nsError.localizedDescription)"
+                            )
+                        }
+                        continuation.resume(returning: (mapping[url], failure))
+                    }
                 }
             }
+            if let destination = result.0 {
+                trashed.append(TrashedAppFile(originalURL: url, trashURL: destination))
+            } else {
+                failures[url.path] = result.1 ?? AppFileRemovalFailure(kind: .finderRejected)
+            }
         }
+        return AppFileTrashResult(trashed: trashed, missing: [], needsFullDiskAccess: false,
+                                  failed: urls.filter { failures[$0.path] != nil }, failureDetails: failures)
     }
 
     private func isDescendant(_ url: URL, of root: URL) -> Bool {
@@ -474,11 +545,12 @@ actor ReviewedTrashService {
             || path == FileManager.default.homeDirectoryForCurrentUser.path
     }
 
-    private func isSafeRestoreDestination(_ destination: URL) -> Bool {
+    private func isSafeRestoreDestination(_ destination: URL, usingAdministrator: Bool) -> Bool {
         let parent = destination.deletingLastPathComponent().standardizedFileURL
         guard !isProtectedRoot(destination),
               FileManager.default.fileExists(atPath: parent.path),
-              FileManager.default.isWritableFile(atPath: parent.path) else { return false }
+              parent.resolvingSymlinksInPath().path == parent.path,
+              usingAdministrator || FileManager.default.isWritableFile(atPath: parent.path) else { return false }
         var information = stat()
         return lstat(parent.path, &information) == 0
             && information.st_mode & S_IFMT == S_IFDIR

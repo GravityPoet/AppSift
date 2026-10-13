@@ -4,8 +4,8 @@ import XCTest
 
 final class ReviewedTrashServiceHighRiskTests: XCTestCase {
     func testMovesToDisposableTrashPersistsHistoryAndRestores() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftTrashMoveUndo")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftTrashMoveUndo")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         let trashRoot = root.appendingPathComponent("Trash", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
@@ -43,8 +43,8 @@ final class ReviewedTrashServiceHighRiskTests: XCTestCase {
     }
 
     func testPartialRecycleFailureOnlyMovesAndRestoresSuccessfulItems() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftTrashPartial")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftTrashPartial")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         let trashRoot = root.appendingPathComponent("Trash", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
@@ -78,8 +78,8 @@ final class ReviewedTrashServiceHighRiskTests: XCTestCase {
     }
 
     func testChangedFingerprintIsRejectedBeforeRecyclerRuns() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftTrashFingerprint")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftTrashFingerprint")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
         let source = sourceRoot.appendingPathComponent("changed.txt")
@@ -100,8 +100,8 @@ final class ReviewedTrashServiceHighRiskTests: XCTestCase {
     }
 
     func testHistoryPersistenceFailureRollsMovedItemBack() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftTrashRollback")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftTrashRollback")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
         let source = sourceRoot.appendingPathComponent("must-survive.txt")
@@ -125,8 +125,8 @@ final class ReviewedTrashServiceHighRiskTests: XCTestCase {
     }
 
     func testUndoRefusesTrashItemWhoseFingerprintChanged() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftTrashUndoTamper")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftTrashUndoTamper")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
         let source = sourceRoot.appendingPathComponent("original.txt")

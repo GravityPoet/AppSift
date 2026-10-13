@@ -115,8 +115,8 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
     }
 
     func testPartialExecutionMapsSuccessfulAndFailedItemsIndividually() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftPartialExecution")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftPartialExecution")
+        defer { try? recycleQAFixture(root) }
         let sourceRoot = root.appendingPathComponent("Source", isDirectory: true)
         let trashRoot = root.appendingPathComponent("Trash", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
@@ -164,7 +164,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: real)
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? recycleQAFixture(root) }
         let calls = LockedValue(0)
         let service = PrivilegedAppRemovalService(
             trashRoot: trash,
@@ -202,7 +202,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: allowed, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
         try Data("canonical".utf8).write(to: source)
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? recycleQAFixture(root) }
 
         let service = PrivilegedAppRemovalService(
             trashRoot: trash,
@@ -297,7 +297,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
             [.posixPermissions: NSNumber(value: 0o700)],
             ofItemAtPath: trash.path
         )
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? recycleQAFixture(root) }
 
         let source = allowed.appendingPathComponent("odd '$() `name`\nitem")
         let destination = trash.appendingPathComponent("odd '$() `name`\nitem")
@@ -341,7 +341,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
             [.posixPermissions: NSNumber(value: 0o700)],
             ofItemAtPath: trash.path
         )
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? recycleQAFixture(root) }
 
         let source = allowed.appendingPathComponent("reviewed-item")
         let replacement = allowed.appendingPathComponent("replacement-item")
@@ -390,7 +390,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
             [.posixPermissions: NSNumber(value: 0o700)],
             ofItemAtPath: trash.path
         )
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? recycleQAFixture(root) }
 
         let source = trash.appendingPathComponent("restorable-item")
         let destination = allowed.appendingPathComponent("restorable-item")
@@ -453,7 +453,7 @@ final class PrivilegedAppRemovalServiceTests: XCTestCase {
                 [.immutable: false],
                 ofItemAtPath: secondDestination.path
             )
-            try? FileManager.default.removeItem(at: root)
+            try? recycleQAFixture(root)
         }
 
         let plan = PrivilegedAppRemovalPlan(

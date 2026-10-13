@@ -5,8 +5,8 @@ import XCTest
 @MainActor
 final class FeatureRemovalFlowTests: XCTestCase {
     func testIOSBackupCenterDeletesOnlySelectedOlderBackupAndUndoRestoresIt() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftIOSBackupFlow")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftIOSBackupFlow")
+        defer { try? recycleQAFixture(root) }
         let backupRoot = root.appendingPathComponent("MobileSync/Backup", isDirectory: true)
         let olderURL = backupRoot.appendingPathComponent("device-old", isDirectory: true)
         let latestURL = backupRoot.appendingPathComponent("device-latest", isDirectory: true)
@@ -38,7 +38,8 @@ final class FeatureRemovalFlowTests: XCTestCase {
         try await waitForQACondition { center.hasScanned && !center.isScanning }
         XCTAssertEqual(center.backups.count, 2)
         center.selectOlderBackups()
-        XCTAssertEqual(center.selectedIDs, Set([olderURL.path]))
+        let older = try XCTUnwrap(center.backups.first { $0.url.lastPathComponent == olderURL.lastPathComponent })
+        XCTAssertEqual(center.selectedIDs, Set([older.id]))
 
         center.removeSelected()
         try await waitForQACondition {
@@ -57,8 +58,8 @@ final class FeatureRemovalFlowTests: XCTestCase {
     }
 
     func testDownloadCenterDeleteAndUndoUsesDisposableProfile() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftDownloadFlow")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftDownloadFlow")
+        defer { try? recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home", isDirectory: true)
         let downloads = home.appendingPathComponent("Downloads", isDirectory: true)
         try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
@@ -100,8 +101,8 @@ final class FeatureRemovalFlowTests: XCTestCase {
     }
 
     func testSimilarImageSuggestionsKeepBestImageAndUndoRestoresRemovedImage() async throws {
-        let root = try makeQATemporaryDirectory(prefix: "AppSiftSimilarFlow")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "AppSiftSimilarFlow")
+        defer { try? recycleQAFixture(root) }
         let images = root.appendingPathComponent("Images", isDirectory: true)
         try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
         let highResolution = images.appendingPathComponent("high.png")
