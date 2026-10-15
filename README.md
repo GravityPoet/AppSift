@@ -66,7 +66,7 @@ For developers who want to inspect and compile locally, check out the [Advanced 
 AppSift Community Edition is open source under the **[AGPL-3.0 License](LICENSE)**.
 
 - **Open Source Free Use**: Any individual or enterprise may use and distribute AppSift for free in accordance with the AGPL-3.0 license terms.
-- **Commercial Dual-License**: If you or your organization need closed-source integration, exemption from AGPL-3.0 copyleft obligations, or proprietary redistribution rights, please contact us for a [Commercial License](mailto:gravitypoet@icloud.com).
+- **Commercial Dual-License**: If you or your organization need closed-source integration, exemption from AGPL-3.0 copyleft obligations, or proprietary redistribution rights, please contact us for a [Commercial License](mailto:gravitypoet&#64;icloud.com).
 
 ---
 
