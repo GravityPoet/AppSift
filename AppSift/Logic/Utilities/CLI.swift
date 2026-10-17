@@ -24,7 +24,7 @@ struct CLI {
     private static let knownCommands: Set<String> = [
         "scan", "disk-info", "list", "extensions", "default-apps",
         "app-updates", "app-usage", "installation-files", "app-permissions",
-        "app-relationships",
+        "app-relationships", "storage-audit",
         "help", "--help", "-h",
         "version", "--version", "-v",
     ]
@@ -46,6 +46,8 @@ struct CLI {
             handleScan(args: Array(args.dropFirst()))
         case "disk-info":
             handleDiskInfo()
+        case "storage-audit":
+            handleStorageAudit(args: Array(args.dropFirst()))
         case "list":
             handleList()
         case "extensions":
@@ -136,6 +138,59 @@ struct CLI {
         print("  Free:      \(info.formattedFree)")
         if info.purgeableSpace > 0 {
             print("  Purgeable: \(info.formattedPurgeable)")
+        }
+    }
+
+    private static func handleStorageAudit(args: [String]) {
+        let json = args.contains("--json")
+        let report = waitForAsync {
+            await StorageAuditService().scan(
+                includeInternal: !args.contains("--external-only")
+            )
+        }
+        if json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            guard let data = try? encoder.encode(report),
+                  let output = String(data: data, encoding: .utf8) else {
+                printError("Could not encode storage audit")
+                exit(1)
+            }
+            print(output)
+            return
+        }
+
+        print("Storage Audit (\(report.volumes.count) volumes):")
+        for volume in report.volumes {
+            let status = volume.status.rawValue
+            let used = ByteCountFormatter.string(fromByteCount: volume.usedBytes, countStyle: .file)
+            let total = ByteCountFormatter.string(fromByteCount: volume.totalBytes, countStyle: .file)
+            print("  [\(status)] \(terminalSafe(volume.path)) · \(used) / \(total)")
+            print("      files: \(volume.fileCount) · directories: \(volume.directoryCount) · unreadable: \(volume.inaccessibleItemCount)")
+        }
+        if !report.virtualMachines.isEmpty {
+            print("Virtual Machine Host Assets (\(report.virtualMachines.count)):")
+            for asset in report.virtualMachines {
+                let size = ByteCountFormatter.string(fromByteCount: asset.allocatedBytes, countStyle: .file)
+                let state = asset.isRunning ? "running" : "not observed running"
+                print("  [\(state)] \(terminalSafe(asset.path)) · \(size) · guest not entered")
+            }
+        }
+        print("Largest Processes by RSS:")
+        for process in report.processes.prefix(16) {
+            print("  \(process.pid) \(terminalSafe(process.name)) · \(ByteCountFormatter.string(fromByteCount: process.residentBytes, countStyle: .memory))")
+        }
+        if let memory = report.memory {
+            print("Memory: \(ByteCountFormatter.string(fromByteCount: memory.usedBytes, countStyle: .memory)) / \(ByteCountFormatter.string(fromByteCount: memory.totalBytes, countStyle: .memory)) · swap \(ByteCountFormatter.string(fromByteCount: memory.swapUsedBytes, countStyle: .memory)) · pressure \(memory.pressureLevel.map(String.init) ?? "unknown")")
+        }
+        if let trash = report.trash {
+            print("Trash: \(trash.itemCount) items · \(trash.oldItemCount) older than 30 days")
+        }
+        if report.wasCancelled || report.totalInaccessibleCount > 0 {
+            FileHandle.standardError.write(
+                Data("Warning: storage audit has coverage boundaries (cancelled: \(report.wasCancelled), unreadable: \(report.totalInaccessibleCount))\n".utf8)
+            )
         }
     }
 
@@ -799,6 +854,10 @@ struct CLI {
           scan --category <name>  Scan a specific category
           scan --json             Output as JSON
           disk-info               Show disk usage
+          storage-audit           Audit Mac and mounted external disks (read-only)
+          storage-audit --json    Output the full storage audit as JSON
+          storage-audit --external-only
+                                  Scan only mounted external volumes
           list                    List installed apps
           extensions              List locally verified third-party extensions
           extensions --json       Output extension inventory as JSON

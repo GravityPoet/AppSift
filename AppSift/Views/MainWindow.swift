@@ -477,6 +477,8 @@ struct MainWindow: View {
             InstallationFilesView()
         case .spaceLens:
             SpaceLensView()
+        case .storageAudit:
+            StorageAuditView(center: appState.storageAuditCenter)
         case .duplicateFiles:
             DuplicateFilesView()
         case .similarImages:

@@ -11,6 +11,39 @@ struct SystemVolumeSnapshot: Identifiable, Codable, Hashable, Sendable {
     let isInternal: Bool
     let isRemovable: Bool
     let isReadOnly: Bool
+    let deviceIdentifier: String?
+    let filesystemType: String?
+    let volumeRole: String?
+    let containerIdentifier: String?
+    let isBackupVolume: Bool
+
+    init(
+        path: String,
+        name: String,
+        totalBytes: Int64,
+        availableBytes: Int64,
+        isInternal: Bool,
+        isRemovable: Bool,
+        isReadOnly: Bool,
+        deviceIdentifier: String? = nil,
+        filesystemType: String? = nil,
+        volumeRole: String? = nil,
+        containerIdentifier: String? = nil,
+        isBackupVolume: Bool = false
+    ) {
+        self.path = path
+        self.name = name
+        self.totalBytes = totalBytes
+        self.availableBytes = availableBytes
+        self.isInternal = isInternal
+        self.isRemovable = isRemovable
+        self.isReadOnly = isReadOnly
+        self.deviceIdentifier = deviceIdentifier
+        self.filesystemType = filesystemType
+        self.volumeRole = volumeRole
+        self.containerIdentifier = containerIdentifier
+        self.isBackupVolume = isBackupVolume
+    }
 
     var id: String { path }
     var usedBytes: Int64 { max(0, totalBytes - availableBytes) }
@@ -40,6 +73,19 @@ struct SystemMemorySnapshot: Codable, Hashable, Sendable {
     let usedBytes: Int64
     let totalBytes: Int64
     let swapUsedBytes: Int64
+    let pressureLevel: Int?
+
+    init(
+        usedBytes: Int64,
+        totalBytes: Int64,
+        swapUsedBytes: Int64,
+        pressureLevel: Int? = nil
+    ) {
+        self.usedBytes = usedBytes
+        self.totalBytes = totalBytes
+        self.swapUsedBytes = swapUsedBytes
+        self.pressureLevel = pressureLevel
+    }
 
     var usedFraction: Double {
         guard totalBytes > 0 else { return 0 }
@@ -53,8 +99,17 @@ struct SystemTrashSnapshot: Codable, Hashable, Sendable {
     let oldestModificationDate: Date?
 }
 
+struct SystemProcessMemorySnapshot: Identifiable, Codable, Hashable, Sendable {
+    let pid: Int32
+    let name: String
+    let residentBytes: Int64
+    let commandLine: String?
+
+    var id: Int32 { pid }
+}
+
 enum SystemTelemetryReader {
-    static func mountedVolumes() -> [SystemVolumeSnapshot] {
+    static func mountedVolumes(includeHidden: Bool = false) -> [SystemVolumeSnapshot] {
         let keys: Set<URLResourceKey> = [
             .volumeNameKey,
             .volumeTotalCapacityKey,
@@ -66,28 +121,34 @@ enum SystemTelemetryReader {
         ]
         let urls = FileManager.default.mountedVolumeURLs(
             includingResourceValuesForKeys: Array(keys),
-            options: [.skipHiddenVolumes]
+            options: includeHidden ? [] : [.skipHiddenVolumes]
         ) ?? []
         var seen = Set<String>()
         return urls.compactMap { url -> SystemVolumeSnapshot? in
             let standardized = url.standardizedFileURL
             guard seen.insert(standardized.path).inserted,
                   let values = try? standardized.resourceValues(forKeys: keys),
-                  values.volumeIsBrowsable != false,
+                  (includeHidden || values.volumeIsBrowsable != false),
                   let total = values.volumeTotalCapacity,
                   total > 0 else { return nil }
             let attributes = try? FileManager.default.attributesOfFileSystem(forPath: standardized.path)
             guard let available = (attributes?[.systemFreeSize] as? Int64)
                 ?? values.volumeAvailableCapacity.map(Int64.init) else { return nil }
+            let metadata = diskMetadata(for: standardized.path)
             return SystemVolumeSnapshot(
                 path: standardized.path,
                 name: values.volumeName?.trimmingCharacters(in: .whitespacesAndNewlines)
                     .nilIfEmpty ?? standardized.lastPathComponent.nilIfEmpty ?? String(localized: "Macintosh HD"),
                 totalBytes: Int64(total),
                 availableBytes: Int64(max(0, available)),
-                isInternal: values.volumeIsInternal ?? !((values.volumeIsRemovable) ?? false),
+                isInternal: values.volumeIsInternal ?? !standardized.path.hasPrefix("/Volumes/"),
                 isRemovable: values.volumeIsRemovable ?? false,
-                isReadOnly: values.volumeIsReadOnly ?? false
+                isReadOnly: volumeIsReadOnly(atPath: standardized.path),
+                deviceIdentifier: metadata.deviceIdentifier,
+                filesystemType: metadata.filesystemType,
+                volumeRole: metadata.volumeRole,
+                containerIdentifier: metadata.containerIdentifier,
+                isBackupVolume: metadata.isBackupVolume
             )
         }
         .sorted {
@@ -96,6 +157,12 @@ enum SystemTelemetryReader {
             if $0.isInternal != $1.isInternal { return $0.isInternal }
             return $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
+    }
+
+    private static func volumeIsReadOnly(atPath path: String) -> Bool {
+        var statistics = statfs()
+        guard statfs(path, &statistics) == 0 else { return false }
+        return (statistics.f_flags & UInt32(MNT_RDONLY)) != 0
     }
 
     static func internalBattery() -> SystemBatterySnapshot? {
@@ -233,7 +300,141 @@ enum SystemTelemetryReader {
         return SystemMemorySnapshot(
             usedBytes: max(0, used),
             totalBytes: Int64(ProcessInfo.processInfo.physicalMemory),
-            swapUsedBytes: swapResult == 0 ? Int64(swap.xsu_used) : 0
+            swapUsedBytes: swapResult == 0 ? Int64(swap.xsu_used) : 0,
+            pressureLevel: memoryPressureLevel()
+        )
+    }
+
+    private static func memoryPressureLevel() -> Int? {
+        var pressure: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname(
+            "kern.memorystatus_vm_pressure_level",
+            &pressure,
+            &size,
+            nil,
+            0
+        ) == 0 else { return nil }
+        return Int(pressure)
+    }
+
+    /// Returns a bounded process RSS inventory for the read-only storage audit.
+    /// `ps` is used because it exposes both system and user processes, including
+    /// QEMU/UTM helpers that are not represented by NSRunningApplication.
+    static func topProcessesByMemory(limit: Int = 16) -> [SystemProcessMemorySnapshot] {
+        Array(allProcessesByMemory().prefix(max(1, limit)))
+    }
+
+    /// Returns the complete process snapshot used for matching host-side VM
+    /// assets. The UI and report intentionally display only the largest 16.
+    static func allProcessesByMemory() -> [SystemProcessMemorySnapshot] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-axo", "pid=,rss=,comm=,args="]
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appsift-processes-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
+              let outputHandle = try? FileHandle(forWritingTo: outputURL) else {
+            return []
+        }
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        process.standardOutput = outputHandle
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            try? outputHandle.close()
+            return []
+        }
+        try? outputHandle.close()
+        guard process.terminationStatus == 0,
+              let output = try? String(
+                contentsOf: outputURL,
+                encoding: .utf8
+              ) else {
+            return []
+        }
+
+        let snapshots: [SystemProcessMemorySnapshot] = output.split(
+            whereSeparator: { $0.isNewline }
+        ).compactMap { rawLine in
+            let fields = rawLine.split(
+                separator: " ",
+                maxSplits: 3,
+                omittingEmptySubsequences: true
+            )
+            guard fields.count >= 3,
+                  let pid = Int32(fields[0]),
+                  let residentKB = Int64(fields[1]) else {
+                return nil
+            }
+            let name = String(fields[2])
+            let commandLine = fields.count == 4 ? String(fields[3]) : nil
+            return SystemProcessMemorySnapshot(
+                pid: pid,
+                name: name,
+                residentBytes: max(0, residentKB) * 1024,
+                commandLine: commandLine?.isEmpty == true ? nil : commandLine
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.residentBytes != rhs.residentBytes {
+                return lhs.residentBytes > rhs.residentBytes
+            }
+            return lhs.pid < rhs.pid
+        }
+        return snapshots
+    }
+
+    private static func diskMetadata(for path: String) -> (
+        deviceIdentifier: String?,
+        filesystemType: String?,
+        volumeRole: String?,
+        containerIdentifier: String?,
+        isBackupVolume: Bool
+    ) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        process.arguments = ["info", "-plist", path]
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appsift-disk-info-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
+              let outputHandle = try? FileHandle(forWritingTo: outputURL) else {
+            return (nil, nil, nil, nil, false)
+        }
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        process.standardOutput = outputHandle
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            try? outputHandle.close()
+            return (nil, nil, nil, nil, false)
+        }
+        try? outputHandle.close()
+        guard process.terminationStatus == 0,
+              let data = try? Data(contentsOf: outputURL),
+              let plist = try? PropertyListSerialization.propertyList(
+                from: data,
+                options: [],
+                format: nil
+              ) as? [String: Any] else {
+            return (nil, nil, nil, nil, false)
+        }
+        let role = plist["APFSVolumeRole"] as? String
+        let isBackup = role?.localizedCaseInsensitiveContains("backup") == true
+            || (plist["APFSVolumeRoles"] as? [String])?.contains {
+                $0.localizedCaseInsensitiveContains("backup")
+            } == true
+        return (
+            plist["DeviceIdentifier"] as? String,
+            (plist["FilesystemName"] as? String) ?? (plist["FilesystemType"] as? String),
+            role,
+            (plist["APFSContainerReference"] as? String)
+                ?? (plist["APFSContainerUUID"] as? String),
+            isBackup
         )
     }
 

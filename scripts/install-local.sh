@@ -348,6 +348,10 @@ if [[ "$physical_paths" != "$INSTALL_APP" ]]; then
 fi
 
 spotlight_paths=""
+# A freshly atomically replaced bundle is not guaranteed to be visible to
+# Spotlight within the short LaunchServices window. Import the canonical
+# bundle once, then keep the strict exact-path query below as the gate.
+/usr/bin/mdimport "$INSTALL_APP" >/dev/null 2>&1 || true
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
   spotlight_paths="$(mdfind 'kMDItemCFBundleIdentifier == "com.gravitypoet.appsift"c' | sort -u)"
   [[ "$spotlight_paths" == "$INSTALL_APP" ]] && break

@@ -170,6 +170,7 @@ final class LocalizationFilesTests: XCTestCase {
             "AppSift/Views/IOSBackupsView.swift",
             "AppSift/Views/SimilarImagesView.swift",
             "AppSift/Views/SpaceLensView.swift",
+            "AppSift/Views/StorageAuditView.swift",
             "AppSift/Views/SystemHealthView.swift",
             "AppSift/Views/SystemMaintenanceView.swift",
             "AppSift/Views/SystemResidueView.swift",

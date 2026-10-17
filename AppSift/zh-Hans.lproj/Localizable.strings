@@ -1780,3 +1780,52 @@
 "Could not move this item to Trash. Scan again before removal." = "无法将该项目移入废纸篓，请重新扫描后再移除。";
 
 "Moved to Trash" = "已移入废纸篓";
+
+/* Storage Audit */
+"Coverage and Boundaries" = "覆盖范围与边界";
+"Directories" = "目录";
+"Largest Processes by RSS" = "按 RSS 排序的进程";
+"Measure the Mac and mounted external disks without classifying or deleting files." = "测量 Mac 和已装载的外接磁盘，不进行分类或删除。";
+"No UTM or virtual disk assets were discovered on mounted volumes." = "已装载卷中未发现 UTM 或虚拟磁盘资产。";
+"Not observed running · guest not entered" = "未观察到运行 · 未进入客体";
+"Process memory" = "进程内存";
+"Read-only coverage audit" = "只读覆盖审计";
+"Running · guest not entered" = "正在运行 · 未进入客体";
+"Scan Mac and External Disks" = "扫描 Mac 和外接磁盘";
+"Storage Audit" = "存储审计";
+"The audit separates the internal volume from each mounted external volume, reports unreadable paths, and identifies host-side UTM assets." = "审计会分别处理内部卷和每个外接卷，报告不可读路径，并识别宿主机上的 UTM 资产。";
+"Time Machine volumes are metadata-only; Windows guest contents are not entered." = "Time Machine 卷只读取元数据；不会进入 Windows 客体内容。";
+"Virtual Machine Host Assets" = "虚拟机宿主资产";
+"Volumes" = "卷";
+"%@ files · %@ dirs" = "%1$@ 个文件 · %2$@ 个目录";
+"%@ items" = "%1$@ 个项目";
+"%@ unreadable" = "%1$@ 个不可读项目";
+"Scanning %@" = "正在扫描 %1$@";
+"Used %@ / %@" = "已用 %1$@ / %2$@";
+"The internal root and each readable external volume are measured separately to avoid double counting mounted volumes." = "内部根目录和每个可读外接卷会分别测量，避免重复计算已装载卷。";
+"Unreadable paths, symlinks, cloud placeholders, and nested volumes are counted as coverage boundaries." = "不可读路径、符号链接、云占位文件和嵌套卷会作为覆盖边界计数。";
+"Windows guest files are not entered; UTM and virtual disk files are host-side assets only." = "不会进入 Windows 客体文件；UTM 和虚拟磁盘文件仅作为宿主资产。";
+"Time Machine external volumes are intentionally metadata-only in this audit." = "本审计会有意将 Time Machine 外接卷限定为元数据模式。";
+"Time Machine volumes are shown as metadata only." = "Time Machine 卷仅显示元数据。";
+"The scan was cancelled before finalizing." = "扫描在完成整理前被取消。";
+"The volume could not be read." = "无法读取该卷。";
+"Some paths could not be read; inspect the inaccessible count and sample paths." = "部分路径无法读取；请检查不可读数量和示例路径。";
+"Windows guest was not entered; this is a host-side VM asset." = "未进入 Windows 客体；这是宿主机上的虚拟机资产。";
+
+/* Storage Audit */
+"The guest OS was not entered; this is a host-side VM asset." = "未进入客体系统；这是宿主机上的虚拟机资产。";
+
+/* Storage Audit */
+"%@ symlinks · %@ cloud · %@ nested · %@ firmlinks" = "%1$@ 个符号链接 · %2$@ 个云占位 · %3$@ 个嵌套卷 · %4$@ 个 firmlink";
+"Data" = "数据";
+"The macOS System and Data volumes share one APFS container; their capacity figures are not added together." = "macOS 系统卷和数据卷共享一个 APFS 容器；容量数据不会相加。";
+"Unreadable path samples" = "不可读路径示例";
+
+/* Storage Audit */
+"Logical %@ · allocated %@" = "逻辑 %1$@ · 已分配 %2$@";
+"%@ symlinks · %@ cloud · %@ nested · %@ firmlinks · %@ hard-link aliases" = "%1$@ 个符号链接 · %2$@ 个云占位 · %3$@ 个嵌套卷 · %4$@ 个 firmlink · %5$@ 个硬链接别名";
+"Auxiliary internal volumes are represented as metadata to avoid double counting the APFS container." = "辅助内部卷以元数据表示，避免重复计算 APFS 容器。";
+"The mutable Data volume and each readable external volume are measured separately; read-only System and Time Machine volumes remain metadata-only." = "可写数据卷和每个可读外接卷分别测量；只读系统卷和 Time Machine 卷保持为元数据模式。";
+"The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "只读系统卷以元数据表示；数据卷递归扫描。";
+"metadata only" = "仅元数据";
+"Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "逻辑总量可能包含硬链接别名或 APFS 克隆流；已分配总量用于物理占用对比。";

@@ -16,6 +16,7 @@ enum AppSection: Hashable {
     case installationFiles
     case duplicateFiles
     case spaceLens
+    case storageAudit
     case iosBackups
     case downloadsBySource
     case similarImages
@@ -1697,6 +1698,7 @@ final class AppState: ObservableObject {
     let similarImageCenter = SimilarImageCenter()
     let systemMaintenanceCenter = SystemMaintenanceCenter()
     let systemResidueCenter = SystemResidueCenter()
+    let storageAuditCenter = StorageAuditCenter()
 
     @Published var localTimeMachineSnapshots: [TimeMachineSnapshot] = []
     @Published var selectedTimeMachineSnapshotIDs: Set<String> = []

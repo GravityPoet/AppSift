@@ -56,6 +56,8 @@ struct AppTool: Identifiable {
             return "Find leftovers from apps no longer installed."
         case .spaceLens:
             return "Explore disk usage with an interactive space map."
+        case .storageAudit:
+            return "Audit internal and external volumes with explicit coverage boundaries."
         case .duplicateFiles:
             return "Find exact copies by verified file content."
         case .similarImages:
@@ -180,6 +182,14 @@ enum AppToolCatalog {
                 titleKey: "Space Lens",
                 systemImage: "square.3.layers.3d",
                 tint: Tint.purple,
+                category: .storage
+            ),
+            AppTool(
+                id: "storage-audit",
+                section: .storageAudit,
+                titleKey: "Storage Audit",
+                systemImage: "waveform.path.ecg.rectangle",
+                tint: Tint.cyan,
                 category: .storage
             ),
             AppTool(
@@ -615,6 +625,12 @@ struct ToolboxView: View {
                     countStyle: .file
                 )
             }
+        case .storageAudit:
+            guard let report = appState.storageAuditCenter.report else { return nil }
+            return ByteCountFormatter.string(
+                fromByteCount: report.totalAllocatedBytes,
+                countStyle: .file
+            )
         case .duplicateFiles:
             return appState.duplicateFileCount == 0
                 ? nil

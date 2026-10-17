@@ -1780,3 +1780,52 @@
 "Could not move this item to Trash. Scan again before removal." = "Could not move this item to Trash. Scan again before removal.";
 
 "Moved to Trash" = "Moved to Trash";
+
+/* Storage Audit */
+"Coverage and Boundaries" = "Coverage and Boundaries";
+"Directories" = "Directories";
+"Largest Processes by RSS" = "Largest Processes by RSS";
+"Measure the Mac and mounted external disks without classifying or deleting files." = "Measure the Mac and mounted external disks without classifying or deleting files.";
+"No UTM or virtual disk assets were discovered on mounted volumes." = "No UTM or virtual disk assets were discovered on mounted volumes.";
+"Not observed running · guest not entered" = "Not observed running · guest not entered";
+"Process memory" = "Process memory";
+"Read-only coverage audit" = "Read-only coverage audit";
+"Running · guest not entered" = "Running · guest not entered";
+"Scan Mac and External Disks" = "Scan Mac and External Disks";
+"Storage Audit" = "Storage Audit";
+"The audit separates the internal volume from each mounted external volume, reports unreadable paths, and identifies host-side UTM assets." = "The audit separates the internal volume from each mounted external volume, reports unreadable paths, and identifies host-side UTM assets.";
+"Time Machine volumes are metadata-only; Windows guest contents are not entered." = "Time Machine volumes are metadata-only; Windows guest contents are not entered.";
+"Virtual Machine Host Assets" = "Virtual Machine Host Assets";
+"Volumes" = "Volumes";
+"%@ files · %@ dirs" = "%@ files · %@ dirs";
+"%@ items" = "%@ items";
+"%@ unreadable" = "%@ unreadable";
+"Scanning %@" = "Scanning %@";
+"Used %@ / %@" = "Used %@ / %@";
+"The internal root and each readable external volume are measured separately to avoid double counting mounted volumes." = "The internal root and each readable external volume are measured separately to avoid double counting mounted volumes.";
+"Unreadable paths, symlinks, cloud placeholders, and nested volumes are counted as coverage boundaries." = "Unreadable paths, symlinks, cloud placeholders, and nested volumes are counted as coverage boundaries.";
+"Windows guest files are not entered; UTM and virtual disk files are host-side assets only." = "Windows guest files are not entered; UTM and virtual disk files are host-side assets only.";
+"Time Machine external volumes are intentionally metadata-only in this audit." = "Time Machine external volumes are intentionally metadata-only in this audit.";
+"Time Machine volumes are shown as metadata only." = "Time Machine volumes are shown as metadata only.";
+"The scan was cancelled before finalizing." = "The scan was cancelled before finalizing.";
+"The volume could not be read." = "The volume could not be read.";
+"Some paths could not be read; inspect the inaccessible count and sample paths." = "Some paths could not be read; inspect the inaccessible count and sample paths.";
+"Windows guest was not entered; this is a host-side VM asset." = "Windows guest was not entered; this is a host-side VM asset.";
+
+/* Storage Audit */
+"The guest OS was not entered; this is a host-side VM asset." = "The guest OS was not entered; this is a host-side VM asset.";
+
+/* Storage Audit */
+"%@ symlinks · %@ cloud · %@ nested · %@ firmlinks" = "%@ symlinks · %@ cloud · %@ nested · %@ firmlinks";
+"Data" = "Data";
+"The macOS System and Data volumes share one APFS container; their capacity figures are not added together." = "The macOS System and Data volumes share one APFS container; their capacity figures are not added together.";
+"Unreadable path samples" = "Unreadable path samples";
+
+/* Storage Audit */
+"Logical %@ · allocated %@" = "Logical %@ · allocated %@";
+"%@ symlinks · %@ cloud · %@ nested · %@ firmlinks · %@ hard-link aliases" = "%@ symlinks · %@ cloud · %@ nested · %@ firmlinks · %@ hard-link aliases";
+"Auxiliary internal volumes are represented as metadata to avoid double counting the APFS container." = "Auxiliary internal volumes are represented as metadata to avoid double counting the APFS container.";
+"The mutable Data volume and each readable external volume are measured separately; read-only System and Time Machine volumes remain metadata-only." = "The mutable Data volume and each readable external volume are measured separately; read-only System and Time Machine volumes remain metadata-only.";
+"The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "The read-only System volume is represented as metadata; the Data volume is scanned recursively.";
+"metadata only" = "metadata only";
+"Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison.";
