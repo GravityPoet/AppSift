@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "The read-only System volume is represented as metadata; the Data volume is scanned recursively.";
 "metadata only" = "metadata only";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison.";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "%@ is still running, so AppSift did not reset it. Quit the app, then try again.";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "%@ is still running, so AppSift did not uninstall it. Quit the app, then try again.";
+"%lld already absent" = "%lld already absent";
+"%lld items to move" = "%lld items to move";
+"%lld moved to Trash" = "%lld moved to Trash";
+"%lld not moved" = "%lld not moved";
+"App Bundle" = "App Bundle";
+"App is no longer installed" = "App is no longer installed";
+"App stays installed" = "App stays installed";
+"AppSift will ask the app to quit if it is running." = "AppSift will ask the app to quit if it is running.";
+"Calculating size…" = "Calculating size…";
+"Checking for remaining files…" = "Checking for remaining files…";
+"File Actions" = "File Actions";
+"Grant Access & Retry…" = "Grant Access & Retry…";
+"No additional files were found in the scanned locations." = "No additional files were found in the scanned locations.";
+"Remaining Files" = "Remaining Files";
+"Removal cancelled for %@" = "Removal cancelled for %@";
+"Removal complete for %@" = "Removal complete for %@";
+"Removal failed for %@" = "Removal failed for %@";
+"Removal incomplete for %@" = "Removal incomplete for %@";
+"Removing files for %@…" = "Removing files for %@…";
+"Restore moved items from Removal History while they are still in Trash." = "Restore moved items from Removal History while they are still in Trash.";
+"Review Removal…" = "Review Removal…";
+"Review Reset…" = "Review Reset…";
+"Review This Item…" = "Review This Item…";
+"Review Uninstall…" = "Review Uninstall…";
+"Select App Only" = "Select App Only";
+"Selected data may include settings, sign-ins, or locally stored documents." = "Selected data may include settings, sign-ins, or locally stored documents.";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "The related-file scan changed. Review the selection again before moving anything to Trash.";
+"Uninstall %@?" = "Uninstall %@?";
+"View Report…" = "View Report…";
+"macOS may ask for administrator authorization for some selected items." = "macOS may ask for administrator authorization for some selected items.";

@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "The read-only System volume is represented as metadata; the Data volume is scanned recursively.";
 "metadata only" = "metadata only";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison.";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "لا يزال %@ قيد التشغيل، لذا لم يُعَد ضبطه. أنهِ التطبيق وحاول مجددًا.";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "لا يزال %@ قيد التشغيل، لذا لم يُلغَ تثبيته. أنهِ التطبيق وحاول مجددًا.";
+"%lld already absent" = "عناصر غير موجودة مسبقًا: %lld";
+"%lld items to move" = "العناصر المطلوب نقلها: %lld";
+"%lld moved to Trash" = "عناصر منقولة إلى سلة المهملات: %lld";
+"%lld not moved" = "عناصر لم تُنقل: %lld";
+"App Bundle" = "حزمة التطبيق";
+"App is no longer installed" = "التطبيق لم يعد في موقعه الأصلي";
+"App stays installed" = "سيظل التطبيق مثبتًا";
+"AppSift will ask the app to quit if it is running." = "سيطلب AppSift إنهاء التطبيق إذا كان قيد التشغيل.";
+"Calculating size…" = "جارٍ حساب الحجم…";
+"Checking for remaining files…" = "جارٍ البحث عن الملفات المتبقية…";
+"File Actions" = "إجراءات الملف";
+"Grant Access & Retry…" = "منح الوصول وإعادة المحاولة…";
+"No additional files were found in the scanned locations." = "لم يُعثر على ملفات إضافية في المواقع المفحوصة.";
+"Remaining Files" = "الملفات المتبقية";
+"Removal cancelled for %@" = "أُلغي نقل عناصر %@";
+"Removal complete for %@" = "اكتمل نقل عناصر %@";
+"Removal failed for %@" = "تعذّر نقل عناصر %@";
+"Removal incomplete for %@" = "لا تزال بعض عناصر %@ في مكانها";
+"Removing files for %@…" = "جارٍ نقل ملفات %@…";
+"Restore moved items from Removal History while they are still in Trash." = "يمكن استعادة العناصر من سجل الإزالة ما دامت في سلة المهملات.";
+"Review Removal…" = "مراجعة العناصر للإزالة…";
+"Review Reset…" = "مراجعة إعادة الضبط…";
+"Review This Item…" = "مراجعة هذا العنصر…";
+"Review Uninstall…" = "مراجعة إلغاء التثبيت…";
+"Select App Only" = "تحديد التطبيق فقط";
+"Selected data may include settings, sign-ins, or locally stored documents." = "قد تتضمن البيانات المحددة إعدادات أو جلسات دخول أو مستندات محفوظة محليًا.";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "تغيّرت نتائج فحص الملفات المرتبطة. راجع التحديد قبل نقله إلى سلة المهملات.";
+"Uninstall %@?" = "هل تريد إلغاء تثبيت %@؟";
+"View Report…" = "عرض التقرير…";
+"macOS may ask for administrator authorization for some selected items." = "قد يطلب macOS إذن المسؤول لبعض العناصر المحددة.";

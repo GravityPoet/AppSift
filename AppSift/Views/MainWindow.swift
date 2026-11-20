@@ -141,13 +141,6 @@ struct MainWindow: View {
                 context: .cleanup(failedCount: pending.count)
             )
         }
-        .onChange(of: appState.removalNeedsFullDiskAccess) { needs in
-            // Keep the uninstall retry observer at the window root. A partial
-            // removal can move the app bundle successfully and make its detail
-            // view disappear before permission-denied leftovers are retried.
-            guard needs else { return }
-            appState.requestFullDiskAccessAndRetryAppRemoval()
-        }
         .alert("Couldn't clean everything", isPresented: Binding(
             get: { appState.cleanError != nil && !appState.cleanErrorIsFDAFixable },
             set: { if !$0 { appState.cleanError = nil } }
@@ -468,7 +461,7 @@ struct MainWindow: View {
                 navigate(to: section)
             }
         case .apps:
-            AppListView()
+            AppListView { navigate(to: .removalHistory) }
         case .appUpdates:
             AppUpdatesView()
         case .networkAccess:

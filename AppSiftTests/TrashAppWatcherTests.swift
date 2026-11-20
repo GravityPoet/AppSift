@@ -312,7 +312,7 @@ final class TrashAppReviewStateTests: XCTestCase {
     func testDetectionQueuesInAppReviewWithoutNotificationAuthorization() async throws {
         let appState = AppState(performStartupTasks: false)
         let candidate = TrashAppCandidate(
-            url: URL(fileURLWithPath: "/Users/test/.Trash/Queued.app", isDirectory: true),
+            url: URL(fileURLWithPath: "/FixtureUser/.Trash/Queued.app", isDirectory: true),
             appName: "Queued",
             bundleIdentifier: "com.example.queued"
         )
@@ -332,8 +332,8 @@ final class TrashAppReviewStateTests: XCTestCase {
 
     func testTrashReviewScanNeverIncludesTheTrashedAppBundle() throws {
         var completion: ((Set<URL>) -> Void)?
-        let appURL = URL(fileURLWithPath: "/Users/test/.Trash/Example.app", isDirectory: true)
-        let leftover = URL(fileURLWithPath: "/Users/test/Library/Caches/com.example.editor")
+        let appURL = URL(fileURLWithPath: "/FixtureUser/.Trash/Example.app", isDirectory: true)
+        let leftover = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.example.editor")
         let signature = AppSignatureMetadata(
             status: .developerSigned,
             signingIdentifier: "com.example.editor",
@@ -366,7 +366,7 @@ final class TrashAppReviewStateTests: XCTestCase {
         XCTAssertEqual(appState.selectedFiles, [leftover])
         XCTAssertFalse(appState.discoveredFiles.contains(appURL))
         XCTAssertFalse(appState.selectedFiles.contains(appURL))
-        XCTAssertTrue(appState.isReviewingTrashedApp)
+        XCTAssertEqual(appState.appFileReviewBundleState, .inTrash)
         XCTAssertFalse(appState.canResetSelectedApp)
         XCTAssertEqual(ExternalAppAction.reviewTrash.initialSelection, .relatedFiles)
     }

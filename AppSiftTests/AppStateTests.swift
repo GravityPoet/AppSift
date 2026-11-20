@@ -69,7 +69,7 @@ final class AppStateTests: XCTestCase {
         )
         let personalFile = CleanableItem(
             name: "Archive.zip",
-            path: "/Users/test/Downloads/Archive.zip",
+            path: "/FixtureUser/Downloads/Archive.zip",
             size: 1024,
             category: .largeFiles,
             isSelected: false,
@@ -242,12 +242,12 @@ final class AppStateTests: XCTestCase {
 
         appState.scanForAppFiles(selectedApp)
         let completeScan = try XCTUnwrap(completion)
-        let ownCache = URL(fileURLWithPath: "/Users/test/Library/Caches/com.openai.codex")
+        let ownCache = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.openai.codex")
         let foreignIndex = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.707.41301.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.707.41301.plist"
         )
         let secondForeignIndex = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.707.41302.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.707.41302.plist"
         )
         completeScan([selectedApp.path, ownCache, foreignIndex, secondForeignIndex])
 
@@ -255,7 +255,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.selectedFiles, [selectedApp.path, ownCache])
         XCTAssertFalse(appState.discoveredFiles.contains(foreignIndex))
         XCTAssertEqual(appState.protectedAppFiles.map(\.url), [
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIII")
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIII")
         ])
         XCTAssertEqual(appState.protectedAppFiles.first?.reason, .foreignPrivateData)
         XCTAssertEqual(appState.protectedAppFiles.first?.matchedItemCount, 2)
@@ -285,10 +285,10 @@ final class AppStateTests: XCTestCase {
         appState.scanForAppFiles(selectedApp)
         let completeScan = try XCTUnwrap(completion)
         let weakBackup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/OpenFind"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/OpenFind"
         )
         let exactBundleBackup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/com.openfind.app.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/com.openfind.app.plist"
         )
         completeScan([selectedApp.path, weakBackup, exactBundleBackup])
 
@@ -315,10 +315,10 @@ final class AppStateTests: XCTestCase {
             path: "/Applications/OpenFind.app"
         )
         let weakBackup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/OpenFind"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/OpenFind"
         )
         let exactBundleBackup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/com.openfind.app.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/com.openfind.app.plist"
         )
         let appState = AppState(
             performStartupTasks: false,
@@ -377,9 +377,9 @@ final class AppStateTests: XCTestCase {
 
         appState.scanForAppFiles(selectedApp)
         let completeScan = try XCTUnwrap(completion)
-        let ownCache = URL(fileURLWithPath: "/Users/test/Library/Caches/com.openai.codex")
+        let ownCache = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.openai.codex")
         let sharedGroup = URL(
-            fileURLWithPath: "/Users/test/Library/Group Containers/\(groupIdentifier)"
+            fileURLWithPath: "/FixtureUser/Library/Group Containers/\(groupIdentifier)"
         )
         completeScan([selectedApp.path, ownCache, sharedGroup])
 
@@ -470,7 +470,7 @@ final class AppStateTests: XCTestCase {
         )
         appState.installedApps = [selected, peer]
         let protectedContainer = URL(
-            fileURLWithPath: "/Users/test/Library/Group Containers/\(groupIdentifier)"
+            fileURLWithPath: "/FixtureUser/Library/Group Containers/\(groupIdentifier)"
         )
 
         appState.scanForAppFiles(selected)
@@ -581,7 +581,7 @@ final class AppStateTests: XCTestCase {
 
         let completeFirstScan = try XCTUnwrap(firstCompletion)
         completeFirstScan([
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/chordvox")
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/chordvox")
         ])
 
         XCTAssertTrue(appState.isScanningAppFiles)
@@ -590,7 +590,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(appState.canRemoveSelectedAppFiles)
 
         let clashURLs: Set<URL> = [
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev")
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev")
         ]
         let completeSecondScan = try XCTUnwrap(secondCompletion)
         completeSecondScan(clashURLs)
@@ -640,11 +640,10 @@ final class AppStateTests: XCTestCase {
     func testRemoveSelectedFilesDoesNotTrashRunningAppWhenQuitFails() async throws {
         var completion: ((Set<URL>) -> Void)?
         var terminationRequests: [String] = []
-        let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("AppSiftAppStateTests-\(UUID().uuidString)", isDirectory: true)
+        let tempDirectory = try makeTrashQATemporaryDirectory(prefix: "RunningApp")
+        addTeardownBlock { try recycleQAFixture(tempDirectory) }
         let appBundle = tempDirectory.appendingPathComponent("ChordVox.app", isDirectory: true)
         try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
         let app = makeApp(
             name: "ChordVox",
@@ -678,7 +677,10 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(appState.selectedFiles.contains(appBundle))
         XCTAssertFalse(appState.isRemovingAppFiles)
         XCTAssertFalse(appState.removalNeedsFullDiskAccess)
-        XCTAssertTrue(appState.removalError?.contains("still running") == true)
+        XCTAssertEqual(appState.removalError, String(
+            format: String(localized: "%@ is still running, so AppSift did not uninstall it. Quit the app, then try again."),
+            app.appName
+        ))
     }
 
     func testRemoveSelectedFilesRecordsRestorableTrashReceipt() async throws {
@@ -693,7 +695,7 @@ final class AppStateTests: XCTestCase {
             .appendingPathComponent("com.example.editor", isDirectory: true)
         try FileManager.default.createDirectory(at: original, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: original) }
-        let trashURL = URL(fileURLWithPath: "/Users/test/.Trash/com.example.editor")
+        let trashURL = URL(fileURLWithPath: "/FixtureUser/.Trash/com.example.editor")
         let appState = AppState(
             performStartupTasks: false,
             searchSensitivityProvider: { .enhanced },
@@ -824,11 +826,12 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(reconciled.isInactiveRegistration)
     }
 
-    func testUninstallRunsResidualScanAndPersistsRemainingReport() async throws {
+    func testAppOnlyUninstallKeepsLeftoversAndCompletesResidualScanAfterSwitchingApps() async throws {
         var initialCompletion: ((Set<URL>) -> Void)?
+        var residualCompletion: ((Set<URL>) -> Void)?
         let scanCalls = ThreadSafeCounter()
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppSiftResidualReport-\(UUID().uuidString)", isDirectory: true)
+        let root = try makeTrashQATemporaryDirectory(prefix: "ResidualReport")
+        addTeardownBlock { try recycleQAFixture(root) }
         let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
         let leftover = root.appendingPathComponent(
             "Library/Caches/com.example.editor.cache",
@@ -838,33 +841,34 @@ final class AppStateTests: XCTestCase {
         let historyURL = root.appendingPathComponent("history.json")
         try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let app = makeApp(
             name: "Example",
             bundleIdentifier: "com.example.editor",
             path: appBundle.path
         )
+        let next = makeApp(name: "Other App", bundleIdentifier: "com.example.other")
         let appState = AppState(
             performStartupTasks: false,
-            appFileScanner: { _, _, completion in
+            appFileScanner: { scannedApp, _, completion in
+                guard scannedApp.id == app.id else {
+                    completion([])
+                    return nil
+                }
                 if scanCalls.increment() == 1 {
                     initialCompletion = completion
                 } else {
-                    completion([leftover])
+                    residualCompletion = completion
                 }
                 return {}
             },
             appFileTrashHandler: { urls in
-                XCTAssertEqual(Set(urls), Set([appBundle, leftover]))
+                XCTAssertEqual(urls, [appBundle])
                 return AppFileTrashResult(
                     trashed: [TrashedAppFile(originalURL: appBundle, trashURL: trashURL)],
                     missing: [],
                     needsFullDiskAccess: false,
-                    failed: [leftover],
-                    failureDetails: [
-                        leftover.path: AppFileRemovalFailure(kind: .finderRejected),
-                    ]
+                    failed: []
                 )
             },
             trashAppSuppressor: { _ in },
@@ -872,21 +876,122 @@ final class AppStateTests: XCTestCase {
             appTerminationHandler: { _, _ in .notRunning }
         )
 
+        appState.installedApps = [app, next]
         appState.scanForAppFiles(app)
         try XCTUnwrap(initialCompletion)([appBundle, leftover])
-        appState.removeSelectedFiles()
+        let review = try XCTUnwrap(appState.makeAppFileRemovalReview(for: [appBundle]))
+        XCTAssertEqual(review.operation, .uninstall)
+        appState.removeSelectedFiles(review: review)
 
-        try await waitUntil {
-            appState.removalResidualReport?.isComplete == true
-        }
-        let report = try XCTUnwrap(appState.removalResidualReport)
+        try await waitUntil { residualCompletion != nil }
+        let recordID = try XCTUnwrap(appState.removalHistory.first?.id)
+        XCTAssertTrue(appState.isCheckingRemovalRecord(recordID))
+        XCTAssertEqual(appState.latestAppRemoval?.recordID, recordID)
+        XCTAssertEqual(appState.installedApps.map(\.id), [next.id])
+        XCTAssertEqual(appState.selectedApp?.id, app.id)
+        XCTAssertEqual(appState.appFileReviewBundleState, .inTrash)
+        XCTAssertEqual(appState.discoveredFiles, [leftover])
+
+        appState.scanForAppFiles(next)
+        try XCTUnwrap(residualCompletion)([leftover])
+
+        let report = try XCTUnwrap(appState.removalHistory.first?.residualReport)
+        XCTAssertTrue(report.isComplete)
         XCTAssertEqual(report.remainingItems.map(\.path), [leftover.path])
         XCTAssertEqual(report.protectedItems, [])
         XCTAssertEqual(scanCalls.value, 2)
-        XCTAssertEqual(
-            appState.removalHistory.first?.residualReport,
-            report
+        XCTAssertFalse(appState.isCheckingRemovalRecord(recordID))
+        XCTAssertEqual(AppRemovalHistoryStore(fileURL: historyURL).snapshot().first?.residualReport, report)
+    }
+
+    func testReviewLocksSelectedPathsAndExpiresWhenTheSameAppIsRescanned() async throws {
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewScope")
+        addTeardownBlock { try recycleQAFixture(root) }
+        let app = makeApp(name: "Example", bundleIdentifier: "com.example.editor")
+        let first = root.appendingPathComponent("com.example.editor.first")
+        let second = root.appendingPathComponent("com.example.editor.second")
+        var completion: ((Set<URL>) -> Void)?
+        var attempts: [[URL]] = []
+        let state = AppState(
+            performStartupTasks: false,
+            appFileScanner: { _, _, callback in
+                completion = callback
+                return nil
+            },
+            appFileTrashHandler: { urls in
+                attempts.append(urls)
+                return AppFileTrashResult(trashed: [], missing: [], needsFullDiskAccess: false, failed: urls)
+            },
+            removalHistoryStore: AppRemovalHistoryStore(fileURL: root.appendingPathComponent("history.json"))
         )
+        state.scanForAppFiles(app)
+        try XCTUnwrap(completion)([first, second])
+        let review = try XCTUnwrap(state.makeAppFileRemovalReview(for: [first]))
+        state.selectedFiles = [second]
+        state.removeSelectedFiles(review: review)
+        try await waitUntil { state.latestAppRemoval != nil }
+        XCTAssertEqual(attempts, [[first]])
+        XCTAssertEqual(state.selectedFiles, [second])
+
+        state.scanForAppFiles(app)
+        try XCTUnwrap(completion)([first, second])
+        state.removeSelectedFiles(review: review)
+        XCTAssertEqual(attempts, [[first]])
+        XCTAssertEqual(state.removalHistory.count, 1)
+        XCTAssertEqual(state.removalError, String(localized: "The related-file scan changed. Review the selection again before moving anything to Trash."))
+    }
+
+    func testReviewedRelatedFileUsesFinderTrashAndRestoresFromItsReport() async throws {
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReviewRecovery")
+        addTeardownBlock { try recycleQAFixture(root) }
+        let parentBefore = try XCTUnwrap(ReviewedTrashFingerprint.read(at: root))
+        let source = root.appendingPathComponent("app-review-fixture-\(UUID().uuidString).txt")
+        let sentinel = root.appendingPathComponent("keep.txt")
+        let contents = Data("restorable payload".utf8)
+        try contents.write(to: source)
+        try contents.write(to: sentinel)
+        let historyURL = root.appendingPathComponent("history.json")
+        let state = AppState(
+            performStartupTasks: false,
+            appFileScanner: { _, _, complete in complete([source]); return nil },
+            appFileTrashHandler: { urls in
+                guard urls == [source] else {
+                    XCTFail("The reviewed move must stay inside the test fixture.")
+                    return AppFileTrashResult(trashed: [], missing: [], needsFullDiskAccess: false, failed: urls)
+                }
+                return await withCheckedContinuation { continuation in
+                    NSWorkspace.shared.recycle(urls) { recycled, error in
+                        continuation.resume(returning: AppFileTrashService.classify(
+                            requested: urls, recycled: recycled, error: error as NSError?,
+                            hasFullDiskAccess: true
+                        ))
+                    }
+                }
+            },
+            removalHistoryStore: AppRemovalHistoryStore(fileURL: historyURL),
+            appRemovalRestorer: AppRemovalRestorer(allowedDestinationRoots: [root])
+        )
+        let app = makeApp(name: "Fixture", bundleIdentifier: "com.example.fixture")
+        state.scanForAppFiles(app)
+        state.removeSelectedFiles(review: try XCTUnwrap(state.makeAppFileRemovalReview(for: [source])))
+        try await waitUntil { state.latestAppRemoval != nil }
+
+        let record = try XCTUnwrap(state.removalHistory.first)
+        let receipt = try XCTUnwrap(record.items.first)
+        let trashPath = try XCTUnwrap(receipt.trashPath)
+        XCTAssertEqual(state.latestAppRemoval?.movedCount, 1)
+        XCTAssertEqual(record.operation, .relatedFiles)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: trashPath)), contents)
+        XCTAssertEqual(AppRemovalHistoryStore(fileURL: historyURL).snapshot().first, record)
+
+        state.restoreAllAvailableItems(recordID: record.id)
+        try await waitUntil { state.removalHistory.first?.restoredItemCount == 1 }
+        XCTAssertEqual(try Data(contentsOf: source), contents)
+        XCTAssertEqual(try Data(contentsOf: sentinel), contents)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: trashPath))
+        XCTAssertEqual(ReviewedTrashFingerprint.read(at: root)?.inode, parentBefore.inode)
+        XCTAssertEqual(ReviewedTrashFingerprint.read(at: root)?.device, parentBefore.device)
     }
 
     func testRemovalRecordCapturesEveryOutcomeAndProtectedGroup() async throws {
@@ -897,11 +1002,11 @@ final class AppStateTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: historyURL) }
 
         let app = makeApp(name: "Example", bundleIdentifier: "com.example.editor")
-        let moved = URL(fileURLWithPath: "/Users/test/Library/Caches/com.example.editor")
-        let missing = URL(fileURLWithPath: "/Users/test/Library/Logs/com.example.editor.log")
-        let failed = URL(fileURLWithPath: "/Users/test/Library/Preferences/com.example.editor.plist")
+        let moved = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.example.editor")
+        let missing = URL(fileURLWithPath: "/FixtureUser/Library/Logs/com.example.editor.log")
+        let failed = URL(fileURLWithPath: "/FixtureUser/Library/Preferences/com.example.editor.plist")
         let foreignApp = URL(fileURLWithPath: "/Applications/Example Companion.app")
-        let trashURL = URL(fileURLWithPath: "/Users/test/.Trash/com.example.editor")
+        let trashURL = URL(fileURLWithPath: "/FixtureUser/.Trash/com.example.editor")
         let appState = AppState(
             performStartupTasks: false,
             searchSensitivityProvider: { .enhanced },
@@ -970,14 +1075,14 @@ final class AppStateTests: XCTestCase {
 
     func testPartialRemovalKeepsPermissionRetryAvailableAfterAppDisappears() async throws {
         var completion: ((Set<URL>) -> Void)?
+        let root = try makeTrashQATemporaryDirectory(prefix: "PartialRemoval")
+        addTeardownBlock { try recycleQAFixture(root) }
         var suppressedTrashApps: [URL] = []
-        let historyURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppSiftPartialRemoval-\(UUID().uuidString).json")
+        let historyURL = root.appendingPathComponent("history.json")
         let historyStore = AppRemovalHistoryStore(fileURL: historyURL)
-        defer { try? FileManager.default.removeItem(at: historyURL) }
         let app = makeApp(name: "Example", bundleIdentifier: "com.example.partial")
-        let leftover = URL(fileURLWithPath: "/Users/test/Library/Caches/com.example.partial")
-        let trashedApp = URL(fileURLWithPath: "/Users/test/.Trash/Example.app")
+        let leftover = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.example.partial")
+        let trashedApp = URL(fileURLWithPath: "/FixtureUser/.Trash/Example.app")
         let appState = AppState(
             performStartupTasks: false,
             appFileScanner: { _, _, pendingCompletion in
@@ -1011,23 +1116,26 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.selectedFiles, Set([leftover]))
         XCTAssertEqual(appState.removalHistory.count, 1)
         XCTAssertEqual(appState.removalHistory.first?.operation, .uninstall)
+        XCTAssertEqual(appState.latestAppRemoval?.movedCount, 1)
+        XCTAssertEqual(appState.latestAppRemoval?.failedCount, 1)
         XCTAssertEqual(suppressedTrashApps, [trashedApp])
-        XCTAssertTrue(appState.removalError?.contains("Full Disk Access") == true)
+        XCTAssertEqual(appState.removalError, String(
+            format: String(localized: "%lld item(s) need Full Disk Access"), Int64(1)
+        ))
+        XCTAssertTrue(appState.canRemoveSelectedAppFiles)
     }
 
     func testFailedRemovalDoesNotClaimItemsMovedWhenReportCannotPersist() async throws {
         var completion: ((Set<URL>) -> Void)?
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppSiftReportFailure-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTrashQATemporaryDirectory(prefix: "ReportFailure")
+        addTeardownBlock { try recycleQAFixture(root) }
         let blockingFile = root.appendingPathComponent("not-a-directory")
         try Data("blocked".utf8).write(to: blockingFile)
         let historyStore = AppRemovalHistoryStore(
             fileURL: blockingFile.appendingPathComponent("history.json")
         )
         let app = makeApp(name: "Example", bundleIdentifier: "com.example.editor")
-        let failed = URL(fileURLWithPath: "/Users/test/Library/Caches/com.example.editor")
+        let failed = URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.example.editor")
         let appState = AppState(
             performStartupTasks: false,
             appFileScanner: { _, _, pendingCompletion in
@@ -1055,6 +1163,7 @@ final class AppStateTests: XCTestCase {
         }
 
         XCTAssertTrue(appState.removalHistory.isEmpty)
+        XCTAssertNil(appState.latestAppRemoval?.recordID)
         let expectedPersistenceError = String(
             localized: "AppSift could not save the local removal report for this attempt."
         )
@@ -1069,8 +1178,8 @@ final class AppStateTests: XCTestCase {
         var completion: ((Set<URL>) -> Void)?
         var trashedBatches: [[URL]] = []
         var terminationRequests: [String] = []
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppSiftResetFlow-\(UUID().uuidString)", isDirectory: true)
+        let root = try makeTrashQATemporaryDirectory(prefix: "ResetFlow")
+        addTeardownBlock { try recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home", isDirectory: true)
         let library = home.appendingPathComponent("Library", isDirectory: true)
         let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
@@ -1080,7 +1189,6 @@ final class AppStateTests: XCTestCase {
         let launchAgent = library.appendingPathComponent("LaunchAgents/com.example.editor.plist")
         let historyURL = root.appendingPathComponent("history.json")
         let historyStore = AppRemovalHistoryStore(fileURL: historyURL)
-        defer { try? FileManager.default.removeItem(at: root) }
         for directory in [appBundle, cache, support, groupContainer] {
             try FileManager.default.createDirectory(
                 at: directory,
@@ -1161,8 +1269,8 @@ final class AppStateTests: XCTestCase {
     func testResetSelectedAppDoesNotTrashDataWhenQuitFails() async throws {
         var completion: ((Set<URL>) -> Void)?
         var trashCallCount = 0
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AppSiftResetQuit-\(UUID().uuidString)", isDirectory: true)
+        let root = try makeTrashQATemporaryDirectory(prefix: "ResetQuit")
+        addTeardownBlock { try recycleQAFixture(root) }
         let home = root.appendingPathComponent("Home", isDirectory: true)
         let appBundle = root.appendingPathComponent("Applications/Example.app", isDirectory: true)
         let cache = home.appendingPathComponent("Library/Caches/com.example.editor", isDirectory: true)
@@ -1170,7 +1278,6 @@ final class AppStateTests: XCTestCase {
         let historyStore = AppRemovalHistoryStore(fileURL: historyURL)
         try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
         let app = makeApp(
             name: "Example",
             bundleIdentifier: "com.example.editor",
@@ -1204,7 +1311,10 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(trashCallCount, 0)
         XCTAssertTrue(appState.removalHistory.isEmpty)
         XCTAssertTrue(appState.discoveredFiles.contains(cache))
-        XCTAssertTrue(appState.removalError?.contains("did not reset") == true)
+        XCTAssertEqual(appState.removalError, String(
+            format: String(localized: "%@ is still running, so AppSift did not reset it. Quit the app, then try again."),
+            app.appName
+        ))
     }
 
     func testFinderActionsChooseTheExpectedInitialSelection() {
@@ -1381,8 +1491,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let json = """
         {
           "id": "\(itemID.uuidString)",
-          "originalPath": "/Users/test/Library/Caches/com.example.editor",
-          "trashPath": "/Users/test/.Trash/com.example.editor"
+          "originalPath": "/FixtureUser/Library/Caches/com.example.editor",
+          "trashPath": "/FixtureUser/.Trash/com.example.editor"
         }
         """
 
@@ -1409,8 +1519,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
           "removedAt": 0,
           "items": [{
             "id": "\(itemID.uuidString)",
-            "originalPath": "/Users/test/Library/Caches/com.example.editor",
-            "trashPath": "/Users/test/.Trash/com.example.editor"
+            "originalPath": "/FixtureUser/Library/Caches/com.example.editor",
+            "trashPath": "/FixtureUser/.Trash/com.example.editor"
           }]
         }
         """
@@ -1434,15 +1544,15 @@ final class AppRemovalRecoveryTests: XCTestCase {
             searchSensitivity: .enhanced,
             items: [
                 AppRemovalHistoryItem(
-                    originalPath: "/Users/test/Library/Caches/com.example.editor",
-                    trashPath: "/Users/test/.Trash/com.example.editor",
+                    originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+                    trashPath: "/FixtureUser/.Trash/com.example.editor",
                     outcome: .movedToTrash,
                     evidence: .exactBundleIdentifier
                 ),
             ],
             protectedItems: [
                 AppRemovalProtectedItem(
-                    path: "/Users/test/Library/Group Containers/group.com.example.shared",
+                    path: "/FixtureUser/Library/Group Containers/group.com.example.shared",
                     reason: .sharedContainer,
                     matchedItemCount: 2
                 ),
@@ -1480,8 +1590,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
             bundleIdentifier: "com.example.editor",
             items: [
                 AppRemovalHistoryItem(
-                    originalPath: "/Users/test/Library/Caches/com.example.editor",
-                    trashPath: "/Users/test/.Trash/com.example.editor"
+                    originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+                    trashPath: "/FixtureUser/.Trash/com.example.editor"
                 ),
             ]
         )
@@ -1517,7 +1627,7 @@ final class AppRemovalRecoveryTests: XCTestCase {
     func testWorkspaceRecycleClassificationPreservesPartialTrashMapping() {
         let first = URL(fileURLWithPath: "/Applications/First.app")
         let second = URL(fileURLWithPath: "/Applications/Second.app")
-        let trashed = URL(fileURLWithPath: "/Users/test/.Trash/First.app")
+        let trashed = URL(fileURLWithPath: "/FixtureUser/.Trash/First.app")
         let permissionError = NSError(
             domain: NSCocoaErrorDomain,
             code: NSFileWriteNoPermissionError
@@ -1528,7 +1638,7 @@ final class AppRemovalRecoveryTests: XCTestCase {
             recycled: [first: trashed],
             error: permissionError,
             hasFullDiskAccess: false,
-            fileExists: { $0 == second.path }
+            isMissing: { _ in false }
         )
 
         XCTAssertEqual(result.trashed, [
@@ -1552,12 +1662,38 @@ final class AppRemovalRecoveryTests: XCTestCase {
             recycled: [:],
             error: permissionError,
             hasFullDiskAccess: true,
-            fileExists: { $0 == app.path }
+            isMissing: { _ in false }
         )
 
         XCTAssertFalse(result.needsFullDiskAccess)
         XCTAssertEqual(result.failed, [app])
         XCTAssertEqual(result.failure(for: app)?.kind, .administratorAccessRequired)
+    }
+
+    func testWorkspaceRecycleClassifiesOnlyConfirmedAbsenceAndKeepsPerFileErrors() {
+        let restricted = URL(fileURLWithPath: "/Applications/Example.app")
+        let busy = URL(fileURLWithPath: "/Applications/Busy.app")
+        let missing = URL(fileURLWithPath: "/Applications/Missing.app")
+        let error = NSError(
+            domain: NSCocoaErrorDomain,
+            code: NSFileWriteUnknownError,
+            userInfo: [NSDetailedErrorsKey: [
+                NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES), userInfo: [NSFilePathErrorKey: restricted.path]),
+                NSError(domain: NSPOSIXErrorDomain, code: Int(EBUSY), userInfo: [NSFilePathErrorKey: busy.path]),
+            ]]
+        )
+
+        let result = AppFileTrashService.classify(
+            requested: [restricted, busy, missing], recycled: [:], error: error,
+            hasFullDiskAccess: false, isMissing: { $0 == missing.path }
+        )
+
+        XCTAssertEqual(result.missing, [missing])
+        XCTAssertEqual(result.failed, [restricted, busy])
+        XCTAssertTrue(result.needsFullDiskAccess)
+        XCTAssertEqual(result.failure(for: restricted)?.kind, .fullDiskAccessRequired)
+        XCTAssertEqual(result.failure(for: busy)?.kind, .finderRejected)
+        XCTAssertTrue(result.failure(for: busy)?.detail?.contains("NSPOSIXErrorDomain \(EBUSY)") == true)
     }
 
     func testManagedContainerRootClassificationKeepsNestedDataOnNormalPath() {
@@ -1599,8 +1735,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let fileURL = root.appendingPathComponent("history.json")
         defer { try? FileManager.default.removeItem(at: root) }
         let item = AppRemovalHistoryItem(
-            originalPath: "/Users/test/Library/Caches/com.example.editor",
-            trashPath: "/Users/test/.Trash/com.example.editor"
+            originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+            trashPath: "/FixtureUser/.Trash/com.example.editor"
         )
         let record = AppRemovalRecord(
             appName: "Example",
@@ -1621,7 +1757,7 @@ final class AppRemovalRecoveryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let moved = AppRemovalHistoryItem(
             originalPath: "/Library/LaunchDaemons/com.example.helper.plist",
-            trashPath: "/Users/test/.Trash/com.example.helper.plist",
+            trashPath: "/FixtureUser/.Trash/com.example.helper.plist",
             launchdWasLoaded: true
         )
         let failed = AppRemovalHistoryItem(
@@ -1653,8 +1789,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let fileURL = root.appendingPathComponent("history.json")
         defer { try? FileManager.default.removeItem(at: root) }
         let item = AppRemovalHistoryItem(
-            originalPath: "/Users/test/Library/Caches/com.example.editor",
-            trashPath: "/Users/test/.Trash/com.example.editor"
+            originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+            trashPath: "/FixtureUser/.Trash/com.example.editor"
         )
         let record = AppRemovalRecord(
             appName: "Example",
@@ -1678,8 +1814,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let fileURL = storeDirectory.appendingPathComponent("history.json")
         defer { try? FileManager.default.removeItem(at: root) }
         let item = AppRemovalHistoryItem(
-            originalPath: "/Users/test/Library/Caches/com.example.editor",
-            trashPath: "/Users/test/.Trash/com.example.editor"
+            originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+            trashPath: "/FixtureUser/.Trash/com.example.editor"
         )
         let record = AppRemovalRecord(
             appName: "Example",
@@ -1711,8 +1847,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
             bundleIdentifier: "com.example.first",
             items: [
                 AppRemovalHistoryItem(
-                    originalPath: "/Users/test/Library/Caches/com.example.first",
-                    trashPath: "/Users/test/.Trash/com.example.first"
+                    originalPath: "/FixtureUser/Library/Caches/com.example.first",
+                    trashPath: "/FixtureUser/.Trash/com.example.first"
                 ),
             ]
         )
@@ -1721,8 +1857,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
             bundleIdentifier: "com.example.second",
             items: [
                 AppRemovalHistoryItem(
-                    originalPath: "/Users/test/Library/Caches/com.example.second",
-                    trashPath: "/Users/test/.Trash/com.example.second"
+                    originalPath: "/FixtureUser/Library/Caches/com.example.second",
+                    trashPath: "/FixtureUser/.Trash/com.example.second"
                 ),
             ]
         )
@@ -1754,8 +1890,8 @@ final class AppRemovalRecoveryTests: XCTestCase {
             bundleIdentifier: "com.example.editor",
             items: [
                 AppRemovalHistoryItem(
-                    originalPath: "/Users/test/Library/Caches/com.example.editor",
-                    trashPath: "/Users/test/.Trash/com.example.editor"
+                    originalPath: "/FixtureUser/Library/Caches/com.example.editor",
+                    trashPath: "/FixtureUser/.Trash/com.example.editor"
                 ),
             ]
         )
@@ -1770,18 +1906,18 @@ final class AppRemovalRecoveryTests: XCTestCase {
         let fileURL = root.appendingPathComponent("history.json")
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let duplicatePath = "/Users/test/Library/Caches/com.example.editor"
+        let duplicatePath = "/FixtureUser/Library/Caches/com.example.editor"
         let record = AppRemovalRecord(
             appName: "Example",
             bundleIdentifier: "com.example.editor",
             items: [
                 AppRemovalHistoryItem(
                     originalPath: duplicatePath,
-                    trashPath: "/Users/test/.Trash/com.example.editor"
+                    trashPath: "/FixtureUser/.Trash/com.example.editor"
                 ),
                 AppRemovalHistoryItem(
                     originalPath: duplicatePath,
-                    trashPath: "/Users/test/.Trash/com.example.editor-2"
+                    trashPath: "/FixtureUser/.Trash/com.example.editor-2"
                 ),
             ]
         )
@@ -1872,10 +2008,10 @@ final class AppRemovalRecoveryTests: XCTestCase {
     }
 
     func testRemovalRestorerRefusesDestinationOutsideAppSearchRoots() {
-        let trashRoot = URL(fileURLWithPath: "/Users/test/.Trash", isDirectory: true)
+        let trashRoot = URL(fileURLWithPath: "/FixtureUser/.Trash", isDirectory: true)
         let source = trashRoot.appendingPathComponent("payload")
         let item = AppRemovalHistoryItem(
-            originalPath: "/Users/test/Documents/payload",
+            originalPath: "/FixtureUser/Documents/payload",
             trashPath: source.path
         )
         let restorer = AppRemovalRestorer(
@@ -1923,7 +2059,7 @@ final class AppRemovalRecoveryTests: XCTestCase {
     }
 
     func testRemovalRestorerMatchesEveryAppSearchRootExceptProtectedDotPaths() {
-        let trashRoot = URL(fileURLWithPath: "/Users/test/.Trash", isDirectory: true)
+        let trashRoot = URL(fileURLWithPath: "/FixtureUser/.Trash", isDirectory: true)
         let searchRoots = Locations().appSearch.paths.filter { !$0.isEmpty }
 
         for (index, rootPath) in searchRoots.enumerated() {
@@ -1953,7 +2089,7 @@ final class AppRemovalRecoveryTests: XCTestCase {
     }
 
     func testRemovalRestorerReportsAdministratorRequirement() {
-        let trashRoot = URL(fileURLWithPath: "/Users/test/.Trash", isDirectory: true)
+        let trashRoot = URL(fileURLWithPath: "/FixtureUser/.Trash", isDirectory: true)
         let source = trashRoot.appendingPathComponent("ExampleExtension.kext")
         let item = AppRemovalHistoryItem(
             originalPath: "/Library/Extensions/ExampleExtension.kext",
@@ -2282,7 +2418,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             selected.appendingPathComponent("Contents/Resources/data.bin"),
             URL(fileURLWithPath: "/Applications/ChatGPT Atlas.app", isDirectory: true),
             URL(fileURLWithPath: "/Applications/ChatGPT Classic.app/Contents/Info.plist"),
-            URL(fileURLWithPath: "/Users/test/Library/Caches/com.openai.codex"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.openai.codex"),
         ]
 
         let foreign = AppRemovalSafetyPolicy.foreignApplicationBundles(
@@ -2318,13 +2454,13 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             path: "/Applications/ChatGPT Classic.app"
         )
         let candidates: Set<URL> = [
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/ChatGPT"),
-            URL(fileURLWithPath: "/Users/test/Library/Caches/com.openai.codex"),
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/OpenAI/ChatGPT"),
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.plist"),
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIIICn/SubdomainAppsSearcher/com.openai.codex.25.plist"),
-            URL(fileURLWithPath: "/Users/test/Library/Application Support/Slack/com.openai.codex.plist"),
-            URL(fileURLWithPath: "/Users/test/Library/Caches/ChatGPT Cloak/com.openai.codex"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/ChatGPT"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Caches/com.openai.codex"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/OpenAI/ChatGPT"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIII/SubdomainAppsSearcher/com.openai.codex.26.plist"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIIICn/SubdomainAppsSearcher/com.openai.codex.25.plist"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Application Support/Slack/com.openai.codex.plist"),
+            URL(fileURLWithPath: "/FixtureUser/Library/Caches/ChatGPT Cloak/com.openai.codex"),
         ]
 
         let foreignOwners = AppRemovalSafetyPolicy.foreignPrivateDataOwners(
@@ -2334,12 +2470,12 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
         )
 
         XCTAssertEqual(Set(foreignOwners.map(\.path)), [
-            "/Users/test/Library/Application Support/Slack",
-            "/Users/test/Library/Application Support/ChatGPT",
-            "/Users/test/Library/Application Support/OpenAI/ChatGPT",
-            "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIII",
-            "/Users/test/Library/Application Support/com.nektony.App-Cleaner-SIIICn",
-            "/Users/test/Library/Caches/ChatGPT Cloak",
+            "/FixtureUser/Library/Application Support/Slack",
+            "/FixtureUser/Library/Application Support/ChatGPT",
+            "/FixtureUser/Library/Application Support/OpenAI/ChatGPT",
+            "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIII",
+            "/FixtureUser/Library/Application Support/com.nektony.App-Cleaner-SIIICn",
+            "/FixtureUser/Library/Caches/ChatGPT Cloak",
         ])
     }
 
@@ -2349,7 +2485,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             bundleIdentifier: "com.openai.codex",
             path: "/Applications/ChatGPT.app"
         )
-        let log = URL(fileURLWithPath: "/Users/test/Library/Logs/ChatGPT.log")
+        let log = URL(fileURLWithPath: "/FixtureUser/Library/Logs/ChatGPT.log")
 
         XCTAssertNil(
             AppRemovalSafetyPolicy.foreignPrivateDataOwner(
@@ -2367,7 +2503,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             path: "/Applications/OpenFind.app"
         )
         let backup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/OpenFind"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/OpenFind"
         )
 
         let protection = AppRemovalSafetyPolicy.protection(
@@ -2387,7 +2523,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             path: "/Applications/OpenFind.app"
         )
         let backup = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/com.openfind.app.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/com.openfind.app.plist"
         )
 
         XCTAssertNil(
@@ -2426,7 +2562,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
 
         for (evidence, name) in cases {
             let candidate = URL(
-                fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/\(name)"
+                fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/\(name)"
             )
             XCTAssertNil(
                 AppRemovalSafetyPolicy.protection(
@@ -2453,7 +2589,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
 
         for marker in hostMarkers {
             let candidate = URL(
-                fileURLWithPath: "/Users/test/Library/Application Support/Host/2026/\(marker)/OpenFind"
+                fileURLWithPath: "/FixtureUser/Library/Application Support/Host/2026/\(marker)/OpenFind"
             )
             let protection = AppRemovalSafetyPolicy.protection(
                 containing: candidate,
@@ -2466,7 +2602,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
         }
 
         let nestedHosts = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Host/Archives/2026/BACKUPS/OpenFind"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Host/Archives/2026/BACKUPS/OpenFind"
         )
         XCTAssertEqual(
             AppRemovalSafetyPolicy.protection(
@@ -2479,9 +2615,9 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
         )
 
         for allowedPath in [
-            "/Users/test/Library/Application Support/OpenFind",
-            "/Users/test/Library/Application Support/BackupManager/OpenFind",
-            "/Users/test/Documents/Backups/OpenFind",
+            "/FixtureUser/Library/Application Support/OpenFind",
+            "/FixtureUser/Library/Application Support/BackupManager/OpenFind",
+            "/FixtureUser/Documents/Backups/OpenFind",
         ] {
             XCTAssertNil(
                 AppRemovalSafetyPolicy.protection(
@@ -2511,7 +2647,7 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             )
         )
         let candidate = URL(
-            fileURLWithPath: "/Users/test/Library/Application Support/Codex/Backups/OpenFind"
+            fileURLWithPath: "/FixtureUser/Library/Application Support/Codex/Backups/OpenFind"
         )
         let weakEvidence: [AppFileMatchEvidence] = [
             .exactAppName,
@@ -2553,17 +2689,17 @@ final class AppRemovalSafetyPolicyTests: XCTestCase {
             )
         )
         let groupURL = URL(
-            fileURLWithPath: "/Users/test/Library/Group Containers/\(groupIdentifier)"
+            fileURLWithPath: "/FixtureUser/Library/Group Containers/\(groupIdentifier)"
         )
         let scriptsURL = URL(
-            fileURLWithPath: "/Users/test/Library/Application Scripts/\(groupIdentifier)/helper.plist"
+            fileURLWithPath: "/FixtureUser/Library/Application Scripts/\(groupIdentifier)/helper.plist"
         )
 
         for (candidate, expectedRoot) in [
             (groupURL, groupURL),
             (
                 scriptsURL,
-                URL(fileURLWithPath: "/Users/test/Library/Application Scripts/\(groupIdentifier)")
+                URL(fileURLWithPath: "/FixtureUser/Library/Application Scripts/\(groupIdentifier)")
             ),
         ] {
             let protection = AppRemovalSafetyPolicy.protection(
@@ -5143,7 +5279,7 @@ final class InstallationFileStateTests: XCTestCase {
             hardLinkCount: 1
         )
         let removable = InstallationFileItem(
-            url: URL(fileURLWithPath: "/Users/test/Downloads/Example.dmg"),
+            url: URL(fileURLWithPath: "/FixtureUser/Downloads/Example.dmg"),
             name: "Example.dmg",
             kind: .diskImage,
             size: 1_024,
@@ -5158,7 +5294,7 @@ final class InstallationFileStateTests: XCTestCase {
             fingerprint: fingerprint
         )
         let protected = InstallationFileItem(
-            url: URL(fileURLWithPath: "/Users/test/Library/Caches/Update.pkg"),
+            url: URL(fileURLWithPath: "/FixtureUser/Library/Caches/Update.pkg"),
             name: "Update.pkg",
             kind: .installerPackage,
             size: 2_048,

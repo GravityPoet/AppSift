@@ -154,6 +154,29 @@ struct AppFileTrashResult: Sendable {
     }
 }
 
+struct AppFileRemovalReview: Identifiable {
+    let id = UUID()
+    let appID: InstalledApp.ID
+    let scanID: UUID
+    let operation: AppRemovalOperation
+    let urls: [URL]
+}
+
+struct AppFileRemovalSummary {
+    let appName: String
+    let recordID: UUID?
+    let movedCount: Int
+    let missingCount: Int
+    let failedCount: Int
+    let authorizationCancelled: Bool
+}
+
+enum AppFileReviewBundleState {
+    case installed
+    case inTrash
+    case absent
+}
+
 /// Finder-semantic Trash boundary for app removal, with no permanent-delete fallback.
 @MainActor
 enum AppFileTrashService {
@@ -294,31 +317,31 @@ enum AppFileTrashService {
                     requested: urls,
                     recycled: recycled,
                     error: error as NSError?,
-                    hasFullDiskAccess: hasFullDiskAccess
+                    hasFullDiskAccess: hasFullDiskAccess,
+                    canUseAdministratorAccess: allowAdministratorFallback
                 )
-                guard allowAdministratorFallback,
-                      hasFullDiskAccess,
-                      !finderResult.failed.isEmpty,
-                      containsPermissionDenied(error as NSError?) else {
+                let needsAdministrator = finderResult.failed.filter {
+                    finderResult.failure(for: $0)?.kind == .administratorAccessRequired
+                }
+                guard !needsAdministrator.isEmpty else {
                     continuation.resume(returning: finderResult)
                     return
                 }
 
                 let privilegedService = PrivilegedAppRemovalService()
                 Task { @MainActor in
-                    let adminResult = await privilegedService.trash(finderResult.failed)
+                    let adminResult = await privilegedService.trash(needsAdministrator)
+                    let retried = Set(needsAdministrator)
                     var failureDetails = finderResult.failureDetails
-                    for item in adminResult.trashed + finderResult.trashed {
-                        failureDetails.removeValue(
-                            forKey: item.originalURL.standardizedFileURL.path
-                        )
+                    for url in needsAdministrator {
+                        failureDetails.removeValue(forKey: url.standardizedFileURL.path)
                     }
                     failureDetails.merge(adminResult.failureDetails) { _, latest in latest }
                     continuation.resume(returning: AppFileTrashResult(
                         trashed: finderResult.trashed + adminResult.trashed,
                         missing: finderResult.missing + adminResult.missing,
-                        needsFullDiskAccess: false,
-                        failed: adminResult.failed,
+                        needsFullDiskAccess: adminResult.needsFullDiskAccess,
+                        failed: finderResult.failed.filter { !retried.contains($0) } + adminResult.failed,
                         failureDetails: failureDetails
                     ))
                 }
@@ -343,9 +366,8 @@ enum AppFileTrashService {
         recycled: [URL: URL],
         error: NSError?,
         hasFullDiskAccess: Bool,
-        fileExists: @Sendable (String) -> Bool = {
-            FileManager.default.fileExists(atPath: $0)
-        }
+        canUseAdministratorAccess: Bool = true,
+        isMissing: @Sendable (String) -> Bool = { AppFileTrashService.isConfirmedMissing($0) }
     ) -> AppFileTrashResult {
         var recycledByPath: [String: URL] = [:]
         for (original, trashURL) in recycled {
@@ -360,7 +382,7 @@ enum AppFileTrashService {
                 trashed.append(
                     TrashedAppFile(originalURL: original, trashURL: trashURL)
                 )
-            } else if !fileExists(original.path) {
+            } else if isMissing(original.path) {
                 missing.append(original)
             } else {
                 failed.append(original)
@@ -374,26 +396,48 @@ enum AppFileTrashService {
             )
         }
 
-        let permissionDenied = containsPermissionDenied(error)
-        let failure = AppFileRemovalFailure(
-            kind: permissionDenied
-                ? (hasFullDiskAccess ? .administratorAccessRequired : .fullDiskAccessRequired)
-                : .finderRejected,
-            detail: error?.localizedDescription
-        )
+        let itemErrors = error.map(errorsByPath) ?? [:]
+        var failureDetails: [String: AppFileRemovalFailure] = [:]
+        for url in failed {
+            let path = url.standardizedFileURL.path
+            let itemError = itemErrors[path] ?? (itemErrors.isEmpty ? error : nil)
+            let kind: AppFileRemovalFailureKind
+            if containsPermissionDenied(itemError) && !hasFullDiskAccess {
+                kind = .fullDiskAccessRequired
+            } else if containsPermissionDenied(itemError) && canUseAdministratorAccess {
+                kind = .administratorAccessRequired
+            } else {
+                kind = .finderRejected
+            }
+            let detail = itemError.map { "\($0.localizedDescription) (\($0.domain) \($0.code))" }
+            failureDetails[path] = AppFileRemovalFailure(kind: kind, detail: detail)
+        }
         return AppFileTrashResult(
             trashed: trashed,
             missing: missing,
-            needsFullDiskAccess: !hasFullDiskAccess
-                && !failed.isEmpty
-                && permissionDenied,
+            needsFullDiskAccess: failureDetails.values.contains { $0.kind == .fullDiskAccessRequired },
             failed: failed,
-            failureDetails: Dictionary(
-                uniqueKeysWithValues: failed.map {
-                    ($0.standardizedFileURL.path, failure)
-                }
-            )
+            failureDetails: failureDetails
         )
+    }
+
+    private nonisolated static func errorsByPath(_ error: NSError) -> [String: NSError] {
+        var result: [String: NSError] = [:]
+        let detailed = error.userInfo[NSDetailedErrorsKey] as? [NSError] ?? []
+        for item in [error] + detailed {
+            let path = item.userInfo[NSFilePathErrorKey] as? String
+                ?? (item.userInfo[NSURLErrorKey] as? URL)?.path
+            if let path, path.hasPrefix("/") {
+                result[URL(fileURLWithPath: path).standardizedFileURL.path] = item
+            }
+        }
+        return result
+    }
+
+    // fileExists also returns false when macOS denies access to the path.
+    nonisolated static func isConfirmedMissing(_ path: String) -> Bool {
+        var information = stat()
+        return lstat(path, &information) != 0 && (errno == ENOENT || errno == ENOTDIR)
     }
 
     private nonisolated static func containsPermissionDenied(_ error: NSError?) -> Bool {
@@ -452,9 +496,6 @@ enum AppRemovalOperation: String, Codable, Hashable, Sendable {
         try container.encode(rawValue)
     }
 
-    var requiresTargetAppTermination: Bool {
-        self == .uninstall || self == .reset
-    }
 }
 
 struct AppRemovalHistoryItem: Codable, Identifiable, Hashable, Sendable {
@@ -1767,14 +1808,14 @@ final class AppState: ObservableObject {
     @Published var isCalculatingAppSizes: Bool = false
     @Published var appSizeCalculationProgress: Double = 0
     @Published var isScanningAppFiles: Bool = false
-    @Published var isRemovingAppFiles: Bool = false
+    @Published private(set) var removingAppName: String?
     @Published var removalError: String?
     @Published var removalNeedsFullDiskAccess = false
+    @Published private(set) var latestAppRemoval: AppFileRemovalSummary?
     @Published var removalHistory: [AppRemovalRecord] = []
     @Published var removalHistoryError: String?
     @Published var restoringRemovalItemIDs: Set<UUID> = []
-    @Published private(set) var removalResidualReport: AppRemovalResidualReport?
-    @Published private(set) var isScanningRemovalResiduals = false
+    @Published private var removalResidualScans: [UUID: (id: UUID, cancel: AppFileScanCancellation?)] = [:]
     @Published var appFileScanLocationCount: Int = 0
     @Published private(set) var selectedAppInstallationInsights: AppInstallationInsights?
     @Published private(set) var isInspectingAppInstallation = false
@@ -1847,7 +1888,8 @@ final class AppState: ObservableObject {
     @Published private(set) var pendingTrashAppReviews: [TrashAppCandidate] = []
     /// True only for a review launched from the Trash watcher. The app bundle
     /// is excluded from this scan and app-reset controls are not applicable.
-    @Published private(set) var isReviewingTrashedApp = false
+    @Published private(set) var appFileReviewBundleState: AppFileReviewBundleState = .installed
+    @Published private(set) var appFileInitialSelection: AppFileInitialSelection = .all
 
     private var externalAppActionObserver: AnyCancellable?
     private var trashAppsDetectedObserver: AnyCancellable?
@@ -1890,11 +1932,9 @@ final class AppState: ObservableObject {
     private var pendingAppRemovalRetry: (
         app: InstalledApp,
         urls: [URL],
-        historyRecordID: UUID,
+        historyRecordID: UUID?,
         operation: AppRemovalOperation
     )?
-    private var removalResidualScanCancellation: AppFileScanCancellation?
-    private var activeRemovalResidualScanID = UUID()
 
     // MARK: - Services
 
@@ -1970,10 +2010,17 @@ final class AppState: ObservableObject {
         return discoveredFiles.count
     }
 
+    var isRemovingAppFiles: Bool { removingAppName != nil }
+
+    var appFileActionsInProgress: Bool {
+        isRemovingAppFiles || !restoringRemovalItemIDs.isEmpty
+            || PermissionCoordinator.shared.isRequesting
+    }
+
     var canRemoveSelectedAppFiles: Bool {
         guard !selectedFiles.isEmpty,
               !isScanningAppFiles,
-              !isRemovingAppFiles,
+              !appFileActionsInProgress,
               let app = selectedApp,
               !AppSelfRemovalPolicy.isCurrentApplication(
                 bundleIdentifier: app.bundleIdentifier
@@ -1996,15 +2043,9 @@ final class AppState: ObservableObject {
         }
     }
 
-    var selectedFilesRequireAdministratorAccess: Bool {
-        guard !selectedFiles.isEmpty else { return false }
-        return PrivilegedAppRemovalService().requiresAdministratorAccess(
-            for: Array(selectedFiles)
-        )
-    }
-
     var availableAppResetFiles: Set<URL> {
         guard let app = selectedApp,
+              appFileReviewBundleState == .installed,
               discoveredFilesAppID == app.id else {
             return []
         }
@@ -2018,10 +2059,9 @@ final class AppState: ObservableObject {
     }
 
     var canResetSelectedApp: Bool {
-        guard !isReviewingTrashedApp,
-              !selectedAppResetFiles.isEmpty,
+        guard !selectedAppResetFiles.isEmpty,
               !isScanningAppFiles,
-              !isRemovingAppFiles,
+              !appFileActionsInProgress,
               let app = selectedApp,
               !AppSelfRemovalPolicy.isCurrentApplication(
                 bundleIdentifier: app.bundleIdentifier
@@ -2654,11 +2694,6 @@ final class AppState: ObservableObject {
         _ app: InstalledApp,
         initialSelection: AppFileInitialSelection = .all
     ) {
-        removalResidualScanCancellation?()
-        removalResidualScanCancellation = nil
-        activeRemovalResidualScanID = UUID()
-        isScanningRemovalResiduals = false
-        removalResidualReport = nil
         activeAppFileScanCancellation?()
         activeAppFileScanCancellation = nil
         resetAppInstallationInspection()
@@ -2668,7 +2703,8 @@ final class AppState: ObservableObject {
         if selectedApp?.id != app.id {
             selectedApp = app
         }
-        isReviewingTrashedApp = initialSelection == .relatedFiles
+        appFileReviewBundleState = initialSelection == .relatedFiles ? .inTrash : .installed
+        appFileInitialSelection = initialSelection
         discoveredFilesAppID = nil
         selectedFilesOwnerAppID = nil
         discoveredFiles = []
@@ -4887,78 +4923,51 @@ final class AppState: ObservableObject {
         }
     }
 
-    func removeSelectedFiles() {
-        guard !selectedFiles.isEmpty else { return }
-        // Re-entrance guard: if a previous removal is still resolving and
-        // the FDA sheet/retry hasn't finished, a second call would race-
-        // overwrite the frozen retry context. We can't gate on
-        // `removalNeedsFullDiskAccess` alone because AppFilesView hands that
-        // state to the permission coordinator as soon as the sheet opens.
-        // PermissionCoordinator.isRequesting covers the full sheet-open and
-        // retry-pending span.
-        guard !isRemovingAppFiles,
-              !removalNeedsFullDiskAccess,
-              !PermissionCoordinator.shared.isRequesting else {
-            Logger.shared.log("Refused duplicate removeSelectedFiles while a removal flow is active", level: .info)
+    func makeAppFileRemovalReview(
+        for files: Set<URL>, resetting: Bool = false
+    ) -> AppFileRemovalReview? {
+        guard let app = selectedApp,
+              !files.isEmpty,
+              !appFileActionsInProgress,
+              appFileRemovalRefusalReason(for: files, requireSelectionOwner: false) == nil,
+              !resetting || files.isSubset(of: availableAppResetFiles) else { return nil }
+
+        let urls = files.sorted { $0.path < $1.path }
+        let operation: AppRemovalOperation
+        if resetting {
+            operation = .reset
+        } else {
+            operation = selectedAppBundleIncluded(in: urls, app: app) ? .uninstall : .relatedFiles
+        }
+        return AppFileRemovalReview(appID: app.id, scanID: activeAppFileScanID, operation: operation, urls: urls)
+    }
+
+    func removeSelectedFiles(review: AppFileRemovalReview? = nil) {
+        let files = review.map { Set($0.urls) } ?? selectedFiles
+        guard !files.isEmpty, !appFileActionsInProgress else { return }
+        guard review.map(isCurrentAppFileReview) ?? true else {
+            failStaleAppFileReview()
             return
         }
-        if let reason = appFileRemovalRefusalReason() {
+        if let reason = appFileRemovalRefusalReason(for: files, requireSelectionOwner: review == nil) {
             refuseAppFileRemoval(reason)
             return
         }
-        // Safety guard: never allow a high-risk home dotpath (listed in
-        // Conditions.swift) to be trashed no matter how it ended up in the
-        // selection. Catches selection-time additions that slipped past the
-        // scanner-side filters.
-        let allURLs = Array(selectedFiles)
-        let (urls, blocked): ([URL], [URL]) = allURLs.reduce(into: ([], [])) { acc, url in
-            let resolved = url.resolvingSymlinksInPath().path
-            let isBlocked = highRiskHomeDotPaths.contains { root in
-                resolved == root || resolved.hasPrefix(root + "/")
-            }
-            if isBlocked {
-                acc.1.append(url)
-            } else {
-                acc.0.append(url)
-            }
-        }
-        removalError = nil
-        removalNeedsFullDiskAccess = false
-        if !blocked.isEmpty {
-            let blockedList = blocked.map(\.path).joined(separator: ", ")
-            Logger.shared.log("Refused to delete \(blocked.count) high-risk home dotpath(s): \(blockedList)", level: .warning)
-            selectedFiles.subtract(blocked)
-        }
-        guard !urls.isEmpty else {
-            if !blocked.isEmpty {
-                removalError = "Refused to delete \(blocked.count) protected item(s) (home credential directory or similar)."
-            }
-            return
-        }
-        guard let app = selectedApp else {
-            refuseAppFileRemoval("Refused to remove app files because no app is currently selected.")
-            return
-        }
-
-        let operation: AppRemovalOperation = selectedAppBundleIncluded(in: urls, app: app)
-            ? .uninstall
-            : .relatedFiles
+        guard let app = selectedApp else { return }
+        let urls = files.sorted { $0.path < $1.path }
+        let operation: AppRemovalOperation = selectedAppBundleIncluded(in: urls, app: app) ? .uninstall : .relatedFiles
         beginAppFileTrash(urls, app: app, operation: operation)
     }
 
     /// Keeps the selected application installed and moves only the reviewed,
     /// reset-eligible user data to Trash. The app bundle, executable packages,
     /// shared containers, and system-wide components never enter this batch.
-    func resetSelectedApp() {
-        guard !isRemovingAppFiles,
-              !removalNeedsFullDiskAccess,
-              !PermissionCoordinator.shared.isRequesting else {
-            Logger.shared.log("Refused duplicate resetSelectedApp while an app file action is active", level: .info)
+    func resetSelectedApp(review: AppFileRemovalReview? = nil) {
+        guard !appFileActionsInProgress else { return }
+        guard review.map(isCurrentAppFileReview) ?? true else {
+            failStaleAppFileReview()
             return
         }
-
-        removalError = nil
-        removalNeedsFullDiskAccess = false
         guard let app = selectedApp else {
             refuseAppFileRemoval("Refused to reset app data because no app is currently selected.")
             return
@@ -4969,13 +4978,22 @@ final class AppState: ObservableObject {
             failRemovalBeforeTrash(String(localized: "AppSift cannot reset its own running application."))
             return
         }
-        guard canResetSelectedApp else {
+        let files = review.map { Set($0.urls) } ?? selectedAppResetFiles
+        guard !files.isEmpty, review == nil ? canResetSelectedApp : files.isSubset(of: availableAppResetFiles) else {
             failRemovalBeforeTrash(String(localized: "No reviewed user data is selected for reset."))
             return
         }
 
-        let urls = selectedAppResetFiles.sorted { $0.path < $1.path }
+        let urls = files.sorted { $0.path < $1.path }
         beginAppFileTrash(urls, app: app, operation: .reset)
+    }
+
+    private func isCurrentAppFileReview(_ review: AppFileRemovalReview) -> Bool {
+        selectedApp?.id == review.appID && activeAppFileScanID == review.scanID && !isScanningAppFiles
+    }
+
+    private func failStaleAppFileReview() {
+        failRemovalBeforeTrash(String(localized: "The related-file scan changed. Review the selection again before moving anything to Trash."))
     }
 
     private func beginAppFileTrash(
@@ -4983,9 +5001,14 @@ final class AppState: ObservableObject {
         app: InstalledApp,
         operation: AppRemovalOperation
     ) {
-        guard !urls.isEmpty else { return }
+        if let reason = appFileOperationRefusalReason(for: urls, app: app, operation: operation) {
+            failRemovalBeforeTrash(reason)
+            return
+        }
+        dismissAppRemovalSummary()
+        let scanID = activeAppFileScanID
+        removingAppName = app.appName
 
-        isRemovingAppFiles = true
         Task { @MainActor in
             if let reason = await appRuntimeRemovalRefusalReason(
                 for: urls,
@@ -4995,10 +5018,8 @@ final class AppState: ObservableObject {
                 failRemovalBeforeTrash(reason)
                 return
             }
-            guard selectedApp?.id == app.id else {
-                failRemovalBeforeTrash(
-                    "The selected app changed before removal began, so AppSift left every file untouched."
-                )
+            guard selectedApp?.id == app.id, activeAppFileScanID == scanID else {
+                failStaleAppFileReview()
                 return
             }
             if let reason = appFileOperationRefusalReason(
@@ -5009,7 +5030,7 @@ final class AppState: ObservableObject {
                 failRemovalBeforeTrash(reason)
                 return
             }
-            trashPreparedAppFiles(urls, app: app, operation: operation)
+            await trashPreparedAppFiles(urls, app: app, operation: operation)
         }
     }
 
@@ -5018,7 +5039,7 @@ final class AppState: ObservableObject {
         app: InstalledApp,
         operation: AppRemovalOperation
     ) async -> String? {
-        guard operation.requiresTargetAppTermination
+        guard operation == .reset
                 || selectedAppBundleIncluded(in: urls, app: app) else {
             return nil
         }
@@ -5028,9 +5049,9 @@ final class AppState: ObservableObject {
             return nil
         case .stillRunning:
             if operation == .reset {
-                return "\(app.appName) is still running, so AppSift did not reset it. Quit \(app.appName) from the menu bar or Force Quit it, then try again."
+                return String(format: String(localized: "%@ is still running, so AppSift did not reset it. Quit the app, then try again."), app.appName)
             }
-            return "\(app.appName) is still running, so AppSift did not uninstall it. Quit \(app.appName) from the menu bar or Force Quit it, then try again."
+            return String(format: String(localized: "%@ is still running, so AppSift did not uninstall it. Quit the app, then try again."), app.appName)
         }
     }
 
@@ -5085,12 +5106,18 @@ final class AppState: ObservableObject {
         return urls.contains { $0.standardizedFileURL.path == appPath }
     }
 
-    private func failRemovalBeforeTrash(_ reason: String) {
-        Logger.shared.log(reason, level: .warning)
-        removalError = reason
+    func dismissAppRemovalSummary() {
+        latestAppRemoval = nil
+        removalError = nil
         removalNeedsFullDiskAccess = false
         pendingAppRemovalRetry = nil
-        isRemovingAppFiles = false
+    }
+
+    private func failRemovalBeforeTrash(_ reason: String) {
+        Logger.shared.log(reason, level: .warning)
+        dismissAppRemovalSummary()
+        removalError = reason
+        removingAppName = nil
     }
 
     private func trashPreparedAppFiles(
@@ -5098,78 +5125,63 @@ final class AppState: ObservableObject {
         app: InstalledApp,
         operation: AppRemovalOperation,
         historyRecordID: UUID? = nil
-    ) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer { self.isRemovingAppFiles = false }
+    ) async {
+        defer { removingAppName = nil }
 
-            let result = await self.appFileTrashHandler(urls)
-            let protectedSnapshot = self.protectedAppFiles.map {
-                AppRemovalProtectedItem(
-                    path: $0.url.standardizedFileURL.path,
-                    reason: $0.reason,
-                    matchedItemCount: $0.matchedItemCount
-                )
-            }
-            if operation == .uninstall {
-                let appPath = app.path.standardizedFileURL.path
-                let trashAppDestinations = result.trashed.compactMap { item -> URL? in
-                    guard item.originalURL.standardizedFileURL.path == appPath,
-                          item.originalURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame else {
-                        return nil
-                    }
-                    return item.trashURL
-                }
-                self.trashAppSuppressor(trashAppDestinations)
-            }
-            let removed = result.trashed.map(\.originalURL) + result.missing
-            let recordID = self.recordRemovalHistory(
-                result,
-                requested: urls,
-                app: app,
-                operation: operation,
-                existingRecordID: historyRecordID
+        let currentScanMatches = discoveredFilesAppID == app.id
+        let protectedSnapshot: [AppRemovalProtectedItem] = currentScanMatches ? protectedAppFiles.map {
+            AppRemovalProtectedItem(
+                path: $0.url.standardizedFileURL.path,
+                reason: $0.reason,
+                matchedItemCount: $0.matchedItemCount
             )
-            self.applyRemovedAppFiles(removed, appID: app.id)
-            self.finishRemoval(
-                removedAny: !removed.isEmpty,
-                needsFullDiskAccess: result.needsFullDiskAccess,
-                failed: result.failed,
-                failureDetails: result.failureDetails,
-                app: app,
-                historyRecordID: recordID,
-                operation: operation
-            )
-            self.reconcileCachedStartupItemsAfterSuccessfulUninstall(
-                removed,
-                app: app,
-                operation: operation
-            )
-            if operation == .uninstall {
-                self.beginRemovalResidualScan(
-                    for: app,
-                    recordID: recordID,
-                    previouslyProtected: protectedSnapshot,
-                    failedURLs: result.failed
-                )
-            }
+        } : []
+        let evidenceSnapshot = currentScanMatches ? appFileMatchEvidenceByPath : [:]
+        let sensitivity = currentAppSearchSensitivity
+        let result = await appFileTrashHandler(urls)
+        let movedBundle = result.trashed.first {
+            $0.originalURL.standardizedFileURL.path == app.path.standardizedFileURL.path
         }
+        if operation == .uninstall, let movedBundle {
+            trashAppSuppressor([movedBundle.trashURL])
+        }
+        let record = recordRemovalHistory(
+            result, requested: urls, app: app, operation: operation,
+            protectedItems: protectedSnapshot, evidenceByPath: evidenceSnapshot,
+            sensitivity: sensitivity, existingRecordID: historyRecordID
+        )
+        let removed = result.trashed.map(\.originalURL) + result.missing
+        applyRemovedAppFiles(removed, appID: app.id)
+        if operation == .uninstall, selectedAppBundleIncluded(in: removed, app: app) {
+            reconcileRemovedAppBundle(app, movedToTrash: movedBundle != nil)
+            reconcileCachedStartupItemsAfterSuccessfulUninstall(removed, app: app)
+        }
+        finishRemoval(result, app: app, record: record, historyRecordID: record?.id ?? historyRecordID, operation: operation)
+
+        if let record, operation == .uninstall,
+           record.items.contains(where: {
+               $0.originalPath == app.path.standardizedFileURL.path && $0.outcome != .failed
+           }) {
+            beginRemovalResidualScan(for: app, record: record, scanWasRestricted: result.needsFullDiskAccess)
+        }
+    }
+
+    func isCheckingRemovalRecord(_ recordID: UUID) -> Bool {
+        removalResidualScans[recordID] != nil
     }
 
     private func beginRemovalResidualScan(
         for app: InstalledApp,
-        recordID: UUID,
-        previouslyProtected: [AppRemovalProtectedItem],
-        failedURLs: [URL]
+        record: AppRemovalRecord,
+        scanWasRestricted: Bool
     ) {
-        removalResidualScanCancellation?()
+        let recordID = record.id
+        removalResidualScans[recordID]?.cancel?()
         let scanID = UUID()
-        activeRemovalResidualScanID = scanID
-        isScanningRemovalResiduals = true
-        removalResidualReport = nil
+        removalResidualScans[recordID] = (scanID, nil)
 
         let searchPaths = locationsProvider().appSearch.paths
-        let sensitivity = currentAppSearchSensitivity.pathFinderSensitivity
+        let sensitivity = (record.searchSensitivity ?? currentAppSearchSensitivity).pathFinderSensitivity
         let evidenceFinder = AppPathFinder(
             appInfo: AppPathFinder.AppInfo(installedApp: app),
             searchPaths: [],
@@ -5179,13 +5191,16 @@ final class AppState: ObservableObject {
         let fileScanner = appFileScanner
         let cancellation = fileScanner(app, searchPaths) { [weak self] urls in
             guard let self,
-                  self.activeRemovalResidualScanID == scanID else { return }
+                  self.removalResidualScans[recordID]?.id == scanID else { return }
+            self.removalResidualScans.removeValue(forKey: recordID)
 
             var candidates = Set(urls.map { $0.standardizedFileURL })
-            candidates.formUnion(failedURLs.map { $0.standardizedFileURL })
+            candidates.formUnion(record.items.compactMap { item in
+                item.outcome == .failed ? URL(fileURLWithPath: item.originalPath) : nil
+            })
             candidates = Set(candidates.filter { url in
                 url.path != app.path.standardizedFileURL.path
-                    && FileManager.default.fileExists(atPath: url.path)
+                    && !AppFileTrashService.isConfirmedMissing(url.path)
             })
 
             var remaining: [AppRemovalResidualItem] = []
@@ -5227,23 +5242,20 @@ final class AppState: ObservableObject {
                 )
             }
             let protectedByKey = Dictionary(
-                (previouslyProtected + grouped).map {
+                (record.protectedItems + grouped).map {
                     ("\($0.reason.rawValue)|\($0.path)", $0)
                 },
                 uniquingKeysWith: { existing, _ in existing }
             )
             let report = AppRemovalResidualReport(
                 scannedAt: Date(),
-                isComplete: true,
+                isComplete: !scanWasRestricted,
                 remainingItems: remaining.sorted { $0.path < $1.path },
                 protectedItems: protectedByKey.values.sorted {
                     if $0.path == $1.path { return $0.reason.rawValue < $1.reason.rawValue }
                     return $0.path < $1.path
                 }
             )
-            self.isScanningRemovalResiduals = false
-            self.removalResidualScanCancellation = nil
-            self.removalResidualReport = report
             if self.removalHistoryStore.updateResidualReport(
                 recordID: recordID,
                 report: report
@@ -5251,20 +5263,15 @@ final class AppState: ObservableObject {
                 self.removalHistory = self.removalHistoryStore.snapshot()
             }
         }
-        removalResidualScanCancellation = cancellation
+        if removalResidualScans[recordID]?.id == scanID {
+            removalResidualScans[recordID]?.cancel = cancellation
+        }
     }
 
     private func reconcileCachedStartupItemsAfterSuccessfulUninstall(
         _ removedURLs: [URL],
-        app: InstalledApp,
-        operation: AppRemovalOperation
+        app: InstalledApp
     ) {
-        guard operation == .uninstall else { return }
-        let appPath = app.path.standardizedFileURL.path
-        guard removedURLs.contains(where: {
-            $0.standardizedFileURL.path == appPath
-        }) else { return }
-
         // `sfltool dumpbtm` requests a fresh administrator authorization on
         // current macOS releases. An app uninstall must not trigger that
         // unrelated privileged scan. Reconcile the already-loaded inventory
@@ -5298,10 +5305,14 @@ final class AppState: ObservableObject {
         app: InstalledApp,
         timeout: TimeInterval
     ) async -> AppTerminationResult {
+        let targetPath = app.path.standardizedFileURL.resolvingSymlinksInPath().path
         func runningTargetApps() -> [NSRunningApplication] {
             NSRunningApplication
                 .runningApplications(withBundleIdentifier: app.bundleIdentifier)
-                .filter { !$0.isTerminated }
+                .filter {
+                    !$0.isTerminated
+                        && $0.bundleURL?.standardizedFileURL.resolvingSymlinksInPath().path == targetPath
+                }
         }
 
         let running = runningTargetApps()
@@ -5324,7 +5335,7 @@ final class AppState: ObservableObject {
         return .stillRunning
     }
 
-    private func appFileRemovalRefusalReason() -> String? {
+    private func appFileRemovalRefusalReason(for files: Set<URL>, requireSelectionOwner: Bool) -> String? {
         if isScanningAppFiles {
             return "Refused to remove app files while a related-file scan is still running."
         }
@@ -5343,19 +5354,19 @@ final class AppState: ObservableObject {
             return "Refused to remove app files because the displayed scan results do not belong to the currently selected app."
         }
 
-        guard selectedFilesOwnerAppID == app.id else {
+        guard !requireSelectionOwner || selectedFilesOwnerAppID == app.id else {
             return "Refused to remove app files because the file selection does not belong to the currently selected app."
         }
 
         let discoveredSet = Set(discoveredFiles)
-        let unexpected = selectedFiles.subtracting(discoveredSet)
+        let unexpected = files.subtracting(discoveredSet)
         guard unexpected.isEmpty else {
             let sample = unexpected.map(\.path).sorted().prefix(3).joined(separator: ", ")
             return "Refused to remove \(unexpected.count) file(s) that are not in the current scan result: \(sample)"
         }
 
         let evidenceFinder = appFileEvidenceFinder(for: app)
-        let protections = selectedFiles.compactMap {
+        let protections = files.compactMap {
             AppRemovalSafetyPolicy.protection(
                 containing: $0,
                 selectedApp: app,
@@ -5381,10 +5392,7 @@ final class AppState: ObservableObject {
     }
 
     private func refuseAppFileRemoval(_ reason: String) {
-        Logger.shared.log(reason, level: .warning)
-        removalError = reason
-        removalNeedsFullDiskAccess = false
-        pendingAppRemovalRetry = nil
+        failRemovalBeforeTrash(reason)
         selectedFiles.removeAll()
     }
 
@@ -5393,50 +5401,55 @@ final class AppState: ObservableObject {
         // A permission retry can finish after the user navigates to another
         // app. Only mutate the visible scan if it still belongs to this app.
         if discoveredFilesAppID == appID {
+            let removedPaths = Set(urls.map { $0.standardizedFileURL.path })
+            let wasRemoved: (URL) -> Bool = { removedPaths.contains($0.standardizedFileURL.path) }
             // Animate the row sweep-out (AppFilesView attaches the per-row
             // transitions). NSWorkspace is the Reduce Motion check available
             // outside a View's Environment.
             if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                discoveredFiles.removeAll { urls.contains($0) }
+                discoveredFiles.removeAll(where: wasRemoved)
             } else {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    discoveredFiles.removeAll { urls.contains($0) }
+                    discoveredFiles.removeAll(where: wasRemoved)
                 }
             }
-            selectedFiles.subtract(urls)
-            for url in urls {
-                appFileMatchEvidenceByPath.removeValue(
-                    forKey: url.standardizedFileURL.path
-                )
+            selectedFiles = selectedFiles.filter { !wasRemoved($0) }
+            for path in removedPaths {
+                appFileMatchEvidenceByPath.removeValue(forKey: path)
             }
         }
         Logger.shared.log("Removed \(urls.count) file\(urls.count == 1 ? "" : "s")", level: .info)
     }
 
     private func finishRemoval(
-        removedAny: Bool,
-        needsFullDiskAccess: Bool,
-        failed: [URL],
-        failureDetails: [String: AppFileRemovalFailure],
+        _ result: AppFileTrashResult,
         app: InstalledApp,
-        historyRecordID: UUID,
+        record: AppRemovalRecord?,
+        historyRecordID: UUID?,
         operation: AppRemovalOperation
     ) {
-        // Freeze the failed batch before the FDA sheet opens so the retry
-        // path can't be poisoned by later selection edits or app switches.
-        pendingAppRemovalRetry = needsFullDiskAccess && !failed.isEmpty
-            ? (
-                app: app,
-                urls: failed,
-                historyRecordID: historyRecordID,
-                operation: operation
-            )
-            : nil
-        removalNeedsFullDiskAccess = needsFullDiskAccess
+        let retryable = result.failed.filter { url in
+            result.needsFullDiskAccess
+                && (result.failure(for: url)?.kind ?? .fullDiskAccessRequired) == .fullDiskAccessRequired
+        }
+        pendingAppRemovalRetry = retryable.isEmpty
+            ? nil
+            : (app: app, urls: retryable, historyRecordID: historyRecordID, operation: operation)
+        removalNeedsFullDiskAccess = !retryable.isEmpty
+        latestAppRemoval = AppFileRemovalSummary(
+            appName: app.appName,
+            recordID: record?.id,
+            movedCount: record?.movedItemCount ?? result.trashed.count,
+            missingCount: record?.missingItemCount ?? result.missing.count,
+            failedCount: record?.failedItemCount ?? result.failed.count,
+            authorizationCancelled: !result.failed.isEmpty && result.failed.allSatisfy {
+                result.failure(for: $0)?.kind == .administratorAuthorizationCancelled
+            }
+        )
         if let message = removalFailureMessage(
-            needsFullDiskAccess: needsFullDiskAccess,
-            failed: failed,
-            failureDetails: failureDetails
+            failed: result.failed,
+            failureDetails: result.failureDetails,
+            retryable: retryable
         ) {
             if let existing = removalError, !existing.isEmpty {
                 removalError = existing + "\n" + message
@@ -5444,12 +5457,6 @@ final class AppState: ObservableObject {
                 removalError = message
             }
             Logger.shared.log(message, level: .error)
-        }
-        if removedAny {
-            // Keep the detail context while any selected paths failed. The app
-            // bundle itself may already be in Trash, but the user still needs
-            // a visible, retryable list of the leftovers that stayed behind.
-            pruneMissingInstalledApps(preservingSelectedApp: !failed.isEmpty)
         }
     }
 
@@ -5459,12 +5466,15 @@ final class AppState: ObservableObject {
         requested: [URL],
         app: InstalledApp,
         operation: AppRemovalOperation,
+        protectedItems: [AppRemovalProtectedItem],
+        evidenceByPath: [String: AppFileMatchEvidence],
+        sensitivity: SearchSensitivity,
         existingRecordID: UUID?
-    ) -> UUID {
+    ) -> AppRemovalRecord? {
         let existingRecord = existingRecordID.flatMap { recordID in
             removalHistoryStore.snapshot().first { $0.id == recordID }
         }
-        if let existingRecordID, existingRecord == nil {
+        if existingRecordID != nil, existingRecord == nil {
             // The user may have cleared this local report while a Full Disk
             // Access sheet was open. Honor that privacy choice: the retry may
             // still finish moving files, but it must not resurrect the record.
@@ -5472,7 +5482,7 @@ final class AppState: ObservableObject {
                 "Removal report was cleared before retry; skipping receipt update",
                 level: .info
             )
-            return existingRecordID
+            return nil
         }
         let existingItemsByPath = Dictionary(
             (existingRecord?.items ?? []).map { ($0.originalPath, $0) },
@@ -5516,7 +5526,7 @@ final class AppState: ObservableObject {
                     trashPath: trashPath,
                     outcome: outcome,
                     evidence: previous?.evidence
-                        ?? appFileMatchEvidenceByPath[url.path]
+                        ?? evidenceByPath[url.path]
                         ?? .legacyUnknown,
                     failure: failure,
                     launchdWasLoaded: launchdWasLoaded,
@@ -5552,18 +5562,11 @@ final class AppState: ObservableObject {
             )
             reportSaved = removalHistoryStore.replace(record)
         } else {
-            let protectedItems = protectedAppFiles.map {
-                AppRemovalProtectedItem(
-                    path: $0.url.standardizedFileURL.path,
-                    reason: $0.reason,
-                    matchedItemCount: $0.matchedItemCount
-                )
-            }
             record = AppRemovalRecord(
                 appName: app.appName,
                 bundleIdentifier: app.bundleIdentifier,
                 operation: operation,
-                searchSensitivity: currentAppSearchSensitivity,
+                searchSensitivity: sensitivity,
                 items: attemptItems,
                 protectedItems: protectedItems
             )
@@ -5575,7 +5578,7 @@ final class AppState: ObservableObject {
                 ? String(localized: "AppSift could not save the local removal report for this attempt.")
                 : String(localized: "Items were moved to Trash, but AppSift could not save the local removal report. Restore them manually from Trash.")
         }
-        return record.id
+        return reportSaved ? record : nil
     }
 
     func refreshRemovalHistory() {
@@ -5617,7 +5620,7 @@ final class AppState: ObservableObject {
     }
 
     private func restoreRemovalItems(recordID: UUID, itemIDs: [UUID]) {
-        guard !itemIDs.isEmpty,
+        guard !appFileActionsInProgress, !itemIDs.isEmpty,
               let record = removalHistory.first(where: { $0.id == recordID }) else { return }
         let requestedIDs = Set(itemIDs)
         let items = record.items.filter {
@@ -5655,7 +5658,7 @@ final class AppState: ObservableObject {
             }
 
             var failures: [String] = []
-            var restoredAnApp = false
+            var restoredAppPaths: Set<String> = []
             for (item, outcome) in outcomes {
                 switch outcome {
                 case .restored:
@@ -5670,7 +5673,7 @@ final class AppState: ObservableObject {
                     }
                     if URL(fileURLWithPath: item.originalPath).pathExtension
                         .caseInsensitiveCompare("app") == .orderedSame {
-                        restoredAnApp = true
+                        restoredAppPaths.insert(URL(fileURLWithPath: item.originalPath).standardizedFileURL.path)
                     }
                 case .sourceMissing:
                     failures.append(
@@ -5716,7 +5719,12 @@ final class AppState: ObservableObject {
             if !failures.isEmpty {
                 self.removalHistoryError = failures.prefix(3).joined(separator: "\n")
             }
-            if restoredAnApp {
+            if !restoredAppPaths.isEmpty {
+                if let selected = self.selectedApp,
+                   self.appFileReviewBundleState != .installed,
+                   restoredAppPaths.contains(selected.path.standardizedFileURL.path) {
+                    self.scanForAppFiles(selected)
+                }
                 self.loadInstalledApps()
             }
         }
@@ -5727,13 +5735,9 @@ final class AppState: ObservableObject {
     /// convert app files into generic cleaner items because that path may use
     /// administrator-authorized permanent deletion.
     func requestFullDiskAccessAndRetryAppRemoval() {
-        guard removalNeedsFullDiskAccess,
+        guard !appFileActionsInProgress, removalNeedsFullDiskAccess,
               let retry = pendingAppRemovalRetry,
               !retry.urls.isEmpty else { return }
-
-        pendingAppRemovalRetry = nil
-        removalError = nil
-        removalNeedsFullDiskAccess = false
 
         let permissionContext: PermissionCoordinator.PromptContext = retry.operation == .reset
             ? .appReset(appName: retry.app.appName, failedCount: retry.urls.count)
@@ -5743,7 +5747,11 @@ final class AppState: ObservableObject {
             failedPaths: retry.urls.map(\.path)
         ) { [weak self] in
             Task { @MainActor [weak self] in
-                await self?.retryAppFileTrash(
+                guard let self,
+                      self.pendingAppRemovalRetry?.app.id == retry.app.id,
+                      self.pendingAppRemovalRetry?.urls == retry.urls,
+                      self.pendingAppRemovalRetry?.historyRecordID == retry.historyRecordID else { return }
+                await self.retryAppFileTrash(
                     retry.urls,
                     app: retry.app,
                     historyRecordID: retry.historyRecordID,
@@ -5756,13 +5764,10 @@ final class AppState: ObservableObject {
     private func retryAppFileTrash(
         _ urls: [URL],
         app: InstalledApp,
-        historyRecordID: UUID,
+        historyRecordID: UUID?,
         operation: AppRemovalOperation
     ) async {
-        guard !isRemovingAppFiles else {
-            Logger.shared.log("Refused duplicate app Trash retry while a removal is active", level: .info)
-            return
-        }
+        guard !appFileActionsInProgress else { return }
 
         guard !AppSelfRemovalPolicy.isCurrentApplication(
             bundleIdentifier: app.bundleIdentifier
@@ -5784,7 +5789,7 @@ final class AppState: ObservableObject {
             return
         }
 
-        isRemovingAppFiles = true
+        removingAppName = app.appName
         if let reason = await appRuntimeRemovalRefusalReason(
             for: urls,
             app: app,
@@ -5793,7 +5798,16 @@ final class AppState: ObservableObject {
             failRemovalBeforeTrash(reason)
             return
         }
-        trashPreparedAppFiles(
+        if let reason = appFileOperationRefusalReason(
+            for: urls, app: app, operation: operation, requireCurrentScan: false
+        ) {
+            failRemovalBeforeTrash(reason)
+            return
+        }
+        removalError = nil
+        pendingAppRemovalRetry = nil
+        removalNeedsFullDiskAccess = false
+        await trashPreparedAppFiles(
             urls,
             app: app,
             operation: operation,
@@ -5802,45 +5816,34 @@ final class AppState: ObservableObject {
     }
 
     private func removalFailureMessage(
-        needsFullDiskAccess: Bool,
         failed: [URL],
-        failureDetails: [String: AppFileRemovalFailure]
+        failureDetails: [String: AppFileRemovalFailure],
+        retryable: [URL]
     ) -> String? {
-        if needsFullDiskAccess {
-            let prefix = failed.isEmpty ? "Some selected files" : "\(failed.count) file\(failed.count == 1 ? "" : "s")"
-            return "\(prefix) could not be removed because AppSift does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again."
+        guard !failed.isEmpty else { return nil }
+        let retryPaths = Set(retryable.map { $0.standardizedFileURL.path })
+        var details: [String] = []
+        if !retryable.isEmpty {
+            details.append(String(
+                format: String(localized: "%lld item(s) need Full Disk Access"),
+                Int64(retryable.count)
+            ))
         }
-
-        if !failed.isEmpty {
-            let headline = String(
-                format: String(localized: "%lld file(s) could not be moved to Trash."),
-                Int64(failed.count)
-            )
-            let details = failed.prefix(5).map { url in
-                let reason = failureDetails[url.standardizedFileURL.path]
-                    ?? AppFileRemovalFailure(kind: .finderRejected)
-                return "\(url.lastPathComponent): \(reason.localizedDescription)"
-            }
-            return ([headline] + details).joined(separator: "\n")
+        for url in failed.lazy.filter({ !retryPaths.contains($0.standardizedFileURL.path) }).prefix(3) {
+            let failure = failureDetails[url.standardizedFileURL.path]
+                ?? AppFileRemovalFailure(kind: .finderRejected)
+            details.append("\(url.lastPathComponent) — \(failure.localizedDescription)")
         }
-        return nil
+        return details.joined(separator: "\n")
     }
 
-    private func pruneMissingInstalledApps(preservingSelectedApp: Bool) {
-        let fileManager = FileManager.default
-        installedApps.removeAll { !fileManager.fileExists(atPath: $0.path.path) }
+    private func reconcileRemovedAppBundle(_ app: InstalledApp, movedToTrash: Bool) {
+        installedApps.removeAll { $0.id == app.id }
+        guard selectedApp?.id == app.id else { return }
 
-        if let selectedApp,
-           !preservingSelectedApp,
-           !fileManager.fileExists(atPath: selectedApp.path.path) {
-            self.selectedApp = nil
-            resetAppInstallationInspection()
-            resetAppRelationshipScan()
-            discoveredFiles = []
-            protectedAppFiles = []
-            appFileMatchEvidenceByPath = [:]
-            selectedFiles = []
-        }
+        appFileReviewBundleState = movedToTrash ? .inTrash : .absent
+        resetAppInstallationInspection()
+        resetAppRelationshipScan()
     }
 
     private static func groupedProtectedAppFiles(

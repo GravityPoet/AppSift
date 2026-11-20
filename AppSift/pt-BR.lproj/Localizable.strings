@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "The read-only System volume is represented as metadata; the Data volume is scanned recursively.";
 "metadata only" = "metadata only";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison.";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "%@ ainda está em execução. Encerre o app e tente redefini-lo novamente.";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "%@ ainda está em execução. Encerre o app e tente desinstalá-lo novamente.";
+"%lld already absent" = "Já ausentes: %lld";
+"%lld items to move" = "Itens a mover: %lld";
+"%lld moved to Trash" = "Na Lixeira: %lld";
+"%lld not moved" = "Não movidos: %lld";
+"App Bundle" = "Pacote do app";
+"App is no longer installed" = "O app não está mais no local original";
+"App stays installed" = "O app continuará instalado";
+"AppSift will ask the app to quit if it is running." = "Se o app estiver em execução, o AppSift solicitará que ele seja encerrado.";
+"Calculating size…" = "Calculando o tamanho…";
+"Checking for remaining files…" = "Verificando arquivos restantes…";
+"File Actions" = "Ações do arquivo";
+"Grant Access & Retry…" = "Conceder acesso e tentar novamente…";
+"No additional files were found in the scanned locations." = "Nenhum outro arquivo foi encontrado nos locais verificados.";
+"Remaining Files" = "Arquivos restantes";
+"Removal cancelled for %@" = "Remoção de %@ cancelada";
+"Removal complete for %@" = "Remoção de %@ concluída";
+"Removal failed for %@" = "Falha ao remover %@";
+"Removal incomplete for %@" = "Ainda há itens de %@ por mover";
+"Removing files for %@…" = "Removendo arquivos de %@…";
+"Restore moved items from Removal History while they are still in Trash." = "Restaure os itens pelo Histórico de remoções enquanto ainda estiverem na Lixeira.";
+"Review Removal…" = "Revisar remoção…";
+"Review Reset…" = "Revisar redefinição…";
+"Review This Item…" = "Revisar este item…";
+"Review Uninstall…" = "Revisar desinstalação…";
+"Select App Only" = "Selecionar apenas o app";
+"Selected data may include settings, sign-ins, or locally stored documents." = "Os dados selecionados podem incluir ajustes, sessões ou documentos armazenados localmente.";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "A verificação de arquivos associados mudou. Revise a seleção antes de movê-la para a Lixeira.";
+"Uninstall %@?" = "Desinstalar %@?";
+"View Report…" = "Ver relatório…";
+"macOS may ask for administrator authorization for some selected items." = "O macOS pode solicitar autorização de administrador para alguns itens.";

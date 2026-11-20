@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "唯讀系統卷以中繼資料表示；資料卷遞迴掃描。";
 "metadata only" = "僅中繼資料";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "邏輯總量可能包含硬連結別名或 APFS 複製流；已分配總量用於物理佔用比較。";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "%@ 仍在執行，AppSift 未重設它。請結束應用程式後重試。";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "%@ 仍在執行，AppSift 未解除安裝。請結束應用程式後重試。";
+"%lld already absent" = "%lld 個項目原本已不存在";
+"%lld items to move" = "將移入 %lld 個項目";
+"%lld moved to Trash" = "%lld 個項目已移到垃圾桶";
+"%lld not moved" = "%lld 個項目未移動";
+"App Bundle" = "應用程式本體";
+"App is no longer installed" = "應用程式已不在原位置";
+"App stays installed" = "保留應用程式本體";
+"AppSift will ask the app to quit if it is running." = "如果應用程式正在執行，AppSift 會先要求它結束。";
+"Calculating size…" = "正在計算大小…";
+"Checking for remaining files…" = "正在複查殘留檔案…";
+"File Actions" = "檔案操作";
+"Grant Access & Retry…" = "授權後重試…";
+"No additional files were found in the scanned locations." = "已掃描的位置中沒有找到其他相關檔案。";
+"Remaining Files" = "殘留檔案";
+"Removal cancelled for %@" = "已取消移除 %@";
+"Removal complete for %@" = "%@ 的移除已完成";
+"Removal failed for %@" = "%@ 的移除失敗";
+"Removal incomplete for %@" = "%@ 仍有項目未移動";
+"Removing files for %@…" = "正在移除 %@ 的檔案…";
+"Restore moved items from Removal History while they are still in Trash." = "項目仍在垃圾桶時，可從移除記錄還原。";
+"Review Removal…" = "檢查移除項目…";
+"Review Reset…" = "檢查重設項目…";
+"Review This Item…" = "檢查此項目…";
+"Review Uninstall…" = "檢查解除安裝項目…";
+"Select App Only" = "只選應用程式本體";
+"Selected data may include settings, sign-ins, or locally stored documents." = "所選資料可能包含設定、登入狀態或本機文件。";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "相關檔案的掃描結果已變更。移到垃圾桶前，請重新檢查所選項目。";
+"Uninstall %@?" = "要解除安裝 %@ 嗎？";
+"View Report…" = "檢視本次記錄…";
+"macOS may ask for administrator authorization for some selected items." = "macOS 可能會要求為部分項目提供管理員授權。";

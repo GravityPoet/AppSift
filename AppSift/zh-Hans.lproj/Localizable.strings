@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "只读系统卷以元数据表示；数据卷递归扫描。";
 "metadata only" = "仅元数据";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "逻辑总量可能包含硬链接别名或 APFS 克隆流；已分配总量用于物理占用对比。";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "%@ 仍在运行，AppSift 未重置它。请退出应用后重试。";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "%@ 仍在运行，AppSift 未卸载它。请退出应用后重试。";
+"%lld already absent" = "%lld 项原本已不存在";
+"%lld items to move" = "将移入 %lld 项";
+"%lld moved to Trash" = "%lld 项已移入废纸篓";
+"%lld not moved" = "%lld 项未移入";
+"App Bundle" = "应用本体";
+"App is no longer installed" = "应用已不在原位置";
+"App stays installed" = "保留应用本体";
+"AppSift will ask the app to quit if it is running." = "如果应用正在运行，AppSift 会先请求它退出。";
+"Calculating size…" = "正在计算大小…";
+"Checking for remaining files…" = "正在复查残留文件…";
+"File Actions" = "文件操作";
+"Grant Access & Retry…" = "授权后重试…";
+"No additional files were found in the scanned locations." = "已扫描的位置中没有发现其他关联文件。";
+"Remaining Files" = "残留文件";
+"Removal cancelled for %@" = "已取消移除 %@";
+"Removal complete for %@" = "%@ 的移除已完成";
+"Removal failed for %@" = "%@ 的移除失败";
+"Removal incomplete for %@" = "%@ 仍有项目未移入";
+"Removing files for %@…" = "正在移除 %@ 的文件…";
+"Restore moved items from Removal History while they are still in Trash." = "项目仍在废纸篓时，可从卸载历史恢复。";
+"Review Removal…" = "检查移除项…";
+"Review Reset…" = "检查重置项…";
+"Review This Item…" = "检查此项目…";
+"Review Uninstall…" = "检查卸载项…";
+"Select App Only" = "仅选应用本体";
+"Selected data may include settings, sign-ins, or locally stored documents." = "所选数据可能包含设置、登录状态或本地文档。";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "关联文件的扫描结果已变化。移入废纸篓前，请重新检查所选项目。";
+"Uninstall %@?" = "要卸载 %@ 吗？";
+"View Report…" = "查看本次记录…";
+"macOS may ask for administrator authorization for some selected items." = "macOS 可能会要求为部分项目提供管理员授权。";

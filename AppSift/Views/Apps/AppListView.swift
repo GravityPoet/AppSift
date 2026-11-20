@@ -130,10 +130,12 @@ struct AppListView: View {
     @State private var searchText = ""
     @State private var selection: InstalledApp.ID?
     @State private var usageFilter: AppUsageFilter = .all
+    @State private var shownRemovalRecordID: UUID?
     @Environment(\.colorScheme) private var colorScheme
     @State private var sortOrder: [InstalledAppComparator] = [
         InstalledAppComparator(field: .appName)
     ]
+    let openRemovalHistory: () -> Void
 
     private var normalizedSearchText: String {
         InstalledAppSearch.normalized(searchText)
@@ -156,24 +158,33 @@ struct AppListView: View {
     }
 
     var body: some View {
-        HSplitView {
-            // Cap the left pane's maxWidth so dragging the splitter cannot
-            // push it past half the window and break the layout (#60).
-            appTable
-                .frame(minWidth: 420, idealWidth: 480, maxWidth: 600)
+        VStack(spacing: 0) {
+            HSplitView {
+                appTable
+                    .frame(minWidth: 420, idealWidth: 480, maxWidth: 600)
+                    .disabled(appState.isRemovingAppFiles)
 
-            fileDetail
-                .frame(minWidth: 300)
+                fileDetail
+                    .frame(minWidth: 300)
+            }
+
+            removalFeedback
         }
         .searchable(text: $searchText, prompt: "Search apps")
         .navigationTitle(installedAppsTitle)
         .toolbar {
             ToolbarItemGroup {
+                Button(action: openRemovalHistory) {
+                    Label("Removal History", systemImage: "clock.arrow.circlepath")
+                }
+                .help("Removal History")
+
                 Button {
                     appState.loadInstalledApps(forceSizeRefresh: true)
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .disabled(appState.isRemovingAppFiles)
 
                 if appState.isCalculatingAppSizes {
                     ProgressView(value: appState.appSizeCalculationProgress)
@@ -184,6 +195,114 @@ struct AppListView: View {
 
             }
         }
+        .sheet(isPresented: Binding(
+            get: { shownRemovalRecordID != nil },
+            set: { if !$0 { shownRemovalRecordID = nil } }
+        )) {
+            if let shownRemovalRecordID {
+                RemovalHistoryView(focusedRecordID: shownRemovalRecordID)
+                    .frame(width: 690, height: 480)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var removalFeedback: some View {
+        if let appName = appState.removingAppName {
+            Divider()
+            ProgressView(String(format: String(localized: "Removing files for %@…"), appName))
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.bar)
+                .accessibilityIdentifier("uninstall.progress")
+        } else if appState.latestAppRemoval != nil || appState.removalError != nil {
+            Divider()
+            removalResult
+        }
+    }
+
+    private var removalResult: some View {
+        let summary = appState.latestAppRemoval
+        let recordID = summary?.recordID
+        let needsAttention = (summary?.failedCount ?? 0) > 0 || appState.removalError != nil
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: needsAttention ? "exclamationmark.circle" : "checkmark.circle")
+                .font(.title3)
+                .foregroundStyle(needsAttention ? Tint.orange : Tint.green)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(removalResultTitle(summary)).font(.headline)
+                if let summary {
+                    Text(removalResultCounts(summary))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let error = appState.removalError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .help(error)
+                }
+                if let recordID, appState.isCheckingRemovalRecord(recordID) {
+                    ProgressView("Checking for remaining files…")
+                        .controlSize(.mini)
+                        .font(.caption)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if appState.removalNeedsFullDiskAccess {
+                Button("Grant Access & Retry…") {
+                    appState.requestFullDiskAccessAndRetryAppRemoval()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(appState.appFileActionsInProgress)
+            }
+            if let recordID, appState.removalHistory.contains(where: { $0.id == recordID }) {
+                Button("View Report…") { shownRemovalRecordID = recordID }
+            }
+            Button {
+                appState.dismissAppRemovalSummary()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Dismiss")
+            .help("Dismiss")
+        }
+        .padding(12)
+        .background(.bar)
+        .accessibilityIdentifier("uninstall.result")
+    }
+
+    private func removalResultTitle(_ summary: AppFileRemovalSummary?) -> String {
+        guard let summary else { return String(localized: "Removal Failed") }
+        if summary.failedCount == 0 {
+            return String(format: String(localized: "Removal complete for %@"), summary.appName)
+        }
+        if summary.movedCount > 0 || summary.missingCount > 0 {
+            return String(format: String(localized: "Removal incomplete for %@"), summary.appName)
+        }
+        if summary.authorizationCancelled {
+            return String(format: String(localized: "Removal cancelled for %@"), summary.appName)
+        }
+        return String(format: String(localized: "Removal failed for %@"), summary.appName)
+    }
+
+    private func removalResultCounts(_ summary: AppFileRemovalSummary) -> String {
+        var counts = [
+            String(format: String(localized: "%lld moved to Trash"), Int64(summary.movedCount))
+        ]
+        if summary.missingCount > 0 {
+            counts.append(String(format: String(localized: "%lld already absent"), Int64(summary.missingCount)))
+        }
+        if summary.failedCount > 0 {
+            counts.append(String(format: String(localized: "%lld not moved"), Int64(summary.failedCount)))
+        }
+        return counts.joined(separator: " · ")
     }
 
     private var installedAppsTitle: String {

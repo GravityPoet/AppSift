@@ -56,19 +56,14 @@ enum LeftoverGroup: String, CaseIterable, Identifiable {
 }
 
 struct AppFilesView: View {
-    private enum PendingConfirmation {
-        case removal
-        case reset
-        case officialUninstaller(AppOfficialUninstaller)
-    }
-
     @EnvironmentObject var appState: AppState
     let app: InstalledApp
 
     @State private var collapsedGroups: Set<LeftoverGroup> = []
     @State private var protectedSectionExpanded = false
     @State private var iconHovering = false
-    @State private var pendingConfirmation: PendingConfirmation?
+    @State private var pendingRemovalReview: AppFileRemovalReview?
+    @State private var pendingOfficialUninstaller: AppOfficialUninstaller?
     @State private var showInstallerPackageDetails = false
     @State private var showRelationshipDetails = false
     /// Recursive stats are calculated off the main thread. A generation token
@@ -79,16 +74,8 @@ struct AppFilesView: View {
     @State private var statsGeneration = UUID()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var selectedStats: FileTreeStats {
-        aggregateStats(for: Array(appState.selectedFiles))
-    }
-
-    private var selectedResetStats: FileTreeStats {
-        aggregateStats(for: Array(appState.selectedAppResetFiles))
-    }
-
-    private var allRelatedStats: FileTreeStats {
-        aggregateStats(for: appState.discoveredFiles)
+    private var applicationURL: URL? {
+        appState.discoveredFiles.first { $0.standardizedFileURL.path == app.path.standardizedFileURL.path }
     }
 
     /// Discovered files bucketed for display, preserving the sorted order
@@ -105,14 +92,14 @@ struct AppFilesView: View {
         VStack(spacing: 0) {
             header
 
-            if !appState.isReviewingTrashedApp,
+            if appState.appFileReviewBundleState == .installed,
                let installationInsights,
                installationInsights.hasVerifiedInsight {
                 Divider()
                 installationInsightsPanel(installationInsights)
             }
 
-            if !appState.isReviewingTrashedApp,
+            if appState.appFileReviewBundleState == .installed,
                appState.isScanningAppRelationships || !relationshipGroups.isEmpty {
                 Divider()
                 relationshipSummaryPanel
@@ -127,24 +114,24 @@ struct AppFilesView: View {
                 EmptyStateView(
                     "No Related Files",
                     systemImage: "checkmark.circle",
-                    description: LocalizedStringKey(
-                        String(format: String(localized: "No additional files found for %@."), app.appName)
-                    ),
+                    description: "No additional files were found in the scanned locations.",
                     tint: Tint.green
                 )
             } else {
-                fileGroupsList
+                fileGroupsList.disabled(appState.appFileActionsInProgress)
 
                 if !appState.discoveredFiles.isEmpty {
-                    actionBar
+                    actionBar.disabled(appState.appFileActionsInProgress)
                 }
             }
         }
         .onAppear { rebuildStatsCache() }
         .onChange(of: appState.discoveredFiles) { _ in rebuildStatsCache() }
         .onChange(of: app.id) { _ in
+            collapsedGroups = []
             protectedSectionExpanded = false
-            pendingConfirmation = nil
+            pendingRemovalReview = nil
+            pendingOfficialUninstaller = nil
             showInstallerPackageDetails = false
             showRelationshipDetails = false
         }
@@ -163,57 +150,46 @@ struct AppFilesView: View {
                     || appState.selectedAppRelationships?.wasCancelled == true
             )
         }
-        .alert(errorAlertTitle, isPresented: Binding(
-            get: {
-                appState.appInstallationActionError != nil
-                    || (appState.removalError != nil && !appState.removalNeedsFullDiskAccess)
-            },
-            set: {
-                if !$0 {
-                    appState.appInstallationActionError = nil
-                    appState.removalError = nil
-                    appState.removalNeedsFullDiskAccess = false
+        .sheet(item: $pendingRemovalReview) { review in
+            AppRemovalReviewSheet(
+                app: app,
+                review: review,
+                bundleState: appState.appFileReviewBundleState,
+                protectedCount: appState.protectedAppFiles.count,
+                estimatedSize: sizeText(for: review.urls),
+                homebrewToken: uninstallHomebrewToken,
+                officialUninstallerName: installationInsights?.officialUninstaller?.name
+            ) {
+                switch review.operation {
+                case .reset: appState.resetSelectedApp(review: review)
+                case .uninstall, .relatedFiles, .legacyRemoval: appState.removeSelectedFiles(review: review)
                 }
             }
+        }
+        .alert("Action Failed", isPresented: Binding(
+            get: { appState.appInstallationActionError != nil },
+            set: { if !$0 { appState.appInstallationActionError = nil } }
         )) {
-            Button("OK", role: .cancel) {
-                appState.appInstallationActionError = nil
-                appState.removalError = nil
-                appState.removalNeedsFullDiskAccess = false
-            }
+            Button("OK", role: .cancel) { appState.appInstallationActionError = nil }
         } message: {
-            Text(errorAlertMessage)
+            Text(appState.appInstallationActionError ?? "")
         }
         .confirmationDialog(
-            confirmationTitle,
+            "Open official uninstaller?",
             isPresented: Binding(
-                get: { pendingConfirmation != nil },
-                set: { if !$0 { pendingConfirmation = nil } }
+                get: { pendingOfficialUninstaller != nil },
+                set: { if !$0 { pendingOfficialUninstaller = nil } }
             ),
-            titleVisibility: .visible
-        ) {
-            switch pendingConfirmation {
-            case .removal:
-                Button("Move to Trash", role: .destructive) {
-                    pendingConfirmation = nil
-                    appState.removeSelectedFiles()
-                }
-            case .reset:
-                Button("Reset App", role: .destructive) {
-                    pendingConfirmation = nil
-                    appState.resetSelectedApp()
-                }
-            case .officialUninstaller(let uninstaller):
-                Button("Open Uninstaller") {
-                    pendingConfirmation = nil
-                    appState.openOfficialUninstaller(uninstaller, for: app)
-                }
-            case nil:
-                EmptyView()
-            }
-            Button("Cancel", role: .cancel) { pendingConfirmation = nil }
-        } message: {
-            Text(confirmationMessage)
+            titleVisibility: .visible,
+            presenting: pendingOfficialUninstaller
+        ) { uninstaller in
+            Button("Open Uninstaller") { appState.openOfficialUninstaller(uninstaller, for: app) }
+            Button("Cancel", role: .cancel) {}
+        } message: { uninstaller in
+            Text(String(
+                format: String(localized: "AppSift will recheck the code signature before opening %@. AppSift itself will not remove anything."),
+                uninstaller.name
+            ))
         }
     }
 
@@ -246,9 +222,11 @@ struct AppFilesView: View {
                         )
                     }
                     signatureStatusChip
-                    if appState.isReviewingTrashedApp {
+                    if appState.appFileReviewBundleState != .installed {
                         StatusChip(
-                            label: String(localized: "App is in Trash"),
+                            label: appState.appFileReviewBundleState == .inTrash
+                                ? String(localized: "App is in Trash")
+                                : String(localized: "App is no longer installed"),
                             systemImage: "trash",
                             tint: Tint.purple
                         )
@@ -269,13 +247,14 @@ struct AppFilesView: View {
 
             if !appState.discoveredFiles.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(itemsCountText(count: allRelatedStats.itemCount))
+                    Text(itemsCountText(count: appState.discoveredFiles.count))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .contentTransition(.numericText())
-                    CountUpBytes(bytes: allRelatedStats.allocatedSize)
-                        .font(.callout.bold())
+                    if let size = sizeText(for: appState.discoveredFiles) {
+                        Text(size).font(.callout.bold()).monospacedDigit()
+                    }
                 }
                 .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.9),
                            value: appState.discoveredFiles.count)
@@ -380,7 +359,7 @@ struct AppFilesView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(appState.isVerifyingInstallationAction)
+                    .disabled(appState.isVerifyingInstallationAction || appState.appFileActionsInProgress)
                 }
 
             case .unknown:
@@ -429,12 +408,12 @@ struct AppFilesView: View {
                     tint: Tint.orange
                 ) {
                     Button("Open Uninstaller…") {
-                        pendingConfirmation = .officialUninstaller(uninstaller)
+                        pendingOfficialUninstaller = uninstaller
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Tint.orange)
                     .controlSize(.small)
-                    .disabled(appState.isVerifyingInstallationAction)
+                    .disabled(appState.isVerifyingInstallationAction || appState.appFileActionsInProgress)
                 }
             }
         }
@@ -628,7 +607,7 @@ struct AppFilesView: View {
                             evidence: appState.appFileMatchEvidenceByPath[
                                 fileURL.standardizedFileURL.path
                             ] ?? .legacyUnknown,
-                            onRemove: { removeSingleFile(fileURL) }
+                            onReview: { openRemovalReview(for: [fileURL]) }
                         )
                         .transition(
                             reduceMotion
@@ -742,46 +721,26 @@ struct AppFilesView: View {
     }
 
     private func groupHeader(_ group: LeftoverGroup, urls: [URL]) -> some View {
-        let groupStats = aggregateStats(for: urls)
-        let hasCompleteStats = urls.allSatisfy { statsCache[$0] != nil }
-        let allSelected = urls.allSatisfy { appState.selectedFiles.contains($0) }
-
-        return HStack(spacing: 10) {
-            Toggle(isOn: Binding(
-                get: { allSelected },
-                set: { selected in
-                    if selected {
-                        appState.selectedFiles.formUnion(urls)
-                    } else {
-                        appState.selectedFiles.subtract(urls)
-                    }
-                }
-            )) {
-                EmptyView()
+        let title = LocalizedStringKey(group.rawValue)
+        return HStack(spacing: 8) {
+            Toggle(sources: urls.map(fileSelectionBinding), isOn: \.self) {
+                Text(title)
             }
-            .toggleStyle(AnimatedCheckboxStyle())
+            .toggleStyle(.checkbox)
             .labelsHidden()
 
             IconTile(systemName: group.icon, tint: group.tint, size: 22, corner: 6)
-            Text(LocalizedStringKey(group.rawValue))
+            Text(title)
                 .font(.system(size: 12.5, weight: .semibold))
-            Spacer()
-            if !hasCompleteStats {
-                ProgressView()
-                    .controlSize(.mini)
-            }
-            VStack(alignment: .trailing, spacing: 1) {
-                Text(fileFolderCountText(groupStats))
-                    .font(.system(size: 10.5, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Text(ByteCountFormatter.string(fromByteCount: groupStats.allocatedSize, countStyle: .file))
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(itemsCountText(count: urls.count))
+                .foregroundStyle(.secondary)
+            if let size = sizeText(for: urls) {
+                Text(size).fontWeight(.medium)
             }
         }
+        .font(.caption)
+        .monospacedDigit()
         .padding(.vertical, 2)
     }
 
@@ -808,174 +767,106 @@ struct AppFilesView: View {
     // MARK: - Action bar
 
     private var actionBar: some View {
-        HStack {
-            Button("Select All") {
-                appState.selectedFiles = Set(appState.discoveredFiles)
-            }
-            Button("Deselect All") {
-                appState.selectedFiles.removeAll()
-            }
+        let selected = appState.selectedFiles
+        let includesBundle = applicationURL.map(selected.contains) ?? false
+        let resetIsPrimary = appState.appFileInitialSelection == .resetEligible
+            && appState.appFileReviewBundleState == .installed
+            && selected.isSubset(of: appState.availableAppResetFiles)
 
-            Spacer()
-
-            if !appState.selectedFiles.isEmpty {
-                VStack(alignment: .trailing, spacing: 1) {
-                    CountUpBytes(bytes: selectedStats.allocatedSize)
-                        .font(.callout.bold())
-                    Text(itemsCountText(count: selectedStats.itemCount))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-
-                if !appState.isReviewingTrashedApp,
-                   !appState.availableAppResetFiles.isEmpty {
-                    Button {
-                        pendingConfirmation = .reset
-                    } label: {
-                        Label("Reset App…", systemImage: "arrow.counterclockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Tint.orange)
-                    .disabled(!appState.canResetSelectedApp)
-                    .help("Keep the app installed and move selected user data to Trash.")
-                }
-
-                Button(role: .destructive) {
-                    pendingConfirmation = .removal
-                } label: {
-                    Text("Review & Remove")
-                }
-                .buttonStyle(GlowProminentButtonStyle(tint: Tint.red, gradient: TintGradient.destructive))
-                .disabled(!appState.canRemoveSelectedAppFiles)
-                .transition(
-                    reduceMotion
-                        ? .opacity
-                        : .move(edge: .trailing).combined(with: .opacity)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(
+                    String(format: String(localized: "%lld selected"), Int64(selected.count))
                 )
+                .fontWeight(.semibold)
+                if !selected.isEmpty {
+                    Text("·").accessibilityHidden(true)
+                    if let size = sizeText(for: selected) {
+                        Text(size)
+                    } else {
+                        Text(LocalizedStringKey(statsTask == nil ? "Size unavailable" : "Calculating size…"))
+                    }
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("uninstall.selection.summary")
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    selectionMenu
+                    Spacer(minLength: 8)
+                    removalButtons(includesBundle: includesBundle, resetIsPrimary: resetIsPrimary)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    selectionMenu
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        removalButtons(includesBundle: includesBundle, resetIsPrimary: resetIsPrimary)
+                    }
+                }
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8),
-                   value: appState.selectedFiles.isEmpty)
-        .padding()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(.bar)
     }
 
-    // MARK: - Helpers
-
-    private var errorAlertTitle: String {
-        appState.appInstallationActionError == nil
-            ? String(localized: "Removal Failed")
-            : String(localized: "Action Failed")
-    }
-
-    private var errorAlertMessage: String {
-        appState.appInstallationActionError ?? appState.removalError ?? ""
-    }
-
-    private var confirmationTitle: String {
-        switch pendingConfirmation {
-        case .removal:
-            return String(localized: "Move selected items to Trash?")
-        case .reset:
-            return String(
-                format: String(localized: "Reset %@ while keeping it installed?"),
-                app.appName
-            )
-        case .officialUninstaller:
-            return String(localized: "Open official uninstaller?")
-        case nil:
-            return ""
+    private var selectionMenu: some View {
+        Menu("Selection") {
+            Button("Select All") { appState.selectedFiles = Set(appState.discoveredFiles) }
+                .disabled(appState.selectedFiles.count == appState.discoveredFiles.count)
+            if let applicationURL {
+                Button("Select App Only") { appState.selectedFiles = [applicationURL] }
+                    .disabled(appState.selectedFiles == [applicationURL])
+            }
+            Button("Deselect All") { appState.selectedFiles.removeAll() }
+                .disabled(appState.selectedFiles.isEmpty)
         }
+        .fixedSize()
+        .accessibilityIdentifier("uninstall.selection.menu")
     }
 
-    private var confirmationMessage: String {
-        switch pendingConfirmation {
-        case .removal:
-            return removalConfirmationMessage
-        case .reset:
-            return resetConfirmationMessage
-        case .officialUninstaller(let uninstaller):
-            return String(
-                format: String(
-                    localized: "AppSift will recheck the code signature before opening %@. AppSift itself will not remove anything."
-                ),
-                uninstaller.name
-            )
-        case nil:
-            return ""
+    @ViewBuilder
+    private func removalButtons(includesBundle: Bool, resetIsPrimary: Bool) -> some View {
+        if !resetIsPrimary && !appState.availableAppResetFiles.isEmpty {
+            Button("Reset App…") {
+                openRemovalReview(for: appState.selectedAppResetFiles, resetting: true)
+            }
+            .disabled(!appState.canResetSelectedApp)
+            .help("Keep the app installed and move selected user data to Trash.")
         }
+
+        Button {
+            let files = resetIsPrimary ? appState.selectedAppResetFiles : appState.selectedFiles
+            openRemovalReview(for: files, resetting: resetIsPrimary)
+        } label: {
+            if resetIsPrimary {
+                Text("Review Reset…")
+            } else if includesBundle {
+                Text("Review Uninstall…")
+            } else {
+                Text("Review Removal…")
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(resetIsPrimary ? !appState.canResetSelectedApp : !appState.canRemoveSelectedAppFiles)
+        .accessibilityIdentifier("uninstall.review")
+    }
+
+    private var uninstallHomebrewToken: String? {
+        guard case .homebrewCask(let metadata) = installationInsights?.source else { return nil }
+        return metadata.token
+    }
+
+    private func openRemovalReview(for files: Set<URL>, resetting: Bool = false) {
+        pendingRemovalReview = appState.makeAppFileRemovalReview(for: files, resetting: resetting)
     }
 
     private func itemsCountText(count: Int) -> String {
         String(format: String(localized: "%lld items"), Int64(count))
-    }
-
-    private var removalConfirmationMessage: String {
-        if appState.isReviewingTrashedApp {
-            return String(
-                format: String(
-                    localized: "AppSift will move %lld selected leftover items (%@) to Trash and save a restore receipt. The app already in Trash stays untouched. %lld protected groups stay untouched."
-                ),
-                Int64(selectedStats.itemCount),
-                ByteCountFormatter.string(
-                    fromByteCount: selectedStats.allocatedSize,
-                    countStyle: .file
-                ),
-                Int64(appState.protectedAppFiles.count)
-            )
-        }
-
-        var message = String(
-            format: String(
-                localized: "AppSift will quit %@ if needed, move %lld selected items (%@) to Trash, and save a restore receipt. %lld protected groups stay untouched."
-            ),
-            app.appName,
-            Int64(selectedStats.itemCount),
-            ByteCountFormatter.string(
-                fromByteCount: selectedStats.allocatedSize,
-                countStyle: .file
-            ),
-            Int64(appState.protectedAppFiles.count)
-        )
-
-        if let uninstaller = installationInsights?.officialUninstaller {
-            message += "\n\n" + String(
-                format: String(
-                    localized: "A same-developer uninstaller (%@) is available. Apple recommends it when an app installs bundled system components."
-                ),
-                uninstaller.name
-            )
-        }
-        if case .some(.homebrewCask(let metadata)) = installationInsights?.source {
-            message += "\n\n" + String(
-                format: String(
-                    localized: "Homebrew still records %@ as installed. Removing it here does not update Homebrew’s installed record."
-                ),
-                metadata.token
-            )
-        }
-        if appState.selectedFilesRequireAdministratorAccess {
-            message += "\n\n" + String(
-                localized: "Some selected items are owned by macOS or a system installer. AppSift will request administrator authorization once, stop matching background services, move the reviewed batch to Trash, and roll it back if verification fails."
-            )
-        }
-        return message
-    }
-
-    private var resetConfirmationMessage: String {
-        String(
-            format: String(
-                localized: "AppSift will quit %@, keep its application bundle installed, and move %lld selected user-data items (%@) to Trash. This can sign you out and remove settings, local databases, or app-managed documents. Shared data, system components, and %lld protected groups stay untouched. Restore from Removal History if needed."
-            ),
-            app.appName,
-            Int64(selectedResetStats.itemCount),
-            ByteCountFormatter.string(
-                fromByteCount: selectedResetStats.allocatedSize,
-                countStyle: .file
-            ),
-            Int64(appState.protectedAppFiles.count)
-        )
     }
 
     private func checkingLocationsText(count: Int) -> String {
@@ -1001,20 +892,6 @@ struct AppFilesView: View {
         }
     }
 
-    private func fileFolderCountText(_ stats: FileTreeStats) -> String {
-        if stats.directoryCount == 0 {
-            return String(format: String(localized: "%lld files"), Int64(stats.fileCount))
-        }
-        if stats.fileCount == 0 {
-            return String(format: String(localized: "%lld folders"), Int64(stats.directoryCount))
-        }
-        return String(
-            format: String(localized: "%lld files · %lld folders"),
-            Int64(stats.fileCount),
-            Int64(stats.directoryCount)
-        )
-    }
-
     private func fileSelectionBinding(for url: URL) -> Binding<Bool> {
         Binding(
             get: { appState.selectedFiles.contains(url) },
@@ -1028,16 +905,10 @@ struct AppFilesView: View {
         )
     }
 
-    private func aggregateStats(for urls: [URL]) -> FileTreeStats {
-        urls.reduce(into: .zero) { total, url in
-            if let stats = statsCache[url] {
-                total.add(stats)
-            } else {
-                // Preserve a truthful lower bound while the recursive count is
-                // still loading: every selected root is at least one item.
-                total.fileCount += 1
-            }
-        }
+    private func sizeText(for urls: some Collection<URL>) -> String? {
+        guard !urls.isEmpty, urls.allSatisfy({ statsCache[$0] != nil }) else { return nil }
+        let bytes = urls.reduce(Int64(0)) { $0 + (statsCache[$1]?.allocatedSize ?? 0) }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     private func rebuildStatsCache() {
@@ -1082,9 +953,185 @@ struct AppFilesView: View {
         statsTask = nil
     }
 
-    private func removeSingleFile(_ url: URL) {
-        appState.selectedFiles = [url]
-        appState.removeSelectedFiles()
+}
+
+private struct AppRemovalReviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let app: InstalledApp
+    let review: AppFileRemovalReview
+    let bundleState: AppFileReviewBundleState
+    let protectedCount: Int
+    let estimatedSize: String?
+    let homebrewToken: String?
+    let officialUninstallerName: String?
+    let onConfirm: () -> Void
+    @State private var needsAdministrator = false
+
+    private var title: String {
+        switch review.operation {
+        case .uninstall:
+            return String(format: String(localized: "Uninstall %@?"), app.appName)
+        case .reset:
+            return String(format: String(localized: "Reset %@ while keeping it installed?"), app.appName)
+        case .relatedFiles, .legacyRemoval:
+            return String(localized: "Move selected items to Trash?")
+        }
+    }
+
+    private var relatedURLs: [URL] {
+        review.urls.filter { $0.standardizedFileURL.path != app.path.standardizedFileURL.path }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(nsImage: app.icon)
+                    .resizable()
+                    .frame(width: 42, height: 42)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                    HStack(spacing: 6) {
+                        Text(String(format: String(localized: "%lld items to move"), Int64(review.urls.count)))
+                        if let estimatedSize {
+                            Text("·").accessibilityHidden(true)
+                            Text(estimatedSize).monospacedDigit()
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(18)
+
+            if needsAdministrator {
+                Label("macOS may ask for administrator authorization for some selected items.", systemImage: "person.badge.key")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 12)
+            }
+
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    scope
+                    Divider()
+                    information
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+            }
+            .frame(maxHeight: 343)
+
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Restore moved items from Removal History while they are still in Trash.", systemImage: "arrow.uturn.backward")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Spacer()
+                    Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Move to Trash", role: .destructive) {
+                        dismiss()
+                        onConfirm()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Tint.red)
+                    .accessibilityIdentifier("uninstall.review.confirm")
+                }
+            }
+            .padding(16)
+        }
+        .frame(width: 552)
+        .accessibilityIdentifier("uninstall.review.sheet")
+        .task(id: review.id) {
+            let ordinaryURLs = review.urls.filter { !AppFileTrashService.isManagedContainerRoot($0) }
+            needsAdministrator = await Task.detached(priority: .userInitiated) {
+                PrivilegedAppRemovalService().requiresAdministratorAccess(for: ordinaryURLs)
+            }.value
+        }
+    }
+
+    private var scope: some View {
+        LazyVStack(alignment: .leading, spacing: 10) {
+            if let bundle = review.urls.first(where: {
+                $0.standardizedFileURL.path == app.path.standardizedFileURL.path
+            }) {
+                Text("App Bundle").font(.headline)
+                reviewRow(bundle, icon: "app")
+            } else if bundleState == .installed {
+                Label("App stays installed", systemImage: "app.badge.checkmark")
+                    .font(.subheadline.weight(.medium))
+            } else {
+                Label(
+                    bundleState == .inTrash ? LocalizedStringKey("App is in Trash") : "App is no longer installed",
+                    systemImage: "trash"
+                )
+                    .font(.subheadline.weight(.medium))
+            }
+
+            if !relatedURLs.isEmpty {
+                Text("Related Files").font(.headline)
+                ForEach(relatedURLs, id: \.self) { url in
+                    reviewRow(url, icon: LeftoverGroup.categorize(url).icon)
+                }
+            }
+        }
+    }
+
+    private func reviewRow(_ url: URL, icon: String) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(url.lastPathComponent).font(.callout.weight(.medium))
+                Text(url.path)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        } icon: {
+            Image(systemName: icon).foregroundStyle(.secondary)
+        }
+        .help(url.path)
+    }
+
+    private var information: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if review.operation == .uninstall || review.operation == .reset {
+                Label("AppSift will ask the app to quit if it is running.", systemImage: "power")
+            }
+            if !relatedURLs.isEmpty {
+                Label("Selected data may include settings, sign-ins, or locally stored documents.", systemImage: "info.circle")
+            }
+            if protectedCount > 0 {
+                Label {
+                    Text(String(format: String(localized: "%lld protected group(s) remain untouched."), Int64(protectedCount)))
+                } icon: {
+                    Image(systemName: "lock.shield")
+                }
+            }
+            if review.operation == .uninstall {
+                if let homebrewToken {
+                    Text(String(
+                        format: String(localized: "Homebrew still records %@ as installed. Removing it here does not update Homebrew’s installed record."),
+                        homebrewToken
+                    ))
+                }
+                if let officialUninstallerName {
+                    Text(String(
+                        format: String(localized: "A same-developer uninstaller (%@) is available. Apple recommends it when an app installs bundled system components."),
+                        officialUninstallerName
+                    ))
+                }
+            }
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -1343,15 +1390,22 @@ struct RemovalHistoryView: View {
     }
 
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @State private var pendingExportRecord: AppRemovalRecord?
     @State private var pendingDeletion: PendingDeletion?
+    var focusedRecordID: UUID? = nil
+
+    private var displayedRecords: [AppRemovalRecord] {
+        guard let focusedRecordID else { return appState.removalHistory }
+        return appState.removalHistory.filter { $0.id == focusedRecordID }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
 
-            if appState.removalHistory.isEmpty {
+            if displayedRecords.isEmpty {
                 EmptyStateView(
                     "No Removal History",
                     systemImage: "arrow.uturn.backward.circle",
@@ -1360,6 +1414,15 @@ struct RemovalHistoryView: View {
                 )
             } else {
                 historyList
+            }
+            if focusedRecordID != nil {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Done") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                }
+                .padding(12)
             }
         }
         .onAppear { appState.refreshRemovalHistory() }
@@ -1434,42 +1497,54 @@ struct RemovalHistoryView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(historyCountText(appState.removalHistory.count))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Text(availableCountText(appState.availableRestorableItemCount))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(appState.availableRestorableItemCount > 0 ? Tint.green : .secondary)
-                    .monospacedDigit()
-            }
-
-            Menu {
-                Button("Clear History", role: .destructive) {
-                    pendingDeletion = .all
+            if focusedRecordID == nil {
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(historyCountText(appState.removalHistory.count))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Text(availableCountText(appState.availableRestorableItemCount))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(appState.availableRestorableItemCount > 0 ? Tint.green : .secondary)
+                        .monospacedDigit()
                 }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 15, weight: .medium))
+
+                Menu {
+                    Button("Clear History", role: .destructive) {
+                        pendingDeletion = .all
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 15, weight: .medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Clear History")
+                .disabled(appState.removalHistory.isEmpty || appState.appFileActionsInProgress)
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Clear History")
-            .disabled(!appState.restoringRemovalItemIDs.isEmpty)
         }
         .padding()
     }
 
     private var historyList: some View {
         List {
-            ForEach(appState.removalHistory) { record in
+            ForEach(displayedRecords) { record in
                 Section {
                     ForEach(record.items) { item in
                         historyItemRow(item, recordID: record.id)
                     }
                     ForEach(record.protectedItems, id: \.self) { item in
                         protectedHistoryRow(item)
+                    }
+                    if let report = record.residualReport, !report.remainingItems.isEmpty {
+                        DisclosureGroup("Remaining Files") {
+                            ForEach(report.remainingItems) { item in
+                                Text(item.path)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                        }
                     }
                 } header: {
                     recordHeader(record)
@@ -1516,7 +1591,7 @@ struct RemovalHistoryView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(isRestoring)
+                    .disabled(appState.appFileActionsInProgress)
                 }
 
                 Menu {
@@ -1577,7 +1652,11 @@ struct RemovalHistoryView: View {
                     )
                 }
             }
-            if let residualReport = record.residualReport {
+            if appState.isCheckingRemovalRecord(record.id) {
+                ProgressView("Checking for remaining files…")
+                    .controlSize(.mini)
+                    .font(.caption)
+            } else if let residualReport = record.residualReport {
                 residualReportView(residualReport)
             }
         }
@@ -1741,6 +1820,7 @@ struct RemovalHistoryView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .disabled(appState.appFileActionsInProgress)
                 } else {
                     outcomeLabel("No longer in Trash", tint: .secondary)
                 }
@@ -2266,95 +2346,64 @@ private struct SearchPulse: View {
 
 // MARK: - File Row with hover-to-reveal actions
 
-struct FileRow: View {
+private struct FileRow: View {
     let fileURL: URL
     @Binding var isSelected: Bool
     let fileSize: Int64?
     let evidence: AppFileMatchEvidence
-    let onRemove: () -> Void
-
-    @State private var isHovering = false
-    @State private var showConfirmation = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let onReview: () -> Void
 
     var body: some View {
-        Toggle(isOn: $isSelected) {
-            HStack {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: fileURL.path))
-                    .resizable()
-                    .frame(width: 16, height: 16)
+        HStack(spacing: 8) {
+            Toggle(isOn: $isSelected) {
+                HStack(spacing: 7) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: fileURL.path))
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(fileURL.lastPathComponent)
-                        .lineLimit(1)
-                    Text(fileURL.path)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(appFileEvidenceTitle(evidence))
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(Tint.blue)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                // Buttons stay in the layout permanently and fade with
-                // hover, so the trailing size badge never jumps sideways.
-                Button {
-                    NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: "")
-                } label: {
-                    Image(systemName: "folder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Reveal in Finder")
-                .opacity(isHovering ? 1 : 0)
-                .scaleEffect(reduceMotion ? 1 : (isHovering ? 1 : 0.8))
-                .allowsHitTesting(isHovering)
-
-                Button {
-                    showConfirmation = true
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
-                .help("Remove this file")
-                .opacity(isHovering ? 1 : 0)
-                .scaleEffect(reduceMotion ? 1 : (isHovering ? 1 : 0.8))
-                .allowsHitTesting(isHovering)
-
-                if let size = fileSize {
-                    Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fileURL.lastPathComponent)
+                            .lineLimit(1)
+                        Text(fileURL.path)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(appFileEvidenceTitle(evidence))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
+            .toggleStyle(.checkbox)
+
+            Spacer(minLength: 4)
+
+            if let fileSize {
+                Text(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+
+            Menu {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                }
+                Button("Review This Item…", action: onReview)
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("File Actions")
+            .help("File Actions")
         }
-        .toggleStyle(AnimatedCheckboxStyle())
-        .padding(.vertical, 2)
-        .padding(.horizontal, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHovering ? Color.primary.opacity(0.06) : Color.clear)
-        )
-        .scaleEffect(isHovering && !reduceMotion ? 1.01 : 1)
-        .animation(reduceMotion ? nil : MotionTokens.snappy, value: isHovering)
-        .onHover { isHovering = $0 }
-        .alert(
-            Text(
-                String(format: String(localized: "Remove %@?"), fileURL.lastPathComponent)
-            ),
-            isPresented: $showConfirmation
-        ) {
-            Button("Cancel", role: .cancel) {}
-            Button("Move to Trash", role: .destructive) { onRemove() }
-        } message: {
-            Text("AppSift moves this file to Trash and saves a restore receipt. App files are never permanently deleted by the uninstall flow.")
-        }
+        .padding(.vertical, 3)
+        .help(fileURL.path)
     }
 }

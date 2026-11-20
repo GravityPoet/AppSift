@@ -1829,3 +1829,37 @@
 "The read-only System volume is represented as metadata; the Data volume is scanned recursively." = "The read-only System volume is represented as metadata; the Data volume is scanned recursively.";
 "metadata only" = "metadata only";
 "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison." = "Logical totals can include hard-link aliases or APFS clone streams; allocated totals are the physical-allocation comparison.";
+
+/* App removal review and feedback */
+"%@ is still running, so AppSift did not reset it. Quit the app, then try again." = "%@ は実行中のため、リセットできませんでした。アプリを終了してから再試行してください。";
+"%@ is still running, so AppSift did not uninstall it. Quit the app, then try again." = "%@ は実行中のため、アンインストールできませんでした。アプリを終了してから再試行してください。";
+"%lld already absent" = "すでに存在しない項目 %lld 件";
+"%lld items to move" = "移動する項目 %lld 件";
+"%lld moved to Trash" = "ゴミ箱へ移動済み %lld 件";
+"%lld not moved" = "未移動 %lld 件";
+"App Bundle" = "アプリ本体";
+"App is no longer installed" = "アプリは元の場所にありません";
+"App stays installed" = "アプリ本体は保持されます";
+"AppSift will ask the app to quit if it is running." = "実行中のアプリには、AppSift が終了を要求します。";
+"Calculating size…" = "サイズを計算中…";
+"Checking for remaining files…" = "残存ファイルを確認中…";
+"File Actions" = "ファイル操作";
+"Grant Access & Retry…" = "アクセスを許可して再試行…";
+"No additional files were found in the scanned locations." = "スキャンした場所に追加の関連ファイルは見つかりませんでした。";
+"Remaining Files" = "残存ファイル";
+"Removal cancelled for %@" = "%@ の削除をキャンセルしました";
+"Removal complete for %@" = "%@ の削除が完了しました";
+"Removal failed for %@" = "%@ の削除に失敗しました";
+"Removal incomplete for %@" = "%@ の一部の項目が残っています";
+"Removing files for %@…" = "%@ のファイルを削除中…";
+"Restore moved items from Removal History while they are still in Trash." = "ゴミ箱にある間は、削除履歴から元に戻せます。";
+"Review Removal…" = "削除内容を確認…";
+"Review Reset…" = "リセット内容を確認…";
+"Review This Item…" = "この項目を確認…";
+"Review Uninstall…" = "アンインストール内容を確認…";
+"Select App Only" = "アプリ本体のみ選択";
+"Selected data may include settings, sign-ins, or locally stored documents." = "選択したデータには、設定、ログイン情報、ローカル書類が含まれる場合があります。";
+"The related-file scan changed. Review the selection again before moving anything to Trash." = "関連ファイルのスキャン結果が変わりました。ゴミ箱へ移動する前に選択内容を確認し直してください。";
+"Uninstall %@?" = "%@ をアンインストールしますか？";
+"View Report…" = "レポートを表示…";
+"macOS may ask for administrator authorization for some selected items." = "一部の項目では、macOS が管理者の認証を求める場合があります。";
